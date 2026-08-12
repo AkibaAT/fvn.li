@@ -119,6 +119,7 @@ init 10000 python:
     route_return_labels = set()
     route_labels_with_screen_calls = set()
     route_menu_metadata = {}  # id(Menu node) -> enclosing condition and structural scope
+    dead_route_menu_ids = set()  # id(Menu node) for menus control flow can never reach
     route_literal_variables = collections.defaultdict(dict)
     route_code_sources = []
     screen_action_exprs = collections.defaultdict(list)
@@ -1344,34 +1345,48 @@ init 10000 python:
 
                 add_route_edge("call_topic_label", label_name, "dynamic_call", info.get("file", ""), info.get("line", 0))
 
+    def statement_terminates_flow(stmt):
+        """Check if control can never continue to the statement after this one."""
+        if isinstance(stmt, (renpy.ast.Jump, renpy.ast.Return)):
+            return True
+        if isinstance(stmt, renpy.ast.Python):
+            source = getattr(stmt.code, "source", "")
+            return python_source_has_terminal_jump(source) or python_source_termination(source) is not None
+        if isinstance(stmt, renpy.ast.If):
+            return is_exhaustive_if(stmt)
+        if isinstance(stmt, renpy.ast.Menu):
+            return is_terminal_menu(stmt)
+        return False
+
     def block_has_terminal(block):
-        """Check if a block ends with a jump, call, or return."""
+        """Check if control never falls off the end of the block.
+
+        Any unconditional terminal statement ends the block, no matter how
+        many unreachable statements the script keeps after it.
+        """
         block_items = statement_block_items(block)
-        if not block_items:
-            return False
-        for stmt in block_items[::-1]:
-            if isinstance(stmt, (renpy.ast.Jump, renpy.ast.Call, renpy.ast.Return)):
+        for stmt in block_items:
+            if statement_terminates_flow(stmt):
                 return True
-            if isinstance(stmt, renpy.ast.Python):
-                source = getattr(stmt.code, "source", "")
-                if python_source_has_terminal_jump(source):
-                    return True
-            if isinstance(stmt, renpy.ast.If):
-                return is_exhaustive_if(stmt)
-            if isinstance(stmt, renpy.ast.Menu):
-                return is_terminal_menu(stmt)
+        for stmt in block_items[::-1]:
             if isinstance(stmt, renpy.ast.Pass):
                 continue
-            return False
+            # A block that ends in a call is treated as handed off to the
+            # called scene rather than falling through.
+            return isinstance(stmt, renpy.ast.Call)
         return False
 
     def is_terminal_menu(stmt):
-        """Check if every selectable menu choice has terminal flow."""
+        """Check if every selectable menu choice has terminal flow.
+
+        Caption rows carry no block and are never selected, so they must not
+        count against the menu being terminal.
+        """
         items = getattr(stmt, "items", [])
         has_choice = False
 
         for item_l, _item_c, item_b in items:
-            if not item_l:
+            if not is_menu_choice_item(item_l, item_b):
                 continue
 
             has_choice = True
@@ -1393,6 +1408,59 @@ init 10000 python:
             if not block_has_terminal(sub_block):
                 return False
         return has_else
+
+    def mark_menus_dead(stmt):
+        """Record every menu inside stmt as unreachable."""
+        if isinstance(stmt, renpy.ast.Menu):
+            dead_route_menu_ids.add(id(stmt))
+            for _item_l, _item_c, item_b in getattr(stmt, "items", []):
+                for sub in statement_block_items(item_b):
+                    mark_menus_dead(sub)
+            return
+        if isinstance(stmt, renpy.ast.If):
+            for _condition, sub_block in getattr(stmt, "entries", []):
+                for sub in statement_block_items(sub_block):
+                    mark_menus_dead(sub)
+            return
+        for sub in statement_block_items(getattr(stmt, "block", None)):
+            mark_menus_dead(sub)
+
+    def mark_dead_route_menus(block):
+        """Record menus that sit after flow has already left the block.
+
+        Statements after an unconditional jump, return, or exhaustive
+        terminal branch never run, so their menus must not become route
+        choices. A label makes the statements after it reachable again
+        because it is a jump target.
+        """
+        alive = True
+        for stmt in statement_block_items(block):
+            if isinstance(stmt, renpy.ast.Label):
+                alive = True
+            if not alive:
+                mark_menus_dead(stmt)
+                continue
+            if isinstance(stmt, renpy.ast.If):
+                for _condition, sub_block in getattr(stmt, "entries", []):
+                    mark_dead_route_menus(sub_block)
+            elif isinstance(stmt, renpy.ast.Menu):
+                for _item_l, _item_c, item_b in getattr(stmt, "items", []):
+                    mark_dead_route_menus(item_b)
+            elif statement_block_items(getattr(stmt, "block", None)):
+                mark_dead_route_menus(stmt.block)
+            if statement_terminates_flow(stmt):
+                alive = False
+
+    def mark_menus_dead_after(stmt):
+        """Record menus between a terminal statement and the next label as unreachable."""
+        seen = set()
+        stmt = getattr(stmt, "next", None)
+        while stmt is not None and id(stmt) not in seen:
+            seen.add(id(stmt))
+            if isinstance(stmt, renpy.ast.Label):
+                return
+            mark_menus_dead(stmt)
+            stmt = getattr(stmt, "next", None)
 
     def ensure_route_label(label_name, filename, linenumber, is_ending=False):
         if not is_route_label(label_name):
@@ -1782,7 +1850,6 @@ init 10000 python:
 
         # Find context (current label or scene)
         current_context = {}
-        route_context_terminated = False
 
         # Track the last character who spoke in each language for extend statements
         last_character = {}
@@ -1829,7 +1896,6 @@ init 10000 python:
                 if is_current_route_label:
                     for lang in ['default'] + list(known_languages):
                         current_context[lang] = node.name
-                    route_context_terminated = False
 
                 if is_game_file(node.filename):
                     route_context = node.name if is_current_route_label else current_context.get("default", "")
@@ -1838,6 +1904,7 @@ init 10000 python:
 
                     if route_context and getattr(node, "block", None):
                         annotate_following_statement_conditions(node.block)
+                        mark_dead_route_menus(node.block)
                         walk_for_edges(node.block, route_context, node.filename, "label_block")
                         if block_has_terminal(node.block):
                             next_stmt = None
@@ -1861,6 +1928,7 @@ init 10000 python:
                         seen_next.add(id(next_stmt))
                         if isinstance(next_stmt, (renpy.ast.Jump, renpy.ast.Return)):
                             add_edge_from_statement(route_context, next_stmt, node.filename, condition=next_condition)
+                            mark_menus_dead_after(next_stmt)
                             break
                         if isinstance(next_stmt, renpy.ast.Call):
                             # Calls return — process edge but keep walking
@@ -1879,9 +1947,11 @@ init 10000 python:
                             # meaning execution can't continue past this If
                             remaining_condition = remaining_condition_after_terminal_branches(next_stmt, next_condition)
                             if remaining_condition == "False":
+                                mark_menus_dead_after(next_stmt)
                                 break
                             next_condition = combine_conditions(next_condition, remaining_condition)
                             if is_exhaustive_if(next_stmt):
+                                mark_menus_dead_after(next_stmt)
                                 break
                         elif isinstance(next_stmt, renpy.ast.Menu):
                             if next_condition:
@@ -1972,7 +2042,7 @@ init 10000 python:
                     all_lang_stats[lang]["menu_count"] += 1
 
                 menu_context = current_context.get("default", "")
-                if route_context_terminated:
+                if id(node) in dead_route_menu_ids:
                     menu_context = ""
                 menu_line = getattr(node, "linenumber", 0)
 

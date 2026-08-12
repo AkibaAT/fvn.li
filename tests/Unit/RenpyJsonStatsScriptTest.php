@@ -7,10 +7,10 @@ it('normalizes custom text assignment character ids before they become stats key
 
     expect($script)->toContain('def normalize_dialogue_character(character_id, cleaned_text):');
 
-    $customAssignmentPattern = '/cleaned_text = clean_text\(literal_value\).*?' .
-        'if cleaned_text:.*?' .
-        'character_id, cleaned_text = normalize_dialogue_character\(target\.id, cleaned_text\).*?' .
-        'custom_text_assignments\.append\(\{\s*' .
+    $customAssignmentPattern = '/cleaned_text = clean_text\(literal_value\).*?'.
+        'if cleaned_text:.*?'.
+        'character_id, cleaned_text = normalize_dialogue_character\(target\.id, cleaned_text\).*?'.
+        'custom_text_assignments\.append\(\{\s*'.
         '"character": character_id,/s';
 
     expect(preg_match($customAssignmentPattern, $script))->toBe(1);
@@ -22,7 +22,7 @@ it('processes ordinary say nodes even when TranslateSay is unavailable', functio
     expect($script)->not->toContain('elif has_translate_say and isinstance(node, renpy.ast.Say):')
         ->and($script)->toContain('elif isinstance(node, renpy.ast.Say):');
 
-    $sayBranchPattern = '/elif isinstance\(node, renpy\.ast\.Say\):\s*' .
+    $sayBranchPattern = '/elif isinstance\(node, renpy\.ast\.Say\):\s*'.
         'if has_translate_say and isinstance\(node, renpy\.ast\.TranslateSay\) and node\.language:/s';
 
     expect(preg_match($sayBranchPattern, $script))->toBe(1);
@@ -82,4 +82,31 @@ it('only recognizes explicit main menu or process termination as route endings',
         ->toContain('main_menu_targets = {"main_menu", "_main_menu"}')
         ->toContain('and not route_labels[label_name].get("is_ending", False)')
         ->toContain('route_labels[label_name]["returns_to_caller"] = True');
+});
+
+it('excludes menus that control flow can never reach from route data', function () {
+    $script = file_get_contents(base_path('resources/renpy/json_stats.rpy'));
+
+    expect($script)
+        ->not->toContain('route_context_terminated')
+        ->toContain('dead_route_menu_ids = set()')
+        ->toContain('def statement_terminates_flow(stmt):')
+        ->toContain('def mark_dead_route_menus(block):')
+        ->toContain('mark_dead_route_menus(node.block)')
+        ->toContain('mark_menus_dead_after(next_stmt)')
+        ->toContain('if id(node) in dead_route_menu_ids:');
+});
+
+it('detects terminal flow anywhere in a block and ignores menu captions', function () {
+    $script = file_get_contents(base_path('resources/renpy/json_stats.rpy'));
+
+    expect($script)
+        ->toContain('def block_has_terminal(block):')
+        ->toContain('if statement_terminates_flow(stmt):')
+        ->toContain('return isinstance(stmt, renpy.ast.Call)');
+
+    $terminalMenuPattern = '/def is_terminal_menu\(stmt\):.*?'.
+        'if not is_menu_choice_item\(item_l, item_b\):\s*continue/s';
+
+    expect(preg_match($terminalMenuPattern, $script))->toBe(1);
 });
