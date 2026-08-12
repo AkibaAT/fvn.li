@@ -36,9 +36,18 @@ jobs:
           fetch-depth: 2
 
       - name: Setup DDEV
-        uses: ddev/github-action-setup-ddev@fdf2f5c97943bae638f31df6df86f1defa6210c0 # v1
-        with:
-          autostart: false
+        run: |
+          sudo install -m 0755 -d /etc/apt/keyrings
+          curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors https://pkg.ddev.com/apt/gpg.key \
+            | gpg --dearmor \
+            | sudo tee /etc/apt/keyrings/ddev.gpg >/dev/null
+          sudo chmod a+r /etc/apt/keyrings/ddev.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/ddev.gpg] https://pkg.ddev.com/apt/ * *" \
+            | sudo tee /etc/apt/sources.list.d/ddev.list >/dev/null
+          sudo apt-get -q update -o Acquire::Retries=5
+          sudo apt-get -q -y install -o Acquire::Retries=5 ddev
+          ddev config global --instrumentation-opt-in=false --omit-containers=ddev-ssh-agent
+          ddev version
 
       - name: Start DDEV
         run: |

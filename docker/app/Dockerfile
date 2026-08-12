@@ -43,7 +43,7 @@ RUN apt-get update \
     && python3 -m venv /opt/renpy-tools \
     && /opt/renpy-tools/bin/pip install --no-cache-dir --require-hashes -r /tmp/python-tools-requirements.txt \
     && ln -s /opt/renpy-tools/bin/unrpa /usr/local/bin/unrpa \
-    && curl -fsSL "https://github.com/CensoredUsername/unrpyc/archive/refs/tags/v${UNRPYC_VERSION}.tar.gz" -o /tmp/unrpyc.tar.gz \
+    && curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors --connect-timeout 15 "https://github.com/CensoredUsername/unrpyc/archive/refs/tags/v${UNRPYC_VERSION}.tar.gz" -o /tmp/unrpyc.tar.gz \
     && echo "${UNRPYC_SHA256}  /tmp/unrpyc.tar.gz" | sha256sum -c - \
     && mkdir -p /opt/unrpyc \
     && tar -xzf /tmp/unrpyc.tar.gz --strip-components=1 -C /opt/unrpyc \
@@ -57,7 +57,7 @@ RUN apt-get update \
             arm64) bun_target="bun-linux-aarch64"; bun_sha256="$BUN_LINUX_AARCH64_SHA256" ;; \
             *) echo "Unsupported architecture for Bun: $arch" >&2; exit 1 ;; \
         esac \
-        && curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_target}.zip" -o /tmp/bun.zip \
+        && curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors --connect-timeout 15 "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/${bun_target}.zip" -o /tmp/bun.zip \
         && echo "${bun_sha256}  /tmp/bun.zip" | sha256sum -c - \
         && unzip -q /tmp/bun.zip -d /tmp/bun \
         && install -m 0755 "/tmp/bun/${bun_target}/bun" /usr/local/bin/bun \
@@ -71,7 +71,7 @@ RUN apt-get update \
             arm64) butler_arch="arm64"; butler_sha256="$BUTLER_LINUX_ARM64_SHA256" ;; \
             *) echo "Unsupported architecture for butler: $arch" >&2; exit 1 ;; \
         esac \
-        && curl -fsSL "https://github.com/itchio/butler/releases/download/v${BUTLER_VERSION}/butler-linux-${butler_arch}.zip" -o /tmp/butler.zip \
+        && curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors --connect-timeout 15 "https://github.com/itchio/butler/releases/download/v${BUTLER_VERSION}/butler-linux-${butler_arch}.zip" -o /tmp/butler.zip \
         && echo "${butler_sha256}  /tmp/butler.zip" | sha256sum -c - \
         && unzip -q /tmp/butler.zip -d /tmp/butler-extract \
         && mkdir -p /opt/butler \
