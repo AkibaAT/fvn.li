@@ -49,8 +49,8 @@
         "laravel/pint": "*",
         "mockery/mockery": "*",
         "nunomaduro/collision": "*",
-        "pestphp/pest-plugin-browser": "^4.0",
-        "pestphp/pest-plugin-laravel": "*",
+        "pestphp/pest-plugin-browser": "^5.0",
+        "pestphp/pest-plugin-laravel": "^5.0",
         "spatie/laravel-ignition": "*",
         "tightenco/duster": "*"
     },
