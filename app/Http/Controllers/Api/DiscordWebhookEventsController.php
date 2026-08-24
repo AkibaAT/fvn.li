@@ -9,6 +9,7 @@ use App\Services\Discord\DiscordUserInstallService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
+use SodiumException;
 
 /**
  * Receives Discord's application webhook events so authorization changes made
@@ -75,10 +76,10 @@ class DiscordWebhookEventsController extends Controller
         try {
             return sodium_crypto_sign_verify_detached(
                 sodium_hex2bin($signature),
-                $timestamp.$request->getContent(),
+                $timestamp . $request->getContent(),
                 sodium_hex2bin($publicKey),
             );
-        } catch (\SodiumException $exception) {
+        } catch (SodiumException $exception) {
             Log::warning('Discord webhook signature could not be parsed', ['message' => $exception->getMessage()]);
 
             return false;

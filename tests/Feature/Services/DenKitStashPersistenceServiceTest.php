@@ -81,7 +81,7 @@ it('downloads DenKit Stash build archives returned directly with HTTP 200', func
     Config::set('services.denkit_stash.url', 'https://stash.example');
     Config::set('services.denkit_stash.api_key', 'secret-key');
 
-    $archivePath = storage_path('framework/testing/denkit-direct-'.uniqid().'.zip');
+    $archivePath = storage_path('framework/testing/denkit-direct-' . uniqid() . '.zip');
     $service = new DenKitStashPersistenceService(
         Mockery::mock(GameArchiveService::class),
         new Client(['handler' => HandlerStack::create(new MockHandler([
@@ -102,7 +102,7 @@ it('downloads DenKit Stash build archives from JSON URL responses', function () 
     Config::set('services.denkit_stash.url', 'https://stash.example');
     Config::set('services.denkit_stash.api_key', 'secret-key');
 
-    $archivePath = storage_path('framework/testing/denkit-json-url-'.uniqid().'.zip');
+    $archivePath = storage_path('framework/testing/denkit-json-url-' . uniqid() . '.zip');
     $recorder = (object) [
         'downloadArchiveUrlCalls' => [],
     ];
@@ -153,8 +153,8 @@ it('restores preserved DenKit archive bodies with their original optimized forma
     Config::set('services.denkit_stash.url', 'https://stash.example');
     Config::set('services.denkit_stash.api_key', 'secret-key');
 
-    $sourceDir = storage_path('framework/testing/denkit-preserved-source-'.uniqid());
-    $archivePath = storage_path('framework/testing/denkit-preserved-'.uniqid().'.tar.bz2');
+    $sourceDir = storage_path('framework/testing/denkit-preserved-source-' . uniqid());
+    $archivePath = storage_path('framework/testing/denkit-preserved-' . uniqid() . '.tar.bz2');
     File::makeDirectory("{$sourceDir}/game", 0755, true);
     File::put("{$sourceDir}/game/script.rpy", 'label start: return');
     File::put("{$sourceDir}/.fvn-archive-metadata.json", json_encode([
@@ -229,7 +229,7 @@ it('uses the synchronous butler push result after pushing an optimized archive',
         }
     };
 
-    $archivePath = storage_path('framework/testing/denkit-wait-'.uniqid().'.zip');
+    $archivePath = storage_path('framework/testing/denkit-wait-' . uniqid() . '.zip');
     File::ensureDirectoryExists(dirname($archivePath));
     $zip = new ZipArchive;
     expect($zip->open($archivePath, ZipArchive::CREATE))->toBeTrue();
@@ -277,7 +277,7 @@ it('rejects optimized zip archives with unsafe member paths before pushing to bu
         }
     };
 
-    $archivePath = storage_path('framework/testing/denkit-unsafe-path-'.uniqid().'.zip');
+    $archivePath = storage_path('framework/testing/denkit-unsafe-path-' . uniqid() . '.zip');
     File::ensureDirectoryExists(dirname($archivePath));
     $zip = new ZipArchive;
     expect($zip->open($archivePath, ZipArchive::CREATE))->toBeTrue();
@@ -317,8 +317,8 @@ it('rejects optimized tar archives with symlinks before pushing to butler', func
         }
     };
 
-    $sourceDir = storage_path('framework/testing/denkit-symlink-source-'.uniqid());
-    $archivePath = storage_path('framework/testing/denkit-symlink-'.uniqid().'.tar.gz');
+    $sourceDir = storage_path('framework/testing/denkit-symlink-source-' . uniqid());
+    $archivePath = storage_path('framework/testing/denkit-symlink-' . uniqid() . '.tar.gz');
     File::ensureDirectoryExists("{$sourceDir}/game");
     symlink('/etc/hostname', "{$sourceDir}/game/host-secret-link");
     $process = new Process(['tar', '-czf', $archivePath, '-C', $sourceDir, '--', 'game']);
@@ -359,7 +359,7 @@ it('rejects optimized archives that exceed the configured expanded size before p
         }
     };
 
-    $archivePath = storage_path('framework/testing/denkit-too-large-'.uniqid().'.zip');
+    $archivePath = storage_path('framework/testing/denkit-too-large-' . uniqid() . '.zip');
     File::ensureDirectoryExists(dirname($archivePath));
     $zip = new ZipArchive;
     expect($zip->open($archivePath, ZipArchive::CREATE))->toBeTrue();
@@ -406,7 +406,7 @@ it('fails when butler push does not synchronously report a build id', function (
         }
     };
 
-    $archivePath = storage_path('framework/testing/denkit-status-'.uniqid().'.zip');
+    $archivePath = storage_path('framework/testing/denkit-status-' . uniqid() . '.zip');
     File::ensureDirectoryExists(dirname($archivePath));
     $zip = new ZipArchive;
     expect($zip->open($archivePath, ZipArchive::CREATE))->toBeTrue();
@@ -540,7 +540,7 @@ it('resolves persisted archive availability for loaded versions in one request',
     expect($history)->toHaveCount(1);
     $request = $history[0]['request'];
     expect((string) $request->getUri())->toContain('https://stash.example/wharf/builds')
-        ->and((string) $request->getUri())->toContain('target=fvn-li%2F'.$game->slug)
+        ->and((string) $request->getUri())->toContain('target=fvn-li%2F' . $game->slug)
         ->and((string) $request->getUri())->toContain('channel=main');
 });
 

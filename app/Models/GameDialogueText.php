@@ -184,7 +184,7 @@ class GameDialogueText extends Model
     {
         app(Client::class)
             ->index('game_dialogue_texts')
-            ->deleteDocuments(['filter' => 'game_id = '.$gameId]);
+            ->deleteDocuments(['filter' => 'game_id = ' . $gameId]);
     }
 
     public static function deleteAllSearchDocuments(): void
@@ -222,7 +222,7 @@ class GameDialogueText extends Model
         }
 
         $model = new static;
-        $model->id = $row->text_id.'_'.$row->game_id.'_'.$row->language;
+        $model->id = $row->text_id . '_' . $row->game_id . '_' . $row->language;
         $model->text_id = $row->text_id;
         $model->game_id = $row->game_id;
         $model->text_content = $row->text_content;

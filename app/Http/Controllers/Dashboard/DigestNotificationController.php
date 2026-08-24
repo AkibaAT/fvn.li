@@ -44,7 +44,7 @@ class DigestNotificationController extends Controller
                 'metaTags' => new MetaTags(
                     title: "Notification Digest - {$carbonDate->format('F j, Y')}",
                     description: $notifications->isNotEmpty()
-                        ? "View your notification digest for {$carbonDate->format('F j, Y')}. ".
+                        ? "View your notification digest for {$carbonDate->format('F j, Y')}. " .
                           "Contains {$notifications->count()} notifications about your tracked visual novels."
                         : "No notifications found for {$carbonDate->format('F j, Y')}.",
                     structuredData: [

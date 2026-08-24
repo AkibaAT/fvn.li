@@ -37,7 +37,7 @@ class VnListGameController extends Controller
             if (! $vnList) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Default list not found for type: '.$request->list_type,
+                    'message' => 'Default list not found for type: ' . $request->list_type,
                 ], 404);
             }
         } else {

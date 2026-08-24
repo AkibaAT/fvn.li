@@ -23,8 +23,8 @@ function fakeSocialiteUser(
     $user->email = $email;
     $user->nickname = $nickname;
     $user->avatar = $avatar;
-    $user->token = 'token-'.$id;
-    $user->refreshToken = 'refresh-'.$id;
+    $user->token = 'token-' . $id;
+    $user->refreshToken = 'refresh-' . $id;
     $user->expiresIn = 3600;
     $user->user = $raw;
 
@@ -48,7 +48,7 @@ test('itchio redirect uses a normal external redirect and stores explicit intend
             }
         });
 
-    $intendedUrl = route('dashboard').'#my-games';
+    $intendedUrl = route('dashboard') . '#my-games';
 
     $response = $this->get(route('auth.redirect', [
         'provider' => 'itchio',

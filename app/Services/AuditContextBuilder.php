@@ -109,7 +109,7 @@ class AuditContextBuilder
             memory_get_usage()
         );
 
-        return 'req_'.substr(md5($signature), 0, 16);
+        return 'req_' . substr(md5($signature), 0, 16);
     }
 
     private function commandInfo(): ?array

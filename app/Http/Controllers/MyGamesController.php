@@ -160,7 +160,7 @@ class MyGamesController extends Controller
                     }
                 },
             ],
-            'links.*.platform' => 'nullable|string|in:'.implode(',', array_keys(Game::getAvailablePlatforms())),
+            'links.*.platform' => 'nullable|string|in:' . implode(',', array_keys(Game::getAvailablePlatforms())),
             'links.*.release_at' => [
                 'nullable',
                 'date',

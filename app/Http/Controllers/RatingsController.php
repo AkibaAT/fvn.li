@@ -143,9 +143,9 @@ class RatingsController extends Controller
             ],
             'metaTags' => new MetaTags(
                 title: 'Game Ratings & Reviews',
-                description: 'Browse community ratings and reviews for furry visual novels. '.
-                    "Currently featuring {$total} ratings".
-                    ($total > 0 ? ' with an average rating of '.round(collect($ratings['data'])->avg('score') ?: 0, 1).' stars' : '').
+                description: 'Browse community ratings and reviews for furry visual novels. ' .
+                    "Currently featuring {$total} ratings" .
+                    ($total > 0 ? ' with an average rating of ' . round(collect($ratings['data'])->avg('score') ?: 0, 1) . ' stars' : '') .
                     '. Filter by star rating, review status, and sort by date or rating.',
                 structuredData: [
                     '@type' => 'CollectionPage',
@@ -224,7 +224,7 @@ class RatingsController extends Controller
             'name' => $r->name,
             'joined_at' => isset($r->created_at) ? (string) $r->created_at : null,
         ];
-        $metaTitle = $r->name.' - Rater';
+        $metaTitle = $r->name . ' - Rater';
 
         // Ratings list (visible ratings by default)
         $ratingsBase = DB::table('ratings')
@@ -310,9 +310,9 @@ class RatingsController extends Controller
             'metaTags' => new MetaTags(
                 title: $metaTitle,
                 description: isset($raterPayload)
-                    ? "View ratings and reviews by {$raterPayload['name']}. ".
-                      "Currently showing {$total} ratings".
-                      ($total > 0 ? ' with an average rating of '.round(collect($ratings['data'])->avg('rating') ?: 0, 1).' stars' : '').
+                    ? "View ratings and reviews by {$raterPayload['name']}. " .
+                      "Currently showing {$total} ratings" .
+                      ($total > 0 ? ' with an average rating of ' . round(collect($ratings['data'])->avg('rating') ?: 0, 1) . ' stars' : '') .
                       ' for various furry visual novels.'
                     : 'View rater profile and ratings.',
                 noindex: true,
@@ -483,7 +483,7 @@ class RatingsController extends Controller
             ],
             'metaTags' => new MetaTags(
                 title: "{$user->name}'s Reviews",
-                description: "{$user->name} has reviewed {$stats->reviewed_count} visual novels with an average rating of ".round((float) ($stats->average_rating ?? 0), 1).'/5.',
+                description: "{$user->name} has reviewed {$stats->reviewed_count} visual novels with an average rating of " . round((float) ($stats->average_rating ?? 0), 1) . '/5.',
             )->toArray(),
         ]);
     }

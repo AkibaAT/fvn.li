@@ -101,7 +101,7 @@ class DashboardNotificationController extends Controller
             'user_id' => $user->id,
         ]);
 
-        return redirect()->away('https://discord.com/oauth2/authorize?'.http_build_query([
+        return redirect()->away('https://discord.com/oauth2/authorize?' . http_build_query([
             'client_id' => config('services.discord.client_id'),
             'integration_type' => 1,
             'scope' => 'applications.commands identify',

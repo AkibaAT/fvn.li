@@ -256,7 +256,7 @@ class DiscordNotificationsController extends Controller
         }
 
         $limit = $request->input('limit', 50);
-        $batchKey = Carbon::now()->format('YmdHis').'-'.bin2hex(random_bytes(4));
+        $batchKey = Carbon::now()->format('YmdHis') . '-' . bin2hex(random_bytes(4));
 
         try {
             DB::beginTransaction();
@@ -428,7 +428,7 @@ class DiscordNotificationsController extends Controller
                 return response()->json([
                     'notifications' => [],
                     'count' => 0,
-                    'admin_panel_url' => config('app.url').'/admin/addition-requests',
+                    'admin_panel_url' => config('app.url') . '/admin/addition-requests',
                 ]);
             }
 
@@ -460,7 +460,7 @@ class DiscordNotificationsController extends Controller
             return response()->json([
                 'notifications' => $notifications,
                 'count' => $notifications->count(),
-                'admin_panel_url' => config('app.url').'/admin/addition-requests',
+                'admin_panel_url' => config('app.url') . '/admin/addition-requests',
             ]);
 
         } catch (Exception $e) {
@@ -524,7 +524,7 @@ class DiscordNotificationsController extends Controller
                         ? mb_substr(strip_tags($report->rating->review), 0, 200)
                         : null,
                     'created_at' => $report->created_at->toISOString(),
-                    'admin_panel_url' => config('app.url').'/admin/review-reports/'.$report->id,
+                    'admin_panel_url' => config('app.url') . '/admin/review-reports/' . $report->id,
                 ];
             });
 

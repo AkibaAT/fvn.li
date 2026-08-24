@@ -94,7 +94,7 @@ class SystemStatusController extends Controller
             }
 
             $monthlyTrend = (clone $visibleRatingsQuery)
-                ->selectRaw($monthExpr.' as month, COUNT(*) as count')
+                ->selectRaw($monthExpr . ' as month, COUNT(*) as count')
                 ->groupBy('month')
                 ->orderBy('month')
                 ->get()
@@ -105,7 +105,7 @@ class SystemStatusController extends Controller
                 ->all();
 
             $visibleGamesMonthlyTrend = (clone $visibleGameRatingsQuery)
-                ->selectRaw($monthExpr.' as month, COUNT(*) as count')
+                ->selectRaw($monthExpr . ' as month, COUNT(*) as count')
                 ->groupBy('month')
                 ->orderBy('month')
                 ->get()

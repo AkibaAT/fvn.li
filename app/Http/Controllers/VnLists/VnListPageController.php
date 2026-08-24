@@ -90,11 +90,11 @@ class VnListPageController extends Controller
 
         $metaTags = new MetaTags(
             title: 'Your Visual Novel Lists',
-            description: 'Manage your '.($visibility === 'all' ? '' : $visibility.' ').
-                'visual novel lists. '.
-                "Currently managing {$lists->total()} lists".
-                ($lists->isNotEmpty() ? ', including: '.$lists->take(3)->map(function ($list) {
-                    return "{$list->name} (".$list->entries->count().' games)';
+            description: 'Manage your ' . ($visibility === 'all' ? '' : $visibility . ' ') .
+                'visual novel lists. ' .
+                "Currently managing {$lists->total()} lists" .
+                ($lists->isNotEmpty() ? ', including: ' . $lists->take(3)->map(function ($list) {
+                    return "{$list->name} (" . $list->entries->count() . ' games)';
                 })->implode(', ') : ''),
             structuredData: [
                 '@type' => 'WebPage',
@@ -197,7 +197,7 @@ class VnListPageController extends Controller
         }
 
         $metaTags = new MetaTags(
-            title: $vnList->name.' - Visual Novel List',
+            title: $vnList->name . ' - Visual Novel List',
             description: $vnList->description ?:
                 "A visual novel list by {$vnList->user->name} containing {$vnList->entries->count()} games.",
             image: asset(config('social.images.list_detail', config('social.images.default'))),
@@ -258,12 +258,12 @@ class VnListPageController extends Controller
         return Inertia::render('lists/edit', [
             'vnList' => $vnList,
             'metaTags' => new MetaTags(
-                title: 'Edit List - '.$vnList->name,
-                description: 'Edit your visual novel list: '.$vnList->name.'. Update the description, visibility, and manage your game entries.',
+                title: 'Edit List - ' . $vnList->name,
+                description: 'Edit your visual novel list: ' . $vnList->name . '. Update the description, visibility, and manage your game entries.',
                 structuredData: [
                     '@type' => 'WebPage',
-                    'name' => 'Edit List - '.$vnList->name,
-                    'description' => 'Edit your visual novel list: '.$vnList->name,
+                    'name' => 'Edit List - ' . $vnList->name,
+                    'description' => 'Edit your visual novel list: ' . $vnList->name,
                     'url' => route('lists.edit', $vnList),
                 ],
             )->toArray(),

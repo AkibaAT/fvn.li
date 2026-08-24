@@ -96,7 +96,7 @@ class RouteGraphService
         $choiceLookup = [];
         foreach ($menuChoices as $mc) {
             if (! empty($mc->target_label)) {
-                $choiceLookup[$mc->from_label.':'.$mc->target_label][] = $mc;
+                $choiceLookup[$mc->from_label . ':' . $mc->target_label][] = $mc;
             }
         }
 
@@ -109,7 +109,7 @@ class RouteGraphService
         foreach ($menuChoices as $mc) {
             $targetLabel = $this->collapsedReturnHelperTarget((string) $mc->target_label, $collapsedReturnHelperContinuations);
             if ($targetLabel !== null) {
-                $choiceLookup[$mc->from_label.':'.$targetLabel][] = $mc;
+                $choiceLookup[$mc->from_label . ':' . $targetLabel][] = $mc;
             }
         }
         $edgeMapByFrom = $edges->groupBy('from_label');
@@ -117,7 +117,7 @@ class RouteGraphService
         // Pre-index variable changes by label AND by context for fast lookup
         $varChangesByContext = [];
         foreach ($variableChanges as $vc) {
-            $key = $vc->label.'|'.($vc->context ?? '');
+            $key = $vc->label . '|' . ($vc->context ?? '');
             $varChangesByContext[$key][] = $vc;
         }
         $varChangesByLabel = $variableChanges->groupBy('label');
@@ -143,7 +143,7 @@ class RouteGraphService
             $nodeChoices = $choicesByLabel->get($name, collect());
             $continuationEdges = $outgoingEdges
                 ->filter(fn ($e) => $e->edge_type !== 'menu_choice')
-                ->reject(fn ($e) => $this->edgePruner->isDuplicateMenuChoiceEdge($e, $choiceLookup[$e->from_label.':'.$e->to_label] ?? []))
+                ->reject(fn ($e) => $this->edgePruner->isDuplicateMenuChoiceEdge($e, $choiceLookup[$e->from_label . ':' . $e->to_label] ?? []))
                 ->values();
             $allTargetlessChoices = $this->menuAnalyzer->targetlessChoices($nodeChoices);
             $menuChoiceLines = $nodeChoices
@@ -313,7 +313,7 @@ class RouteGraphService
                         }
 
                         $processedEdges[] = [
-                            'id' => $entrySourceId.':'.$sourceId.':menu',
+                            'id' => $entrySourceId . ':' . $sourceId . ':menu',
                             'source' => $entrySourceId,
                             'target' => $sourceId,
                             'edge_type' => $entryEdgeType,
@@ -326,7 +326,7 @@ class RouteGraphService
                         $emptyMenuCondition = $this->menuAnalyzer->menuEmptyCondition($groupChoices);
                         if ($emptyMenuCondition !== null) {
                             $processedEdges[] = [
-                                'id' => $sourceId.':'.$nextMenuSourceId.':menu_empty',
+                                'id' => $sourceId . ':' . $nextMenuSourceId . ':menu_empty',
                                 'source' => $sourceId,
                                 'target' => $nextMenuSourceId,
                                 'edge_type' => 'flow',
@@ -348,7 +348,7 @@ class RouteGraphService
                         foreach ($hubChoicesByTarget as $hubTarget => $hubChoices) {
                             $onlyChoice = count($hubChoices) === 1 ? $hubChoices[0] : null;
                             $processedEdges[] = [
-                                'id' => $sourceId.':'.$hubTarget.':hub_choice',
+                                'id' => $sourceId . ':' . $hubTarget . ':hub_choice',
                                 'source' => $sourceId,
                                 'target' => $hubTarget,
                                 'edge_type' => 'menu_choice',
@@ -365,12 +365,12 @@ class RouteGraphService
                     }
 
                     foreach ($groupChoices->values() as $mc) {
-                        $choiceId = $name.':choice_'.$choiceIndex;
+                        $choiceId = $name . ':choice_' . $choiceIndex;
                         $choiceIndex++;
-                        $choiceText = $mc->text ?? 'Choice '.$choiceIndex;
+                        $choiceText = $mc->text ?? 'Choice ' . $choiceIndex;
 
-                        $choiceContext = 'menu_choice:'.($mc->text ?? '');
-                        $contextKey = $name.'|'.$choiceContext;
+                        $choiceContext = 'menu_choice:' . ($mc->text ?? '');
+                        $contextKey = $name . '|' . $choiceContext;
                         $choiceVarChanges = $this->menuAnalyzer->getVariableChangesForChoice(
                             $mc,
                             collect($varChangesByContext[$contextKey] ?? []),
@@ -379,10 +379,10 @@ class RouteGraphService
 
                         $choiceKnownCondition = $this->menuAnalyzer->choiceEffectiveCondition($mc);
                         $varSummary = $choiceVarChanges->map(function ($vc) use ($choiceKnownCondition) {
-                            $summary = $vc->variable_name.' '.$vc->operation.' '.$this->variableChangeFormatter->formatValue($vc->value);
+                            $summary = $vc->variable_name . ' ' . $vc->operation . ' ' . $this->variableChangeFormatter->formatValue($vc->value);
                             $condition = $this->variableChangeFormatter->displayCondition($vc, $choiceKnownCondition);
 
-                            return $condition ? 'if '.$condition.': '.$summary : $summary;
+                            return $condition ? 'if ' . $condition . ': ' . $summary : $summary;
                         })->join(', ');
 
                         $choiceLine = (int) ($mc->line_number ?? 0);
@@ -450,7 +450,7 @@ class RouteGraphService
 
                         // Edge from the menu node to the choice
                         $processedEdges[] = [
-                            'id' => $sourceId.':'.$choiceId.':choice',
+                            'id' => $sourceId . ':' . $choiceId . ':choice',
                             'source' => $sourceId,
                             'target' => $choiceId,
                             'edge_type' => 'choice',
@@ -460,7 +460,7 @@ class RouteGraphService
                         if ($hasHardTarget) {
                             // Hard choice: direct edge to its target
                             $processedEdges[] = [
-                                'id' => $choiceId.':'.$hardTargetLabel.':choice_target',
+                                'id' => $choiceId . ':' . $hardTargetLabel . ':choice_target',
                                 'source' => $choiceId,
                                 'target' => $hardTargetLabel,
                                 'edge_type' => 'choice_target',
@@ -474,7 +474,7 @@ class RouteGraphService
                             if ($hasChildMenu) {
                                 if ($continuesToChildSkip) {
                                     $processedEdges[] = [
-                                        'id' => $choiceId.':'.$childSkipTargetId.':child_menu_empty',
+                                        'id' => $choiceId . ':' . $childSkipTargetId . ':child_menu_empty',
                                         'source' => $choiceId,
                                         'target' => $childSkipTargetId,
                                         'edge_type' => 'flow',
@@ -487,7 +487,7 @@ class RouteGraphService
                                 }
                             } elseif ($continuesToNextMenu) {
                                 $processedEdges[] = [
-                                    'id' => $choiceId.':'.$nextMenuSourceId.':menu_sequence',
+                                    'id' => $choiceId . ':' . $nextMenuSourceId . ':menu_sequence',
                                     'source' => $choiceId,
                                     'target' => $nextMenuSourceId,
                                     'edge_type' => 'flow',
@@ -501,7 +501,7 @@ class RouteGraphService
 
                                 if ($continuesPastConditionalNextMenu) {
                                     $processedEdges[] = [
-                                        'id' => $choiceId.':'.$nextMenuSkip['target'].':conditional_menu_skip',
+                                        'id' => $choiceId . ':' . $nextMenuSkip['target'] . ':conditional_menu_skip',
                                         'source' => $choiceId,
                                         'target' => $nextMenuSkip['target'],
                                         'edge_type' => 'flow',
@@ -514,7 +514,7 @@ class RouteGraphService
                                 }
                             } elseif ($usesSyntheticEnding) {
                                 $processedEdges[] = [
-                                    'id' => $choiceId.':'.$syntheticEndingId.':return',
+                                    'id' => $choiceId . ':' . $syntheticEndingId . ':return',
                                     'source' => $choiceId,
                                     'target' => $syntheticEndingId,
                                     'edge_type' => 'return',
@@ -602,12 +602,12 @@ class RouteGraphService
                     continue;
                 }
 
-                if ($this->edgePruner->isDuplicateMenuChoiceEdge($edge, $choiceLookup[$edge->from_label.':'.$edge->to_label] ?? [])) {
+                if ($this->edgePruner->isDuplicateMenuChoiceEdge($edge, $choiceLookup[$edge->from_label . ':' . $edge->to_label] ?? [])) {
                     continue;
                 }
             }
 
-            if ($this->edgePruner->isDuplicateMenuChoiceEdge($edge, $choiceLookup[$edge->from_label.':'.$edge->to_label] ?? [])) {
+            if ($this->edgePruner->isDuplicateMenuChoiceEdge($edge, $choiceLookup[$edge->from_label . ':' . $edge->to_label] ?? [])) {
                 continue;
             }
 
@@ -622,7 +622,7 @@ class RouteGraphService
             ];
 
             if ($edge->edge_type === 'menu_choice') {
-                $matchingChoice = $this->edgePruner->findMatchingMenuChoice($edge, $choiceLookup[$edge->from_label.':'.$edge->to_label] ?? []);
+                $matchingChoice = $this->edgePruner->findMatchingMenuChoice($edge, $choiceLookup[$edge->from_label . ':' . $edge->to_label] ?? []);
                 if ($matchingChoice) {
                     $edgeData['choice_text'] = $matchingChoice->text;
                     $edgeData['condition'] = $matchingChoice->condition;
@@ -664,7 +664,7 @@ class RouteGraphService
 
     private function menuGroupNodeId(string $labelName, int $startLine, int $index): string
     {
-        return $labelName.':menu_'.($startLine > 0 ? $startLine : $index);
+        return $labelName . ':menu_' . ($startLine > 0 ? $startLine : $index);
     }
 
     /**

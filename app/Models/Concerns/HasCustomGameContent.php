@@ -131,5 +131,4 @@ trait HasCustomGameContent
     {
         return $this->belongsTo(User::class, 'custom_page_updated_by');
     }
-
 }

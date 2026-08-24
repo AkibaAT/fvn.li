@@ -153,7 +153,7 @@ function discordSignature(string $keypair, string $body): array
     return [
         'HTTP_X_SIGNATURE_TIMESTAMP' => $timestamp,
         'HTTP_X_SIGNATURE_ED25519' => sodium_bin2hex(
-            sodium_crypto_sign_detached($timestamp.$body, sodium_crypto_sign_secretkey($keypair)),
+            sodium_crypto_sign_detached($timestamp . $body, sodium_crypto_sign_secretkey($keypair)),
         ),
         'CONTENT_TYPE' => 'application/json',
     ];

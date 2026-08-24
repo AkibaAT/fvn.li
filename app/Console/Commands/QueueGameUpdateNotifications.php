@@ -93,7 +93,7 @@ class QueueGameUpdateNotifications extends Command
                 ->limit($limit)
                 ->get();
 
-            $this->info('Found '.count($recentlyUpdatedGames).' recently updated games');
+            $this->info('Found ' . count($recentlyUpdatedGames) . ' recently updated games');
 
             $notificationCount = 0;
             $totalUsersNotified = 0;
@@ -127,7 +127,7 @@ class QueueGameUpdateNotifications extends Command
 
                 $usersToNotify = $this->getUsersToNotify($game->id, $game->latestVersion->id);
 
-                $this->info('Found '.count($usersToNotify)." users to notify for {$game->name}");
+                $this->info('Found ' . count($usersToNotify) . " users to notify for {$game->name}");
                 $totalUsersNotified += count($usersToNotify);
 
                 // Queue notifications for these users
@@ -180,7 +180,7 @@ class QueueGameUpdateNotifications extends Command
 
             return 0;
         } catch (Exception $e) {
-            $this->error('Error queueing game update notifications: '.$e->getMessage());
+            $this->error('Error queueing game update notifications: ' . $e->getMessage());
             Log::error('Error in QueueGameUpdateNotifications command', [
                 'exception' => $e,
                 'message' => $e->getMessage(),
@@ -234,8 +234,8 @@ class QueueGameUpdateNotifications extends Command
         $scheduledAt = $this->calculateScheduledTime($digestType);
 
         $payload = [
-            'title' => $game->name.' - New Update Available',
-            'body' => 'Version '.$game->latestVersion->version.' is now available.',
+            'title' => $game->name . ' - New Update Available',
+            'body' => 'Version ' . $game->latestVersion->version . ' is now available.',
             'data' => [
                 'url' => route('games.show', $game->slug),
                 'game_id' => $game->id,
@@ -322,6 +322,6 @@ class QueueGameUpdateNotifications extends Command
         $this->line("  Games Processed: {$gamesProcessed}");
         $this->line("  Users Notified: {$usersNotified}");
         $this->line("  Notifications Queued: {$notificationsQueued}");
-        $this->line('  Early Exit: '.($earlyExit ? 'Yes' : 'No'));
+        $this->line('  Early Exit: ' . ($earlyExit ? 'Yes' : 'No'));
     }
 }

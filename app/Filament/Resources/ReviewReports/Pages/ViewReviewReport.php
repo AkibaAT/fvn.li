@@ -131,7 +131,7 @@ class ViewReviewReport extends ViewRecord
                             'status' => 'actioned',
                             'reviewed_by' => Auth::id(),
                             'reviewed_at' => now(),
-                            'admin_notes' => ($this->record->admin_notes ? $this->record->admin_notes."\n" : '').'User banned from reviewing.',
+                            'admin_notes' => ($this->record->admin_notes ? $this->record->admin_notes . "\n" : '') . 'User banned from reviewing.',
                         ]);
                     }
 
@@ -164,7 +164,7 @@ class ViewReviewReport extends ViewRecord
                             'status' => 'actioned',
                             'reviewed_by' => Auth::id(),
                             'reviewed_at' => now(),
-                            'admin_notes' => ($this->record->admin_notes ? $this->record->admin_notes."\n" : '').'Rater banned from reviewing.',
+                            'admin_notes' => ($this->record->admin_notes ? $this->record->admin_notes . "\n" : '') . 'Rater banned from reviewing.',
                         ]);
                     }
 

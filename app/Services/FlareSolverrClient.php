@@ -51,7 +51,7 @@ class FlareSolverrClient
         ?string $sessionId = null
     ): array {
         $payload = [
-            'cmd' => 'request.'.strtolower($method),
+            'cmd' => 'request.' . strtolower($method),
             'url' => $url,
             'maxTimeout' => $this->maxTimeout,
         ];
@@ -85,7 +85,7 @@ class FlareSolverrClient
         ]);
 
         try {
-            $response = $this->client->post($this->baseUrl.'/v1', [
+            $response = $this->client->post($this->baseUrl . '/v1', [
                 'json' => $payload,
                 'headers' => [
                     'Content-Type' => 'application/json',
@@ -182,7 +182,7 @@ class FlareSolverrClient
                 $payload['session'] = $sessionId;
             }
 
-            $response = $this->client->post($this->baseUrl.'/v1', [
+            $response = $this->client->post($this->baseUrl . '/v1', [
                 'json' => $payload,
             ]);
 
@@ -210,7 +210,7 @@ class FlareSolverrClient
     public function listSessions(): array
     {
         try {
-            $response = $this->client->post($this->baseUrl.'/v1', [
+            $response = $this->client->post($this->baseUrl . '/v1', [
                 'json' => [
                     'cmd' => 'sessions.list',
                 ],
@@ -251,7 +251,7 @@ class FlareSolverrClient
         }
 
         try {
-            $this->client->post($this->baseUrl.'/v1', [
+            $this->client->post($this->baseUrl . '/v1', [
                 'json' => [
                     'cmd' => 'sessions.destroy',
                     'session' => $sessionId,
@@ -269,7 +269,7 @@ class FlareSolverrClient
     public function isAvailable(): bool
     {
         try {
-            $response = $this->client->get($this->baseUrl.'/health', [
+            $response = $this->client->get($this->baseUrl . '/health', [
                 'timeout' => 5,
             ]);
 

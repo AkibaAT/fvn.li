@@ -208,7 +208,7 @@ it('stores every ending path for an imported route graph', function () {
     routePathLabel($version, 'start');
 
     for ($index = 1; $index <= 205; $index++) {
-        $ending = 'ending_'.$index;
+        $ending = 'ending_' . $index;
         routePathLabel($version, $ending, true);
         routePathEdge($version, 'start', $ending);
     }
@@ -224,7 +224,7 @@ it('stores route paths deeper than 500 steps', function () {
     $previous = 'start';
 
     for ($index = 1; $index <= 500; $index++) {
-        $label = $index === 500 ? 'ending_deep' : 'step_'.$index;
+        $label = $index === 500 ? 'ending_deep' : 'step_' . $index;
         routePathLabel($version, $label, $label === 'ending_deep');
         routePathEdge($version, $previous, $label);
         $previous = $label;
@@ -241,7 +241,7 @@ it('stores all path labels for many deep endings', function () {
     $previous = 'start';
 
     for ($index = 1; $index <= 200; $index++) {
-        $ending = 'ending_chain_'.$index;
+        $ending = 'ending_chain_' . $index;
         routePathLabel($version, $ending, true);
         routePathEdge($version, $previous, $ending);
         $previous = $ending;
@@ -265,7 +265,7 @@ it('rejects excessive ending counts before traversing the graph and retains exis
     ]);
 
     $endings = array_map(
-        fn (int $index): string => 'ending_'.$index,
+        fn (int $index): string => 'ending_' . $index,
         range(1, RoutePathCalculator::MAX_ENDINGS + 1),
     );
 
@@ -276,7 +276,7 @@ it('rejects excessive ending counts before traversing the graph and retains exis
     ];
 
     expect(fn () => calculateRoutePathsFromGraph($version, $graph))
-        ->toThrow(RuntimeException::class, 'the limit is '.RoutePathCalculator::MAX_ENDINGS);
+        ->toThrow(RuntimeException::class, 'the limit is ' . RoutePathCalculator::MAX_ENDINGS);
 
     expect($version->routePaths()->pluck('ending_label')->all())->toBe(['existing']);
 });
@@ -290,7 +290,7 @@ it('rejects quadratic aggregate path growth and rolls back partial paths', funct
     $previous = 'start';
 
     for ($index = 1; $index <= $nodeCount; $index++) {
-        $ending = 'ending_'.$index;
+        $ending = 'ending_' . $index;
         $nodes[] = ['id' => $ending];
         $edges[] = ['source' => $previous, 'target' => $ending, 'edge_type' => 'jump'];
         $endings[] = $ending;
@@ -304,7 +304,7 @@ it('rejects quadratic aggregate path growth and rolls back partial paths', funct
     ];
 
     expect(fn () => calculateRoutePathsFromGraph($version, $graph))
-        ->toThrow(RuntimeException::class, 'more than '.RoutePathCalculator::MAX_TOTAL_PATH_STEPS.' total steps');
+        ->toThrow(RuntimeException::class, 'more than ' . RoutePathCalculator::MAX_TOTAL_PATH_STEPS . ' total steps');
 
     expect($version->routePaths()->count())->toBe(0);
 });
@@ -316,7 +316,7 @@ it('stops reconstructing a path when it exceeds the per-path step limit', functi
     $previous = 'start';
 
     for ($index = 1; $index <= RoutePathCalculator::MAX_PATH_STEPS; $index++) {
-        $label = $index === RoutePathCalculator::MAX_PATH_STEPS ? 'ending_deep' : 'step_'.$index;
+        $label = $index === RoutePathCalculator::MAX_PATH_STEPS ? 'ending_deep' : 'step_' . $index;
         $nodes[] = ['id' => $label];
         $edges[] = ['source' => $previous, 'target' => $label, 'edge_type' => 'jump'];
         $previous = $label;
@@ -329,7 +329,7 @@ it('stops reconstructing a path when it exceeds the per-path step limit', functi
     ];
 
     expect(fn () => calculateRoutePathsFromGraph($version, $graph))
-        ->toThrow(RuntimeException::class, 'more than '.RoutePathCalculator::MAX_PATH_STEPS.' steps');
+        ->toThrow(RuntimeException::class, 'more than ' . RoutePathCalculator::MAX_PATH_STEPS . ' steps');
 
     expect($version->routePaths()->count())->toBe(0);
 });
@@ -343,12 +343,12 @@ it('stores hub menu choice destinations as the choice target label', function ()
     // 12 same-menu function-menu choices keep chapterselect a hub node whose
     // raw menu_choice edges survive with choice_text attached.
     for ($i = 1; $i <= 12; $i++) {
-        routePathLabel($version, 'chapter'.$i, $i === 1);
-        routePathChoice($version, 'chapterselect', 'Chapter '.$i, 'chapter'.$i, 10);
+        routePathLabel($version, 'chapter' . $i, $i === 1);
+        routePathChoice($version, 'chapterselect', 'Chapter ' . $i, 'chapter' . $i, 10);
         VersionRouteEdge::create([
             'game_version_id' => $version->id,
             'from_label' => 'chapterselect',
-            'to_label' => 'chapter'.$i,
+            'to_label' => 'chapter' . $i,
             'edge_type' => 'menu_choice',
             'condition' => 'True',
             'file_path' => 'script.rpy',

@@ -210,7 +210,7 @@ class MeilisearchSetup extends Command
 
             return $this->applyEmbedders();
         } catch (Exception $e) {
-            $this->error('    Error setting up indexes: '.$e->getMessage());
+            $this->error('    Error setting up indexes: ' . $e->getMessage());
 
             return false;
         }
@@ -379,7 +379,7 @@ class MeilisearchSetup extends Command
                     $this->line("      - {$error}");
                 }
                 if (count($errors) > 5) {
-                    $this->line('      - ... and '.(count($errors) - 5).' more');
+                    $this->line('      - ... and ' . (count($errors) - 5) . ' more');
                 }
             }
 

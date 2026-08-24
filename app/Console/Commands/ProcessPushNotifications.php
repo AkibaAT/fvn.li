@@ -50,7 +50,7 @@ class ProcessPushNotifications extends Command
 
         try {
             $notifications = $this->claimNotifications($limit);
-            $this->info('Found '.$notifications->count().' notifications to process');
+            $this->info('Found ' . $notifications->count() . ' notifications to process');
 
             if ($notifications->isEmpty()) {
                 $this->info('No notifications to process');
@@ -98,7 +98,7 @@ class ProcessPushNotifications extends Command
 
             return self::SUCCESS;
         } catch (Exception $exception) {
-            $this->error('Error processing push notifications: '.$exception->getMessage());
+            $this->error('Error processing push notifications: ' . $exception->getMessage());
             Log::error('Error in ProcessPushNotifications command', ['exception' => $exception]);
 
             return self::FAILURE;
@@ -151,7 +151,7 @@ class ProcessPushNotifications extends Command
 
         $result = $this->notificationService->sendPushNotifications($subscriptions, [
             'title' => $digestType === 'daily' ? 'Daily Game Updates' : 'Weekly Game Updates',
-            'body' => $games->count().' games you follow have been updated.',
+            'body' => $games->count() . ' games you follow have been updated.',
             'data' => ['url' => route('dashboard'), 'digest' => true, 'games' => $games->values()->all()],
         ]);
 

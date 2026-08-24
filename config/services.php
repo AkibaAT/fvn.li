@@ -45,7 +45,7 @@ return [
     'itchio' => [
         'client_id' => env('ITCHIO_CLIENT_ID'),
         'client_secret' => env('ITCHIO_CLIENT_SECRET'),
-        'redirect' => env('APP_URL').'/auth/itchio/callback',
+        'redirect' => env('APP_URL') . '/auth/itchio/callback',
     ],
 
     'discord' => [

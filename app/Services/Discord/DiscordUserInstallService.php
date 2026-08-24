@@ -9,6 +9,7 @@ use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class DiscordUserInstallService
 {
@@ -49,7 +50,7 @@ class DiscordUserInstallService
             $id = $identity->json('user.id');
 
             return is_string($id) && $id !== '' ? $id : null;
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             Log::error('Discord user-install exchange errored', ['exception' => $exception]);
 
             return null;

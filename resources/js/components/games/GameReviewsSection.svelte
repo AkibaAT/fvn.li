@@ -245,13 +245,7 @@
 
                     {#if review.review && (!showAllRatings || review.is_reviewed)}
                         {#if review.has_spoilers && !revealedSpoilers[review.id]}
-                            <Button
-                                type="button"
-                                variant="outline"
-                                tone="warning"
-                                size="sm"
-                                onclick={() => onRevealSpoilers(review.id)}
-                            >
+                            <Button type="button" variant="outline" tone="warning" size="sm" onclick={() => onRevealSpoilers(review.id)}>
                                 <EyeSlashIcon class="h-4 w-4" />
                                 This review contains spoilers. Click to reveal.
                             </Button>

@@ -113,7 +113,7 @@ class IndexDialogueTexts extends Command
             JOIN games g ON gv.game_id = g.id
             WHERE vdl.text_id = ANY(?)
             GROUP BY vdl.text_id
-        ', ['{'.implode(',', $textIds).'}']);
+        ', ['{' . implode(',', $textIds) . '}']);
 
         $characterNamesByText = DB::table('version_dialogue_lines as vdl')
             ->join('characters as c', 'vdl.character_id', '=', 'c.id')
