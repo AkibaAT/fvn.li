@@ -7,7 +7,7 @@ x-flaresolverr: &flaresolverr
 x-meilisearch: &meilisearch
   image: getmeili/meilisearch:v1.53@sha256:8d6643d86d71fad6ad3cba92cde7ccfce9e4d6c384bda67598eb553571c32431
 x-redis: &redis
-  image: redis:8.10.0@sha256:344e3945a0b431c8ff1eecd58c5573538126bd756f02fc7e218ddf1fc2546366
+  image: redis:8.10.1@sha256:691577adaf11927f4bb8871d40a5dd69a5c300d4453b742e8f6383c3e6e8d2e1
 x-denkit-stash: &denkit-stash
   image: ${DENKIT_STASH_IMAGE}
 x-rustfs: &rustfs
