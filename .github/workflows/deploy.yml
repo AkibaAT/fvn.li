@@ -166,7 +166,7 @@ jobs:
       # Build and push Docker images if Dockerfile or related files changed
       - name: Set up Docker Buildx
         if: steps.vars.outputs.dockerfile_changed == 'true' || steps.vars.outputs.social_images_changed == 'true'
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
         with:
           driver-opts: image=moby/buildkit:v0.26.3@sha256:5601811fde88bb9e8a577bfe804af82bccb712e1cd07ff94663bded5e628cf75
 
