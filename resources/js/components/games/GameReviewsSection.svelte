@@ -195,51 +195,55 @@
                                 </Button>
                             {/if}
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-1">
                             <div class="flex items-center gap-1 text-yellow-400">
                                 {#each Array.from({ length: review.rating }) as _, index (index)}
                                     <StarIcon class="h-5 w-5 fill-current" />
                                 {/each}
                             </div>
-                            {#if review.event_id}
-                                <a
-                                    href={`https://itch.io/event/${review.event_id}`}
-                                    target="_blank"
-                                    rel="noopener"
-                                    class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                                    title="View on itch.io"
-                                >
-                                    <ExternalLinkIcon class="h-4 w-4" />
-                                </a>
-                            {/if}
-                            {#if review.user}
+                            <div class="flex items-center">
+                                {#if review.event_id}
+                                    <Button
+                                        href={`https://itch.io/event/${review.event_id}`}
+                                        external
+                                        variant="ghost"
+                                        tone="neutral"
+                                        size="icon-sm"
+                                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                                        title="View on itch.io"
+                                    >
+                                        <ExternalLinkIcon class="h-5 w-5" />
+                                    </Button>
+                                {/if}
+                                {#if review.user}
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        tone="primary"
+                                        size="icon-sm"
+                                        onclick={() => onCopyReviewLink(review.id)}
+                                        class="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"
+                                        title={copiedReviewId === review.id ? 'Link copied!' : 'Copy link to review'}
+                                    >
+                                        {#if copiedReviewId === review.id}
+                                            <CheckIcon class="h-5 w-5 text-green-500" />
+                                        {:else}
+                                            <LinkIcon class="h-5 w-5" />
+                                        {/if}
+                                    </Button>
+                                {/if}
                                 <Button
                                     type="button"
                                     variant="ghost"
-                                    tone="primary"
+                                    tone="danger"
                                     size="icon-sm"
-                                    onclick={() => onCopyReviewLink(review.id)}
-                                    class="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"
-                                    title={copiedReviewId === review.id ? 'Link copied!' : 'Copy link to review'}
+                                    onclick={() => onReportReview(review.id, review.user?.name || review.rater.name)}
+                                    class="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
+                                    title="Report review"
                                 >
-                                    {#if copiedReviewId === review.id}
-                                        <CheckIcon class="h-4 w-4 text-green-500" />
-                                    {:else}
-                                        <LinkIcon class="h-4 w-4" />
-                                    {/if}
+                                    <FlagIcon class="h-5 w-5" />
                                 </Button>
-                            {/if}
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                tone="danger"
-                                size="icon-sm"
-                                onclick={() => onReportReview(review.id, review.user?.name || review.rater.name)}
-                                class="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
-                                title="Report review"
-                            >
-                                <FlagIcon class="h-4 w-4" />
-                            </Button>
+                            </div>
                         </div>
                     </div>
 
@@ -262,7 +266,11 @@
                                     class="relative overflow-hidden transition-[max-height] duration-300 ease-in-out"
                                     style={!expandedReviews[review.id] && shouldCollapseReview(review.review) ? 'max-height: 200px;' : undefined}
                                 >
-                                    <div class="prose max-w-none text-gray-600 dark:text-gray-300 dark:prose-invert" style={reviewStyles}>
+                                    <div
+                                        class="prose max-w-none text-gray-600 dark:text-gray-300 dark:prose-invert"
+                                        class:fvn-review={Boolean(review.user)}
+                                        style={reviewStyles}
+                                    >
                                         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                                         {@html review.review}
                                     </div>

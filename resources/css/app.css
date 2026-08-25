@@ -85,6 +85,50 @@
     margin: 1rem 0;
 }
 
+.fvn-review {
+    white-space: pre-line;
+}
+
+.fvn-review:has(:is(p, div, ul, ol, li, blockquote, pre, table, h1, h2, h3, h4, h5, h6, br)) {
+    white-space: normal;
+}
+
+.fvn-review > :where(p, ul, ol, blockquote, pre, table) {
+    margin-block: 0.5lh;
+}
+
+.fvn-review > :first-child {
+    margin-block-start: 0;
+}
+
+.fvn-review :where(li) {
+    margin-block: 0.125lh;
+}
+
+.fvn-review p:empty {
+    display: none;
+}
+
+.fvn-review ::marker {
+    color: currentColor;
+    font-weight: 600;
+}
+
+.fvn-review table {
+    border-collapse: collapse;
+}
+
+.fvn-review :is(th, td) {
+    padding: 0.5rem 0.75rem;
+    overflow-wrap: anywhere;
+    vertical-align: top;
+    border: 1px solid var(--color-gray-300);
+}
+
+.dark .fvn-review :is(th, td) {
+    border-color: var(--color-gray-600);
+}
+
 .game_description.prose pre {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
@@ -114,6 +158,15 @@
 
 .tox-edit-area iframe {
     min-height: 550px !important;
+}
+
+.tox-tinymce.review-editor {
+    min-height: 220px !important;
+}
+
+.tox-tinymce.review-editor .tox-edit-area,
+.tox-tinymce.review-editor .tox-edit-area iframe {
+    min-height: 170px !important;
 }
 
 /* Ensure editor container has enough space */
@@ -202,14 +255,21 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
 }
 
 .spoiler.revealed,
-.spoiler:active {
+.spoiler:active,
+.spoiler:focus {
     color: inherit;
     background-color: rgba(0, 0, 0, 0.1);
     cursor: default;
     user-select: text;
 }
 
+.spoiler:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
 .dark .spoiler.revealed,
-.dark .spoiler:active {
+.dark .spoiler:active,
+.dark .spoiler:focus {
     background-color: rgba(255, 255, 255, 0.1);
 }

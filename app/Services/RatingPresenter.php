@@ -62,7 +62,7 @@ class RatingPresenter
         return [
             'id' => $review->id,
             'rating' => (int) $review->rating,
-            'review' => $this->sanitizeReview($review->review),
+            'review' => $this->sanitizeReview($review->review, $review->source_platform === 'fvn_li'),
             'published_at' => $review->published_at?->toISOString(),
             'is_reviewed' => $review->is_reviewed,
             'has_spoilers' => (bool) $review->has_spoilers,
@@ -92,7 +92,7 @@ class RatingPresenter
         return [
             'id' => $review->id,
             'rating' => (int) $review->rating,
-            'review' => $this->sanitizeReview($review->review),
+            'review' => $this->sanitizeReview($review->review, true),
             'published_at' => $review->published_at?->toISOString(),
             'is_reviewed' => $review->is_reviewed,
             'has_spoilers' => (bool) $review->has_spoilers,
@@ -128,12 +128,12 @@ class RatingPresenter
         return $urls[$platform] ?? null;
     }
 
-    private function sanitizeReview(?string $review): ?string
+    private function sanitizeReview(?string $review, bool $isFvnReview = false): ?string
     {
         if (! $review) {
             return $review;
         }
 
-        return $this->sanitizer->sanitizeReview($review);
+        return $isFvnReview ? $this->sanitizer->sanitizeFvnReview($review) : $this->sanitizer->sanitizeReview($review);
     }
 }

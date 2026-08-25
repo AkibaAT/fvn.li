@@ -11,6 +11,7 @@
     };
 
     let { row, reviewStyle, showRater = false }: Props = $props();
+    let spoilerRevealed = $state(false);
 
     const formattedDate = $derived(
         row.date
@@ -79,9 +80,15 @@
         </div>
     </div>
     {#if row.review}
-        <div class="mx-auto prose mt-2 text-gray-600 dark:text-gray-300 dark:prose-invert" style={reviewStyle}>
-            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-            {@html row.review}
-        </div>
+        {#if row.hasSpoilers && !spoilerRevealed}
+            <Button type="button" variant="outline" tone="warning" size="xs" class="mt-2" onclick={() => (spoilerRevealed = true)}>
+                Contains spoilers. Click to reveal.
+            </Button>
+        {:else}
+            <div class="mx-auto prose mt-2 text-gray-600 dark:text-gray-300 dark:prose-invert" class:fvn-review={row.isFvnReview} style={reviewStyle}>
+                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                {@html row.review}
+            </div>
+        {/if}
     {/if}
 </div>

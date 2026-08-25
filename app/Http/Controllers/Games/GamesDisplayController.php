@@ -49,7 +49,9 @@ class GamesDisplayController extends Controller
         $sanitizer = app(HtmlSanitizerService::class);
         $previousCounts = Rating::previousRatingCountsForGame($game->id, $reviews->getCollection()->pluck('rater_id'));
         $reviews->getCollection()->transform(function ($rating) use ($sanitizer, $previousCounts) {
-            $rating->review = $sanitizer->sanitizeReview($rating->review);
+            $rating->review = $rating->source_platform === 'fvn_li'
+                ? $sanitizer->sanitizeFvnReview($rating->review)
+                : $sanitizer->sanitizeReview($rating->review);
             $rating->previous_ratings_count = $rating->rater_id !== null ? (int) ($previousCounts[$rating->rater_id] ?? 0) : 0;
 
             return $rating;
@@ -149,7 +151,7 @@ class GamesDisplayController extends Controller
                 $userReview = [
                     'id' => $existingReview->id,
                     'rating' => $existingReview->rating,
-                    'review' => $sanitizer->sanitizeReview($existingReview->review),
+                    'review' => $sanitizer->sanitizeFvnReview($existingReview->review),
                     'has_spoilers' => $existingReview->has_spoilers,
                     'published_at' => $existingReview->published_at?->toISOString(),
                     'updated_at' => $existingReview->updated_at?->toISOString(),

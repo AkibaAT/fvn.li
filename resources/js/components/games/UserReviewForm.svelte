@@ -1,8 +1,9 @@
 <script lang="ts">
     import StarIcon from '@/components/icons/Star.svelte';
+    import TinyMCEEditor from '@/components/editor/TinyMCEEditor.svelte';
     import { untrack } from 'svelte';
     import { page } from '@inertiajs/svelte';
-    import { Alert, Button, Card, Checkbox, Textarea } from '@/components/ui';
+    import { Alert, Button, Card, Checkbox } from '@/components/ui';
     import { deleteUserReview, submitUserReview, type UserReview } from '@/api/user-reviews';
 
     interface Props {
@@ -205,18 +206,21 @@
 
             <div class="mb-3">
                 <label for="review-text" class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Review (optional)</label>
-                <Textarea
+                <TinyMCEEditor
                     id="review-text"
-                    bind:value={reviewText}
+                    ariaLabel="Review (optional)"
+                    content={reviewText}
+                    onUpdate={(content) => (reviewText = content)}
                     placeholder="Share your thoughts about this visual novel..."
-                    rows={6}
-                    class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                    height={240}
+                    disableImages
+                    reviewMode
                 />
             </div>
 
             {#if reviewText.trim().length > 0}
                 <div class="mb-3">
-                    <Checkbox bind:checked={hasSpoilers} label="This review contains spoilers" />
+                    <Checkbox bind:checked={hasSpoilers} label="Mark the whole review as a spoiler" />
                 </div>
             {/if}
 

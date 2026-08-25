@@ -51,7 +51,7 @@ class UserReviewController extends Controller
         // Strip script/style tags for safety
         $reviewText = preg_replace('/<script[^>]*>.*?<\/script>/is', '', $reviewText);
         $reviewText = preg_replace('/<style[^>]*>.*?<\/style>/is', '', $reviewText);
-        $reviewText = $sanitizer->sanitizeReview($reviewText) ?? '';
+        $reviewText = $sanitizer->sanitizeFvnReview($reviewText) ?? '';
 
         $hasReviewText = ! empty(trim(strip_tags($reviewText)));
 
@@ -143,7 +143,7 @@ class UserReviewController extends Controller
         return [
             'id' => $rating->id,
             'rating' => $rating->rating,
-            'review' => $sanitizer->sanitizeReview($rating->review),
+            'review' => $sanitizer->sanitizeFvnReview($rating->review),
             'has_spoilers' => $rating->has_spoilers,
             'published_at' => $rating->published_at?->toISOString(),
             'updated_at' => $rating->updated_at?->toISOString(),

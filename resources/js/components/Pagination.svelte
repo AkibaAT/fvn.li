@@ -109,7 +109,7 @@
 {/snippet}
 
 {#snippet controls()}
-    <div class="flex items-center space-x-3">
+    <div class="flex flex-wrap items-center justify-center gap-3">
         {#if buildPageUrl && canPrev}
             <Button
                 bind:ref={prevButtonEl}
@@ -135,7 +135,7 @@
             >
         {/if}
 
-        <div class="flex items-center space-x-2">
+        <div class="flex shrink-0 items-center gap-2">
             <span class="text-sm text-gray-500 dark:text-gray-400">Page</span>
             <select
                 bind:this={selectEl}
@@ -180,10 +180,10 @@
 {#if shouldShow}
     {#if layout === 'full'}
         <div class="mt-6 border-t border-gray-200 pt-4 dark:border-gray-700 {className}">
-            <div class="grid grid-cols-1 items-center gap-4 sm:grid-cols-3">
-                <div class="justify-self-start">{@render info()}</div>
+            <div class="grid grid-cols-1 items-center gap-4 lg:grid-cols-[1fr_auto_1fr]">
+                <div class="justify-self-center text-center lg:justify-self-start lg:text-left">{@render info()}</div>
                 <div class="justify-self-center">{@render controls()}</div>
-                <div class="justify-self-end">
+                <div class="justify-self-center lg:justify-self-end">
                     <div class="flex items-center space-x-2">
                         <span class="text-sm text-gray-700 dark:text-gray-300">Show:</span>
                         <select
@@ -200,7 +200,11 @@
             </div>
         </div>
     {:else}
-        <div class="flex items-center justify-between {noDivider ? 'pt-0' : 'mt-6 border-t border-gray-200 pt-4 dark:border-gray-700'} {className}">
+        <div
+            class="flex flex-wrap items-center justify-between gap-4 {noDivider
+                ? 'pt-0'
+                : 'mt-6 border-t border-gray-200 pt-4 dark:border-gray-700'} {className}"
+        >
             {@render info()}
             {@render controls()}
         </div>

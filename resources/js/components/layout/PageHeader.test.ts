@@ -4,6 +4,14 @@ import { describe, expect, test } from 'vitest';
 import PageHeader from './PageHeader.svelte';
 
 describe('PageHeader', () => {
+    test('lets callers override its default margin', () => {
+        const { container } = render(PageHeader, { props: { title: 'Review', class: 'mb-0' } });
+        const header = container.querySelector('header');
+
+        expect(header?.classList.contains('mb-0')).toBe(true);
+        expect(header?.classList.contains('mb-8')).toBe(false);
+    });
+
     test('can let short descriptions use the available width', () => {
         render(PageHeader, {
             props: {

@@ -11,16 +11,6 @@
     let showMenu = $state(false);
     let containerEl: HTMLDivElement;
 
-    const toggleIcon = $derived.by(() => {
-        const mode = appearanceState.appearance;
-        if (mode === 'dark') return MoonIcon;
-        if (mode === 'light') return SunIcon;
-        // system: check actual preference
-        if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) return MoonIcon;
-        return SunIcon;
-    });
-    let ToggleIcon = $derived(toggleIcon);
-
     const onSelectAppearance = (mode: Appearance) => {
         updateAppearance(mode);
         showMenu = false;
@@ -59,7 +49,8 @@
         type="button"
     >
         <span class="flex h-6 w-6 items-center justify-center" aria-hidden="true">
-            <ToggleIcon class="h-5 w-5" />
+            <SunIcon class="h-5 w-5 dark:hidden" />
+            <MoonIcon class="hidden h-5 w-5 dark:block" />
         </span>
     </Button>
 

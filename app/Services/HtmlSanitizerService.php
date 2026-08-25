@@ -51,6 +51,11 @@ class HtmlSanitizerService
         return $this->doSanitize($this->reviewSanitizer, $html);
     }
 
+    public function sanitizeFvnReview(?string $html): ?string
+    {
+        return $this->doSanitize($this->reviewSanitizer, $html, preserveLineBreaks: true);
+    }
+
     public function sanitizeDescription(?string $html): ?string
     {
         return $this->doSanitize($this->descriptionSanitizer, $html);
@@ -90,15 +95,16 @@ class HtmlSanitizerService
         $game->custom_css = $this->sanitizeCss($game->custom_css);
     }
 
-    private function doSanitize(HtmlSanitizer $sanitizer, ?string $html): ?string
+    private function doSanitize(HtmlSanitizer $sanitizer, ?string $html, bool $preserveLineBreaks = false): ?string
     {
         if ($html === null || $html === '') {
             return $html;
         }
 
         $html = $this->sanitizeInlineStyleAttributes($sanitizer->sanitize($html));
+        $html = preg_replace($preserveLineBreaks ? '/[^\S\r\n]+/' : '/\s+/', ' ', str_replace("\u{00A0}", ' ', $html));
 
-        return trim(preg_replace('/\s+/', ' ', str_replace("\u{00A0}", ' ', $html)));
+        return trim($preserveLineBreaks ? preg_replace('/(?:\R[^\S\r\n]*){3,}/u', "\n\n", $html) : $html);
     }
 
     private function sanitizeInlineStyleAttributes(string $html): string
@@ -167,7 +173,7 @@ class HtmlSanitizerService
                 $property === ''
                 || $value === ''
                 || ! in_array($property, self::ALLOWED_INLINE_STYLE_PROPERTIES, true)
-                || preg_match('/(?:url\s*\(|expression\s*\(|javascript\s*:|vbscript\s*:|data\s*:|@import|-moz-binding|behavior\s*:)/i', $value)
+                || preg_match('/url\s*\(|expression\s*\(|javascript\s*:|vbscript\s*:|data\s*:|@import|-moz-binding|behavior\s*:/i', $value)
             ) {
                 continue;
             }
@@ -208,12 +214,14 @@ class HtmlSanitizerService
             ->allowAttribute('href', ['a'])
             ->allowAttribute('target', ['a'])
             ->allowAttribute('rel', ['a'])
-            ->allowAttribute('src', ['img'])
+            ->allowAttribute('src', ['img', 'video', 'source'])
+            ->allowAttribute('autoplay', ['video'])
             ->allowAttribute('alt', ['img'])
             ->allowAttribute('width', ['img', 'iframe'])
             ->allowAttribute('height', ['img', 'iframe'])
             ->allowAttribute('colspan', ['td', 'th'])
             ->allowAttribute('rowspan', ['td', 'th'])
+            ->forceAttribute('video', 'muted', '')
             ->forceAttribute('a', 'rel', 'noopener');
 
         return new HtmlSanitizer($config);

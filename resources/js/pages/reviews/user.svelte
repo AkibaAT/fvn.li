@@ -1,18 +1,18 @@
 <script lang="ts">
     import SeoHead from '@/components/seo/SeoHead.svelte';
-    import StarIcon from '@/components/icons/Star.svelte';
+    import ReviewTextControls, { useReviewTextStyles } from '@/components/ReviewTextControls.svelte';
+    import RatingRow from '@/components/ratings/RatingRow.svelte';
+    import type { RatingRowData } from '@/components/ratings/types';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
     import Pagination from '@/components/Pagination.svelte';
-    import { Link, router, page } from '@inertiajs/svelte';
+    import { Link, router } from '@inertiajs/svelte';
     import { Button, Card } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
-    import type { SharedData } from '@/types';
 
     interface ReviewGame {
         id: number;
         name: string;
         slug: string;
-        thumb_url?: string;
     }
     interface Review {
         id: number;
@@ -51,10 +51,33 @@
 
     let { reviewUser, reviews, stats, filters, metaTags }: Props = $props();
 
-    const _auth = $derived((page.props as SharedData).auth);
     let isLoading = $state(false);
-    let localReviews = $derived(reviews.data);
-    let spoilerRevealedIds = $state<Set<number>>(new Set());
+    const reviewStylesObj = useReviewTextStyles();
+    const reviewStyle = $derived(
+        `max-width: ${reviewStylesObj.maxWidth}; font-size: ${reviewStylesObj.fontSize}; line-height: ${reviewStylesObj.lineHeight}; margin: ${reviewStylesObj.margin};`,
+    );
+    const rows = $derived(
+        reviews.data
+            .map((review): RatingRowData | null =>
+                review.game
+                    ? {
+                          id: review.id,
+                          score: review.rating,
+                          date: review.published_at,
+                          review: review.is_reviewed ? review.review : null,
+                          game: {
+                              id: review.game.id,
+                              name: review.game.name,
+                              slug: review.game.slug,
+                              primaryUrl: null,
+                          },
+                          isFvnReview: true,
+                          hasSpoilers: review.has_spoilers,
+                      }
+                    : null,
+            )
+            .filter((row): row is RatingRowData => row !== null),
+    );
 
     function navigate(params: Record<string, string | number>) {
         isLoading = true;
@@ -144,103 +167,34 @@
         </Button>
     </div>
 
-    {#if localReviews.length === 0}
+    <ReviewTextControls />
+
+    {#if rows.length === 0}
         <div class="py-12 text-center text-gray-500 dark:text-gray-400">No reviews yet.</div>
     {:else}
-        <div class="space-y-4">
-            {#each localReviews as review (review.id)}
-                <Card variant="outline" padding="sm">
-                    <div class="flex items-start gap-4">
-                        {#if review.game}
-                            <Link href={route('games.show', review.game.slug)} class="shrink-0">
-                                {#if review.game.thumb_url}
-                                    <img src={review.game.thumb_url} alt={review.game.name} class="h-16 w-16 rounded object-cover" loading="lazy" />
-                                {:else}
-                                    <div class="flex h-16 w-16 items-center justify-center rounded bg-gray-100 dark:bg-gray-700">
-                                        <span class="text-xs text-gray-400">No img</span>
-                                    </div>
-                                {/if}
-                            </Link>
-                        {/if}
-                        <div class="min-w-0 flex-1">
-                            <div class="flex items-center justify-between gap-2">
-                                <div class="min-w-0">
-                                    {#if review.game}
-                                        <Link
-                                            href={route('games.show', review.game.slug)}
-                                            class="font-medium text-blue-600 hover:underline dark:text-blue-400">{review.game.name}</Link
-                                        >
-                                    {/if}
-                                </div>
-                                <div class="flex shrink-0 items-center gap-1">
-                                    {#each Array(5) as _, i (i)}
-                                        <StarIcon
-                                            class="h-4 w-4 {i < review.rating
-                                                ? 'fill-yellow-400 text-yellow-400'
-                                                : 'fill-gray-300 text-gray-300 dark:fill-gray-600 dark:text-gray-600'}"
-                                        />
-                                    {/each}
-                                </div>
-                            </div>
-                            {#if review.published_at}
-                                <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                                    {new Date(review.published_at).toLocaleDateString('en-US', {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        year: 'numeric',
-                                    })}
-                                </div>
-                            {/if}
-                            {#if review.review && review.is_reviewed}
-                                <div class="mt-2">
-                                    {#if review.has_spoilers && !spoilerRevealedIds.has(review.id)}
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            tone="warning"
-                                            size="xs"
-                                            onclick={() => {
-                                                spoilerRevealedIds = new Set([...spoilerRevealedIds, review.id]);
-                                            }}
-                                        >
-                                            Contains spoilers. Click to reveal.
-                                        </Button>
-                                    {:else if review.review}
-                                        {#if review.has_spoilers}
-                                            <span
-                                                class="mr-1 inline-block rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                                                >Spoilers</span
-                                            >
-                                        {/if}
-                                        <div class="prose prose-sm max-w-none text-gray-600 dark:text-gray-300 dark:prose-invert">
-                                            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                                            {@html review.review}
-                                        </div>
-                                    {/if}
-                                </div>
-                            {/if}
-                        </div>
-                    </div>
-                </Card>
-            {/each}
-        </div>
+        <Card padding="none" class="shadow">
+            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                {#each rows as row (row.id)}<RatingRow {row} {reviewStyle} />{/each}
+            </div>
+            <div class="p-4">
+                <Pagination
+                    layout="full"
+                    meta={{
+                        current_page: reviews.current_page,
+                        last_page: reviews.last_page,
+                        total: reviews.total,
+                        from: reviews.data.length ? (reviews.current_page - 1) * reviews.per_page + 1 : 0,
+                        to: reviews.data.length ? (reviews.current_page - 1) * reviews.per_page + reviews.data.length : 0,
+                        per_page: reviews.per_page,
+                    }}
+                    onChange={handlePageChange}
+                    onPerPageChange={handlePerPageChange}
+                    loading={isLoading}
+                    label="reviews"
+                    perPageOptions={[10, 25, 50]}
+                    {buildPageUrl}
+                />
+            </div>
+        </Card>
     {/if}
-
-    <Pagination
-        layout="full"
-        meta={{
-            current_page: reviews.current_page,
-            last_page: reviews.last_page,
-            total: reviews.total,
-            from: reviews.data.length ? (reviews.current_page - 1) * reviews.per_page + 1 : 0,
-            to: reviews.data.length ? (reviews.current_page - 1) * reviews.per_page + reviews.data.length : 0,
-            per_page: reviews.per_page,
-        }}
-        onChange={handlePageChange}
-        onPerPageChange={handlePerPageChange}
-        loading={isLoading}
-        label="reviews"
-        perPageOptions={[10, 25, 50]}
-        {buildPageUrl}
-    />
 </div>

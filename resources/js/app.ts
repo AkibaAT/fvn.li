@@ -3,6 +3,7 @@ import { createInertiaApp } from '@inertiajs/svelte';
 import { hydrate, mount } from 'svelte';
 import { initializeAppearance } from '@/hooks/use-appearance.svelte';
 import AppFrame from '@/layouts/AppFrame.svelte';
+import { revealInlineSpoiler } from '@/utils/review-spoilers';
 
 createInertiaApp({
     resolve: async (name) => {
@@ -38,3 +39,11 @@ createInertiaApp({
 });
 
 initializeAppearance();
+
+document.addEventListener('click', (event) => {
+    if (revealInlineSpoiler(event.target)) event.preventDefault();
+});
+
+document.addEventListener('keydown', (event) => {
+    if ((event.key === 'Enter' || event.key === ' ') && revealInlineSpoiler(event.target)) event.preventDefault();
+});

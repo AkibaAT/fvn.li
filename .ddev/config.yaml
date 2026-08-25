@@ -36,7 +36,7 @@ web_extra_exposed_ports:
       https_port: 5273
 web_extra_daemons:
     - name: ssr-1
-      command: bash -lc 'while [ ! -f vendor/autoload.php ] || [ ! -f bootstrap/ssr/ssr.mjs ]; do sleep 5; done; exec php artisan inertia:start-ssr --runtime=bun'
+      command: bash -lc 'while [ ! -f vendor/autoload.php ] || [ ! -f bootstrap/ssr/ssr.js ]; do sleep 5; done; exec php artisan inertia:start-ssr --runtime=bun'
       directory: /var/www/html
     - name: vite-1
       command: bash -lc 'while [ ! -f vendor/autoload.php ] || [ ! -d node_modules ]; do sleep 5; done; exec bun run dev'

@@ -174,12 +174,12 @@
     <PageHeader title="Browse Visual Novels" class="mb-0" />
 
     <Card variant="glass" padding="none" class="-mt-2 px-4 py-3 shadow-none">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div class="flex flex-wrap items-center gap-2 lg:flex-1">
+        <div class="flex flex-col gap-3 min-[56rem]:flex-row min-[56rem]:items-center min-[56rem]:justify-between">
+            <div class="flex flex-wrap items-center gap-2 min-[56rem]:flex-1">
                 <ActiveFilterChips chips={buildActiveFilterChips()} onClearAll={clearFilters} {getPlatformIcon} {getStorePlatformIcon} />
             </div>
 
-            <div class="hidden h-6 w-px bg-gray-300 lg:block dark:bg-gray-600"></div>
+            <div class="hidden h-6 w-px bg-gray-300 min-[56rem]:block dark:bg-gray-600"></div>
 
             <SortControls
                 currentSort={currentFilters.sort || ''}
@@ -190,7 +190,7 @@
                 hasSearch={Boolean(currentFilters.search?.trim())}
             />
 
-            <div class="hidden h-6 w-px bg-gray-300 lg:block dark:bg-gray-600"></div>
+            <div class="hidden h-6 w-px bg-gray-300 min-[56rem]:block dark:bg-gray-600"></div>
 
             <div class="flex flex-wrap items-center gap-2">
                 <Button

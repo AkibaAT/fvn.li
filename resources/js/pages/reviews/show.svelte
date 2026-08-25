@@ -1,19 +1,22 @@
 <script lang="ts">
     import SeoHead from '@/components/seo/SeoHead.svelte';
+    import TinyMCEEditor from '@/components/editor/TinyMCEEditor.svelte';
+    import ChevronLeftIcon from '@/components/icons/ChevronLeft.svelte';
     import PencilIcon from '@/components/icons/Pencil.svelte';
     import StarIcon from '@/components/icons/Star.svelte';
+    import ReviewTextControls, { useReviewTextStyles } from '@/components/ReviewTextControls.svelte';
     import { untrack } from 'svelte';
     import { Link, page } from '@inertiajs/svelte';
-    import { Button, Card, Checkbox, Textarea } from '@/components/ui';
+    import { Button, Card, Checkbox, PlatformIcon, Stars } from '@/components/ui';
     import type { SharedData } from '@/types';
     import { submitUserReview } from '@/api/user-reviews';
     import PageHeader from '@/components/layout/PageHeader.svelte';
+    import { formatLocalDate } from '@/utils/date-formatting';
 
     interface ReviewGame {
         id: number;
         name: string;
         slug: string;
-        thumb_url?: string;
     }
     interface ReviewUser {
         id: number;
@@ -64,6 +67,10 @@
     const authorName = $derived(review.user?.name ?? review.rater?.name ?? 'Unknown');
     const isUserReview = $derived(Boolean(review.user));
     const isOwnReview = $derived(isUserReview && currentUserId === review.user?.id);
+    const reviewStyles = useReviewTextStyles();
+    const reviewStyle = $derived(
+        `max-width: ${reviewStyles.maxWidth}; font-size: ${reviewStyles.fontSize}; line-height: ${reviewStyles.lineHeight}; margin: ${reviewStyles.margin};`,
+    );
 
     async function handleEditSubmit(e: Event) {
         e.preventDefault();
@@ -94,86 +101,71 @@
 
 <SeoHead {metaTags} title={`Review by ${authorName}`} />
 
+<div class="sticky top-[4.5rem] z-40 mb-5 flex border-b border-gray-200 bg-gray-100 px-4 py-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+    <Link
+        href={review.game ? route('games.show', review.game.slug) : route('ratings.index')}
+        class="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+    >
+        <ChevronLeftIcon class="mr-1 h-5 w-5" />
+        {review.game ? `Back to ${review.game.name}` : 'Back to Ratings'}
+    </Link>
+</div>
+
 <div class="space-y-6">
-    <PageHeader
-        title={`Review by ${authorName}`}
-        backHref={review.game ? route('games.show', review.game.slug) : route('ratings.index')}
-        backLabel={review.game ? `Back to ${review.game.name}` : 'Back to Ratings'}
-        class="mb-0"
-    />
-
-    <Card variant="outline" padding="lg">
-        {#if review.game}
-            <Link
-                href={route('games.show', review.game.slug)}
-                class="mb-4 flex items-center gap-3 rounded-lg bg-gray-50 p-3 transition-colors hover:bg-gray-100 dark:bg-gray-700/50 dark:hover:bg-gray-700"
-            >
-                {#if review.game.thumb_url}
-                    <img src={review.game.thumb_url} alt={review.game.name} class="h-12 w-12 rounded object-cover" />
-                {/if}
-                <div>
-                    <div class="font-medium text-gray-900 dark:text-gray-100">{review.game.name}</div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">View game page</div>
-                </div>
-            </Link>
-        {/if}
-
-        <div class="mb-4 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                {#if review.user?.avatar}
-                    <img src={review.user.avatar} alt="" aria-hidden="true" class="h-8 w-8 rounded-full" />
-                {/if}
-                <div>
-                    <div class="flex items-center gap-2">
-                        {#if isUserReview && review.user}
-                            <Link
-                                href={route('users.reviews', review.user.id)}
-                                class="font-medium text-gray-900 hover:text-blue-600 dark:text-gray-100 dark:hover:text-blue-400"
-                            >
-                                {authorName}
-                            </Link>
-                        {:else if review.rater}
-                            <Link
-                                href={route('raters.show', review.rater.id)}
-                                class="font-medium text-gray-900 hover:text-blue-600 dark:text-gray-100 dark:hover:text-blue-400"
-                            >
-                                {authorName}
-                            </Link>
-                        {:else}
-                            <span class="font-medium text-gray-900 dark:text-gray-100">{authorName}</span>
-                        {/if}
-                        {#if isUserReview}
-                            <span class="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                                >FVN.li</span
-                            >
-                        {/if}
-                    </div>
+    <Card padding="lg">
+        <PageHeader title={review.game ? `Review of ${review.game.name}` : `Review by ${authorName}`} class="mb-0">
+            {#snippet metadata()}
+                <div class="flex flex-wrap items-center gap-2">
+                    {#if review.user?.avatar}
+                        <img src={review.user.avatar} alt="" aria-hidden="true" class="h-5 w-5 rounded-full" />
+                    {/if}
+                    <span>Review by</span>
+                    {#if isUserReview && review.user}
+                        <Link href={route('users.reviews', review.user.id)} class="font-medium text-gray-800 hover:underline dark:text-gray-100">
+                            {authorName}
+                        </Link>
+                    {:else if review.rater}
+                        <Link href={route('raters.show', review.rater.id)} class="font-medium text-gray-800 hover:underline dark:text-gray-100">
+                            {authorName}
+                        </Link>
+                    {:else}
+                        <span class="font-medium text-gray-800 dark:text-gray-100">{authorName}</span>
+                    {/if}
+                    {#if isUserReview}
+                        <span class="rounded bg-blue-100 px-1 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                            >FVN.li</span
+                        >
+                    {:else if review.rater?.external_platform}
+                        <PlatformIcon platform={review.rater.external_platform} />
+                    {/if}
                     {#if review.published_at}
-                        <div class="text-sm text-gray-500 dark:text-gray-400">
-                            {new Date(review.published_at).toLocaleDateString('en-US', {
-                                month: 'long',
-                                day: 'numeric',
-                                year: 'numeric',
-                            })}
-                        </div>
+                        <span aria-hidden="true">&middot;</span>
+                        <time datetime={review.published_at}>{formatLocalDate(review.published_at)}</time>
                     {/if}
                 </div>
-            </div>
+            {/snippet}
+            {#snippet actions()}
+                <div class="flex items-center gap-2">
+                    <Stars rating={review.rating} />
+                    <span class="font-semibold text-gray-700 dark:text-gray-300">{review.rating}/5</span>
+                </div>
+                {#if isOwnReview && review.game && !isEditing}
+                    <Button type="button" variant="soft" tone="primary" size="sm" onclick={() => (isEditing = true)} class="gap-1.5">
+                        <PencilIcon class="h-4 w-4" />
+                        Edit review
+                    </Button>
+                {/if}
+            {/snippet}
+        </PageHeader>
+    </Card>
 
-            <div class="flex items-center gap-1">
-                {#each Array(5) as _, i (i)}
-                    <StarIcon
-                        class="h-6 w-6 {i < review.rating
-                            ? 'fill-yellow-400 text-yellow-400'
-                            : 'fill-gray-300 text-gray-300 dark:fill-gray-600 dark:text-gray-600'}"
-                    />
-                {/each}
-                <span class="ml-1 text-lg font-medium text-gray-700 dark:text-gray-300">{review.rating}/5</span>
-            </div>
-        </div>
+    {#if review.review && review.is_reviewed && !isEditing}
+        <ReviewTextControls />
+    {/if}
 
+    <Card padding="lg">
         {#if isEditing && review.game}
-            <form onsubmit={handleEditSubmit} class="mt-4 space-y-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+            <form onsubmit={handleEditSubmit} class="space-y-4">
                 <fieldset>
                     <legend class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Rating *</legend>
                     <div class="flex items-center gap-1">
@@ -205,16 +197,19 @@
                 </fieldset>
                 <div>
                     <label for="edit-review-text" class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Review (optional)</label>
-                    <Textarea
+                    <TinyMCEEditor
                         id="edit-review-text"
-                        bind:value={editReviewText}
-                        rows={6}
-                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                        ariaLabel="Review (optional)"
+                        content={editReviewText}
+                        onUpdate={(content) => (editReviewText = content)}
                         placeholder="Share your thoughts..."
+                        height={240}
+                        disableImages
+                        reviewMode
                     />
                 </div>
                 {#if editReviewText.trim().length > 0}
-                    <Checkbox bind:checked={editHasSpoilers} label="This review contains spoilers" />
+                    <Checkbox bind:checked={editHasSpoilers} label="Mark the whole review as a spoiler" />
                 {/if}
                 {#if editError}
                     <div class="text-sm text-red-600 dark:text-red-400">{editError}</div>
@@ -223,18 +218,12 @@
                     <Button type="submit" variant="solid" tone="primary" disabled={editRating === 0 || editIsSubmitting} loading={editIsSubmitting}>
                         {editIsSubmitting ? 'Saving...' : 'Update Review'}
                     </Button>
-                    <Button
-                        type="button"
-                        variant="soft"
-                        tone="neutral"
-                        size="sm"
-                        onclick={() => (isEditing = false)}>Cancel</Button
-                    >
+                    <Button type="button" variant="soft" tone="neutral" size="sm" onclick={() => (isEditing = false)}>Cancel</Button>
                 </div>
             </form>
         {:else}
             {#if review.review && review.is_reviewed}
-                <div class="mt-4">
+                <div>
                     {#if review.has_spoilers}
                         <span
                             class="mr-1 mb-2 inline-block rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
@@ -242,47 +231,24 @@
                         >
                     {/if}
                     {#if review.has_spoilers && !spoilerRevealed}
-                        <Button
-                            type="button"
-                            variant="outline"
-                            tone="warning"
-                            size="sm"
-                            onclick={() => (spoilerRevealed = true)}
-                        >
+                        <Button type="button" variant="outline" tone="warning" size="sm" onclick={() => (spoilerRevealed = true)}>
                             This review contains spoilers. Click to reveal.
                         </Button>
                     {:else if review.review}
-                        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                        <div class="prose max-w-none text-gray-700 dark:text-gray-300 dark:prose-invert">{@html review.review}</div>
+                        <div
+                            class="prose max-w-none text-gray-700 dark:text-gray-300 dark:prose-invert"
+                            class:fvn-review={isUserReview}
+                            style={reviewStyle}
+                        >
+                            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                            {@html review.review}
+                        </div>
                     {/if}
                 </div>
             {/if}
             {#if !review.review}
-                <p class="mt-4 text-gray-500 italic dark:text-gray-400">Rating only, no written review.</p>
-            {/if}
-            {#if isOwnReview && review.game}
-                <div class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
-                    <Button
-                        type="button"
-                        variant="link"
-                        tone="primary"
-                        size="sm"
-                        onclick={() => (isEditing = true)}
-                        class="gap-1.5"
-                    >
-                        <PencilIcon class="h-4 w-4" />
-                        Edit this review
-                    </Button>
-                </div>
+                <p class="text-gray-500 italic dark:text-gray-400">Rating only, no written review.</p>
             {/if}
         {/if}
     </Card>
-
-    {#if review.game}
-        <div class="text-center">
-            <Link href="{route('games.show', review.game.slug)}#review-{review.id}" class="text-sm text-blue-600 hover:underline dark:text-blue-400">
-                View all reviews for {review.game.name}
-            </Link>
-        </div>
-    {/if}
 </div>

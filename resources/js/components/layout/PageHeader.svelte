@@ -1,6 +1,7 @@
 <script lang="ts">
     import { Link } from '@inertiajs/svelte';
     import clsx from 'clsx';
+    import { twMerge } from 'tailwind-merge';
     import type { Snippet } from 'svelte';
 
     interface Props {
@@ -30,7 +31,7 @@
     }: Props = $props();
 </script>
 
-<header class={clsx('mb-8', align === 'center' && 'text-center', className)}>
+<header class={twMerge(clsx('mb-8', align === 'center' && 'text-center', className))}>
     {#if backHref}
         <Link
             href={backHref}

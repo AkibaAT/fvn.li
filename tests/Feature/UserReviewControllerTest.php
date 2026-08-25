@@ -59,17 +59,18 @@ it('creates sanitizes and updates the authenticated user review', function () {
     $this->actingAs($user)
         ->postJson(route('browser-api.user-reviews.store', $game->id), [
             'rating' => 3,
-            'review' => 'Updated thoughts.',
+            'review' => "Updated thoughts.\n\n\n\nStill recommended.",
             'has_spoilers' => false,
         ])
         ->assertOk()
         ->assertJsonPath('message', 'Review updated.')
         ->assertJsonPath('review.id', $rating->id)
         ->assertJsonPath('review.rating', 3)
-        ->assertJsonPath('review.review', 'Updated thoughts.')
+        ->assertJsonPath('review.review', "Updated thoughts.\n\nStill recommended.")
         ->assertJsonPath('review.has_spoilers', false);
 
-    expect(Rating::where('user_id', $user->id)->where('game_id', $game->id)->count())->toBe(1);
+    expect($rating->fresh()->review)->toBe("Updated thoughts.\n\nStill recommended.")
+        ->and(Rating::where('user_id', $user->id)->where('game_id', $game->id)->count())->toBe(1);
 });
 
 it('stores rating-only submissions as not reviewed', function () {

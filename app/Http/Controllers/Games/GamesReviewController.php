@@ -42,7 +42,9 @@ class GamesReviewController extends Controller
         $previousCounts = Rating::previousRatingCountsForGame($game->id, $reviews->getCollection()->pluck('rater_id'));
 
         $reviews->through(function ($rating) use ($sanitizer, $previousCounts) {
-            $rating->review = $sanitizer->sanitizeReview($rating->review);
+            $rating->review = $rating->source_platform === 'fvn_li'
+                ? $sanitizer->sanitizeFvnReview($rating->review)
+                : $sanitizer->sanitizeReview($rating->review);
             $rating->previous_ratings_count = $rating->rater_id !== null ? (int) ($previousCounts[$rating->rater_id] ?? 0) : 0;
 
             return $rating;

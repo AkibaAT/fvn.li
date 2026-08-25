@@ -13,6 +13,9 @@
         height?: number;
         gameId?: number | string;
         disableImages?: boolean;
+        reviewMode?: boolean;
+        id?: string;
+        ariaLabel?: string;
         onReady?: () => void;
     }
 
@@ -24,6 +27,9 @@
         height = 400,
         gameId,
         disableImages = false,
+        reviewMode = false,
+        id,
+        ariaLabel,
         onReady,
     }: Props = $props();
 
@@ -61,13 +67,13 @@
             base_url: '/assets/tinymce',
             suffix: '.min',
             height,
-            min_height: 400,
-            max_height: 800,
+            min_height: reviewMode ? 220 : 400,
+            max_height: reviewMode ? 600 : 800,
             menubar: false,
-            resize: 'both',
+            resize: reviewMode ? 'vertical' : 'both',
             autoresize_bottom_margin: 50,
-            autoresize_min_height: Math.max(height, 400),
-            autoresize_max_height: 1200,
+            autoresize_min_height: Math.max(height, reviewMode ? 220 : 400),
+            autoresize_max_height: reviewMode ? 600 : 1200,
 
             relative_urls: false,
             remove_script_host: true,
@@ -76,29 +82,46 @@
             skin: isDarkMode() ? 'oxide-dark' : 'oxide',
             content_css: isDarkMode() ? 'dark' : 'default',
 
-            plugins: [
-                'advlist',
-                'autolink',
-                'lists',
-                'link',
-                ...(disableImages ? [] : ['image']),
-                'charmap',
-                'preview',
-                'searchreplace',
-                'visualblocks',
-                'fullscreen',
-                'insertdatetime',
-                ...(disableImages ? [] : ['media']),
-                'table',
-                'help',
-                'wordcount',
-                'code',
-                'codesample',
-                'autoresize',
-            ],
-            toolbar: disableImages
-                ? 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | link | code | fullscreen | help'
-                : 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | image imagepicker media link | code | fullscreen | help',
+            plugins: reviewMode
+                ? ['autolink', 'lists', 'link', 'table', 'autoresize']
+                : [
+                      'advlist',
+                      'autolink',
+                      'lists',
+                      'link',
+                      ...(disableImages ? [] : ['image']),
+                      'charmap',
+                      'preview',
+                      'searchreplace',
+                      'visualblocks',
+                      'fullscreen',
+                      'insertdatetime',
+                      ...(disableImages ? [] : ['media']),
+                      'table',
+                      'help',
+                      'wordcount',
+                      'code',
+                      'codesample',
+                      'autoresize',
+                  ],
+            toolbar: reviewMode
+                ? 'undo redo | bold italic strikethrough spoiler | bullist numlist | table link | alignleft aligncenter alignright'
+                : disableImages
+                  ? 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | link | code | fullscreen | help'
+                  : 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | image imagepicker media link | code | fullscreen | help',
+            formats: reviewMode
+                ? {
+                      spoiler: {
+                          inline: 'span',
+                          classes: 'spoiler',
+                          attributes: {
+                              tabindex: '0',
+                              role: 'button',
+                              title: 'Click or focus to reveal spoiler',
+                          },
+                      },
+                  }
+                : undefined,
             content_style: `
                 body {
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -177,12 +200,19 @@
                     font-style: italic;
                     color: var(--color-editor-pre-text);
                 }
+                .spoiler {
+                    background-color: #fef3c7;
+                    border-bottom: 2px solid #d97706;
+                    border-radius: 3px;
+                    padding: 0 2px;
+                }
             `,
             placeholder,
+            aria_label: ariaLabel,
             branding: false,
             promotion: false,
             elementpath: false,
-            statusbar: true,
+            statusbar: !reviewMode,
 
             image_advtab: true,
             image_uploadtab: true,
@@ -214,6 +244,20 @@
             paste_remove_styles_if_webkit: false,
 
             setup: (editor: any) => {
+                if (reviewMode) {
+                    editor.ui.registry.addToggleButton('spoiler', {
+                        text: 'Spoiler',
+                        tooltip: 'Mark selected text as a spoiler',
+                        onAction: () => editor.formatter.toggle('spoiler'),
+                        onSetup: (api: { setActive: (active: boolean) => void }) => {
+                            const updateState = () => api.setActive(editor.formatter.match('spoiler'));
+                            editor.on('NodeChange', updateState);
+
+                            return () => editor.off('NodeChange', updateState);
+                        },
+                    });
+                }
+
                 editor.ui.registry.addButton('imagepicker', {
                     text: 'Gallery',
                     icon: 'gallery',
@@ -254,6 +298,9 @@
                 });
 
                 editor.on('init', () => {
+                    if (reviewMode) {
+                        editor.getContainer().classList.add('review-editor');
+                    }
                     editor.setContent(content);
                     if (!editable) {
                         editor.mode.set('readonly');
@@ -288,4 +335,10 @@
     }
 </script>
 
-<textarea bind:this={editorEl} style="visibility: hidden;"></textarea>
+<textarea
+    bind:this={editorEl}
+    {id}
+    aria-label={ariaLabel}
+    value={content}
+    oninput={(event) => onUpdate((event.currentTarget as HTMLTextAreaElement).value)}
+    style="visibility: hidden;"></textarea>

@@ -35,6 +35,8 @@ export type RatingRowData = {
     };
     previousRatingCount?: number;
     onOpenHistory?: () => void;
+    isFvnReview?: boolean;
+    hasSpoilers?: boolean;
 };
 
 const emptyStatsBlock = (): StatsBlock => ({

@@ -84,7 +84,9 @@ class SanitizeReviewHtml extends Command
                     $lastId = (int) $rating->id;
 
                     $original = (string) $rating->review;
-                    $sanitized = $sanitizer->sanitizeReview($original) ?? '';
+                    $sanitized = ($rating->source_platform === 'fvn_li'
+                        ? $sanitizer->sanitizeFvnReview($original)
+                        : $sanitizer->sanitizeReview($original)) ?? '';
 
                     if ($original === $sanitized) {
                         $stats['unchanged']++;
