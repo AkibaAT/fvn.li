@@ -6,6 +6,7 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use Illuminate\Http\Request;
+use Inertia\Testing\AssertableInertia as Assert;
 use SocialiteProviders\Manager\Config as SocialiteConfig;
 use Tests\Support\TestableItchIoProvider;
 
@@ -26,6 +27,14 @@ function testableItchProvider(?MockHandler $mockHandler = null): TestableItchIoP
 
     return $provider;
 }
+
+test('itch io callback page renders without metadata', function () {
+    $this->get(route('auth.itchio.callback'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/itchio-callback')
+            ->missing('metaTags'));
+});
 
 test('itch io provider exposes implicit oauth fields and maps api users', function () {
     $provider = testableItchProvider();

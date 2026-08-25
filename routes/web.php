@@ -231,7 +231,7 @@ Route::get('system/status', [SystemStatusController::class, 'systemStatus'])
 // Social Authentication Routes
 Route::get('auth/telegram', function () {
     return Inertia::render('auth/telegram-login', [
-        'metaTags' => MetaTags::page(title: 'Login with Telegram')->toArray(),
+        'metaTags' => new MetaTags(title: 'Login with Telegram')->toArray(),
     ]);
 })->name('auth.telegram');
 
@@ -240,9 +240,7 @@ Route::get('auth/{provider}/redirect', [SocialAuthController::class, 'redirectTo
 
 // Special routes for itch.io
 Route::get('auth/itchio/callback', function () {
-    return Inertia::render('auth/itchio-callback', [
-        'metaTags' => MetaTags::page(title: 'Completing itch.io Login')->toArray(),
-    ]);
+    return Inertia::render('auth/itchio-callback');
 })->name('auth.itchio.callback');
 
 Route::get('auth/itchio/process', function () {
