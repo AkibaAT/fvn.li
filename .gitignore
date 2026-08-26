@@ -42,10 +42,6 @@ yarn-error.log
 frankenphp
 .aider*
 
-# Writerside build artifacts
-/Writerside/artifacts/
-/Writerside/.idea/
-
 # E2E and accessibility test reports
 /tests/e2e/reports/
 /playwright-report/

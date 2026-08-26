@@ -1,15 +1,8 @@
 # FVN.li - Visual Novel Analytics and Tracking
 
-[![Deploy Documentation](https://github.com/AkibaAT/fvn.li/actions/workflows/deploy-docs.yml/badge.svg)](https://github.com/AkibaAT/fvn.li/actions/workflows/deploy-docs.yml)
-
 FVN.li is a web application that tracks, analyzes, and provides insights into games published on itch.io. It collects
 data about games, their versions, ratings, and dialogue content, making it easier for users to discover and evaluate
 games on the platform. The project is deployed and accessible at [FVN.li](https://fvn.li).
-
-## Documentation
-
-**[View Documentation](https://akibaat.github.io/fvn.li/)** - Documentation built with Material for MkDocs and
-deployed to GitHub Pages.
 
 ## Features
 
@@ -33,8 +26,6 @@ deployed to GitHub Pages.
 - **Testing**: PHPUnit/Pest, Vitest for Svelte units, and Playwright for E2E/accessibility testing through the DDEV Playwright sidecar
 - **Deployment**: Docker for containerized deployment
 - **API**: RESTful API endpoints for Discord bot integration
-
-For detailed architecture information, see the [Frontend Architecture](https://akibaat.github.io/fvn.li/frontend-architecture/) documentation.
 
 ## Getting Started
 
@@ -88,8 +79,6 @@ For detailed architecture information, see the [Frontend Architecture](https://a
    ```
 
 9. Access the application at [https://fvn-li.ddev.site](https://fvn-li.ddev.site)
-
-For more detailed development instructions, see the [Development Guide](https://akibaat.github.io/fvn.li/development-guide/).
 
 ## Database Structure
 
