@@ -42,7 +42,7 @@ class GamesDisplayController extends Controller
         $reviews = $game->ratings()
             ->where('is_visible', true)
             ->where('is_reviewed', true)
-            ->with(['rater', 'user:id,name,avatar'])
+            ->with(['rater.user:id,name,avatar', 'user:id,name,avatar'])
             ->orderBy('published_at', 'desc')
             ->paginate(5);
 
@@ -53,6 +53,7 @@ class GamesDisplayController extends Controller
                 ? $sanitizer->sanitizeFvnReview($rating->review)
                 : $sanitizer->sanitizeReview($rating->review);
             $rating->previous_ratings_count = $rating->rater_id !== null ? (int) ($previousCounts[$rating->rater_id] ?? 0) : 0;
+            $rating->assignAuthorUser();
 
             return $rating;
         });

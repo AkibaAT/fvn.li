@@ -14,12 +14,16 @@ class RatingPresenter
 
     public function indexRatingRow(object $row): array
     {
+        $isFvnReview = ($row->source_platform ?? null) === 'fvn_li';
+
         return [
             'id' => (int) $row->id,
             'score' => (int) $row->rating,
             'created_at' => optional($row->published_at) ? (string) $row->published_at : null,
             'is_reviewed' => (bool) $row->is_reviewed,
-            'review' => $this->sanitizeReview($row->review),
+            'review' => $this->sanitizeReview($row->review, $isFvnReview),
+            'has_spoilers' => (bool) ($row->has_spoilers ?? false),
+            'source_platform' => $row->source_platform ?? null,
             'game' => [
                 'id' => (int) $row->game_id,
                 'name' => $row->game_name,
@@ -28,11 +32,16 @@ class RatingPresenter
                 'platform' => $row->game_platform,
                 'is_visible' => (bool) $row->game_is_visible,
             ],
-            'rater' => [
+            'user' => $row->user_id ? [
+                'id' => (int) $row->user_id,
+                'name' => $row->user_name,
+                'avatar' => $row->user_avatar,
+            ] : null,
+            'rater' => $row->rater_id ? [
                 'id' => (int) $row->rater_id,
                 'name' => $row->rater_name,
-                'external_platform' => $row->rater_platform ?? 'itch_io',
-            ],
+                'external_platform' => $row->rater_platform,
+            ] : null,
         ];
     }
 
@@ -74,10 +83,10 @@ class RatingPresenter
                 'slug' => $review->game->slug,
                 'thumb_url' => $review->game->getThumbnailUrl('small'),
             ] : null,
-            'user' => $review->user ? [
-                'id' => $review->user->id,
-                'name' => $review->user->name,
-                'avatar' => $review->user->avatar,
+            'user' => ($author = $review->authorUser()) ? [
+                'id' => $author->id,
+                'name' => $author->name,
+                'avatar' => $author->avatar,
             ] : null,
             'rater' => $review->rater ? [
                 'id' => $review->rater->id,
@@ -92,10 +101,11 @@ class RatingPresenter
         return [
             'id' => $review->id,
             'rating' => (int) $review->rating,
-            'review' => $this->sanitizeReview($review->review, true),
+            'review' => $this->sanitizeReview($review->review, $review->source_platform === 'fvn_li'),
             'published_at' => $review->published_at?->toISOString(),
             'is_reviewed' => $review->is_reviewed,
             'has_spoilers' => (bool) $review->has_spoilers,
+            'source_platform' => $review->source_platform,
             'game' => $review->game ? [
                 'id' => $review->game->id,
                 'name' => $review->game->name,

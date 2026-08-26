@@ -163,7 +163,7 @@
 <SeoHead {metaTags} title="Public Visual Novel Lists" />
 
 <div class="space-y-8">
-    <PageHeader title="Public Visual Novel Lists" class="mb-0">
+    <PageHeader title="Public Visual Novel Lists">
         {#snippet actions()}
             <Link
                 href={route('lists.index')}

@@ -29,6 +29,17 @@ class SocialAccount extends Model
         'itchio_game_ids' => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        static::saved(function (SocialAccount $account) {
+            Rater::syncUserFromSocialAccount($account);
+        });
+
+        static::deleted(function (SocialAccount $account) {
+            Rater::clearUserFromSocialAccount($account);
+        });
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

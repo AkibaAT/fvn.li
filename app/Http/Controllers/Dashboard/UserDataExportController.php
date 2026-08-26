@@ -89,16 +89,26 @@ class UserDataExportController extends Controller
                 ];
             })->values();
 
-        $ratings = (Rating::where('user_id', $user->id)
+        $ratings = Rating::query()
+            ->authoredBy($user->id)
+            ->with(['game:id,name,slug'])
             ->orderBy('published_at', 'desc')
             ->get([
-                'id', 'game_id', 'rating', 'is_reviewed', 'published_at', 'created_at', 'updated_at', 'review',
-            ]))->map(function ($r) {
+                'id', 'game_id', 'rating', 'is_reviewed', 'source_platform',
+                'published_at', 'created_at', 'updated_at', 'review',
+            ])
+            ->map(function ($r) {
                 return [
                     'id' => $r->id,
                     'game_id' => $r->game_id,
+                    'game' => $r->game ? [
+                        'id' => $r->game->id,
+                        'name' => $r->game->name,
+                        'slug' => $r->game->slug,
+                    ] : null,
                     'rating' => $r->rating,
                     'is_reviewed' => (bool) $r->is_reviewed,
+                    'source_platform' => $r->source_platform,
                     'content' => $r->review,
                     'published_at' => $r->published_at?->toISOString(),
                     'created_at' => $r->created_at?->toISOString(),
@@ -191,6 +201,7 @@ class UserDataExportController extends Controller
             $profile,
             $socialAccounts,
             $lists,
+            $ratings,
             $gameProgress,
             $notificationPreferences,
             $notificationHistory,
@@ -211,6 +222,7 @@ class UserDataExportController extends Controller
                     $profile,
                     $socialAccounts,
                     $lists,
+                    $ratings,
                     $gameProgress,
                     $notificationPreferences,
                     $notificationHistory,
@@ -231,6 +243,7 @@ class UserDataExportController extends Controller
                 $profile,
                 $socialAccounts,
                 $lists,
+                $ratings,
                 $gameProgress,
                 $notificationPreferences,
                 $notificationHistory,
@@ -253,6 +266,7 @@ class UserDataExportController extends Controller
         array $profile,
         Collection $socialAccounts,
         Collection $lists,
+        Collection $ratings,
         Collection $gameProgress,
         Collection $notificationPreferences,
         Collection $notificationHistory,
@@ -262,6 +276,7 @@ class UserDataExportController extends Controller
         $zip->addFromString('social_accounts.json',
             json_encode($socialAccounts, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $zip->addFromString('lists.json', json_encode($lists, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $zip->addFromString('ratings.json', json_encode($ratings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $zip->addFromString('game_progress.json',
             json_encode($gameProgress, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $zip->addFromString('notification_preferences.json',
@@ -327,7 +342,29 @@ class UserDataExportController extends Controller
         $zip->addFromString('list_entries.csv', stream_get_contents($entriesCsv));
         fclose($entriesCsv);
 
-        // Ratings CSV removed
+        $ratingsCsv = fopen('php://temp', 'w+');
+        fputcsv($ratingsCsv, [
+            'id', 'game_id', 'game_name', 'game_slug', 'rating', 'is_reviewed', 'source_platform', 'content',
+            'published_at', 'created_at', 'updated_at',
+        ], ',', '"', '\\');
+        foreach ($ratings as $r) {
+            fputcsv($ratingsCsv, [
+                $r['id'],
+                $r['game_id'],
+                $r['game']['name'] ?? null,
+                $r['game']['slug'] ?? null,
+                $r['rating'],
+                $r['is_reviewed'] ? 1 : 0,
+                $r['source_platform'],
+                $r['content'],
+                $r['published_at'],
+                $r['created_at'],
+                $r['updated_at'],
+            ], ',', '"', '\\');
+        }
+        rewind($ratingsCsv);
+        $zip->addFromString('ratings.csv', stream_get_contents($ratingsCsv));
+        fclose($ratingsCsv);
 
         // Social accounts CSV
         $socialAccountsCsv = fopen('php://temp', 'w+');

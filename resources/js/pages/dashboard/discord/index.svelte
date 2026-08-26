@@ -44,7 +44,6 @@
         description="Manage Discord server configurations for game notifications"
         backHref={route('dashboard')}
         backLabel="Back to Dashboard"
-        class="mb-0"
     />
 
     {#if !hasDiscord}

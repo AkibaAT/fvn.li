@@ -73,7 +73,7 @@
 <SeoHead {metaTags} title={`Edit List - ${vnList.name}`} />
 
 <div class="mx-auto max-w-2xl space-y-8">
-    <PageHeader title="Edit List" backHref={route('lists.show', vnList.id)} backLabel="Back to list" class="mb-0" />
+    <PageHeader title="Edit List" backHref={route('lists.show', vnList.id)} backLabel="Back to list" />
 
     <Card variant="glass">
         <form onsubmit={handleSubmit} class="space-y-6">

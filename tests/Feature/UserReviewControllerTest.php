@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Game;
+use App\Models\Rater;
 use App\Models\Rating;
 use App\Models\User;
 
@@ -188,4 +189,44 @@ it('shows and deletes only the authenticated user review', function () {
             'success' => false,
             'message' => 'Review not found.',
         ]);
+});
+
+it('does not edit or delete linked imported ratings', function () {
+    $user = User::factory()->create();
+    $game = userReviewGame();
+    $rater = Rater::factory()->create([
+        'user_id' => $user->id,
+        'external_platform' => 'itch_io',
+    ]);
+    $imported = Rating::create([
+        'game_id' => $game->id,
+        'rater_id' => $rater->id,
+        'rating' => 2,
+        'review' => 'Imported itch review.',
+        'is_visible' => true,
+        'is_reviewed' => true,
+        'source_platform' => 'itch_io',
+        'published_at' => now()->subDay(),
+    ]);
+
+    $this->actingAs($user)
+        ->getJson(route('browser-api.user-reviews.show', $game->id))
+        ->assertOk()
+        ->assertJsonPath('review', null);
+
+    $this->actingAs($user)
+        ->deleteJson(route('browser-api.user-reviews.destroy', $game->id))
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->postJson(route('browser-api.user-reviews.store', $game->id), [
+            'rating' => 5,
+            'review' => 'My site review.',
+        ])
+        ->assertOk();
+
+    expect($imported->fresh()->rating)->toBe(2.0)
+        ->and($imported->fresh()->review)->toBe('Imported itch review.')
+        ->and($imported->fresh()->source_platform)->toBe('itch_io')
+        ->and(Rating::where('user_id', $user->id)->where('game_id', $game->id)->where('source_platform', 'fvn_li')->exists())->toBeTrue();
 });

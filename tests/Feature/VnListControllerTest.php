@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Models\Game;
+use App\Models\Rater;
+use App\Models\Rating;
 use App\Models\User;
 use App\Models\UserGameProgress;
 use App\Models\VnList;
@@ -230,6 +232,45 @@ it('renders public owner lists and hides private lists from other users', functi
 it('rejects malformed user ids before public list route model binding', function () {
     $this->get('/users/12%C2%BF669/lists')
         ->assertNotFound();
+});
+
+it('shows the list owner site rating on list entries', function () {
+    $owner = User::factory()->create();
+    [$list, $game] = makeListWithEntry($owner, [
+        'name' => 'Reading List',
+        'type' => 'reading',
+        'is_public' => false,
+    ]);
+    $siteRating = Rating::create([
+        'game_id' => $game->id,
+        'user_id' => $owner->id,
+        'rating' => 5,
+        'review' => 'Loved this one.',
+        'is_visible' => true,
+        'is_reviewed' => true,
+        'source_platform' => 'fvn_li',
+        'published_at' => now(),
+    ]);
+    Rating::create([
+        'game_id' => $game->id,
+        'rater_id' => Rater::factory()->create()->id,
+        'rating' => 2,
+        'review' => 'Imported itch take.',
+        'is_visible' => true,
+        'is_reviewed' => true,
+        'source_platform' => 'itch_io',
+        'published_at' => now()->subHour(),
+    ]);
+
+    $response = $this->actingAs($owner)->get(route('lists.show', $list));
+
+    $response->assertOk();
+    $ratings = $response->viewData('page')['props']['vnList']['entries'][0]['game']['ratings'];
+
+    expect($ratings)->toHaveCount(1)
+        ->and($ratings[0]['id'])->toBe($siteRating->id)
+        ->and((int) $ratings[0]['rating'])->toBe(5)
+        ->and($ratings[0]['user_id'])->toBe($owner->id);
 });
 
 it('shows a list to the owner with entries, available target lists, and ownership state', function () {

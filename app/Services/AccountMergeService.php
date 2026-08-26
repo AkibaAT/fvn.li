@@ -106,7 +106,9 @@ class AccountMergeService
      */
     protected function mergeSocialAccounts(User $mergingUser, User $otherUser): void
     {
-        $otherUser->socialAccounts()->update(['user_id' => $mergingUser->id]);
+        $otherUser->socialAccounts->each(function ($account) use ($mergingUser) {
+            $account->update(['user_id' => $mergingUser->id]);
+        });
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\Game;
 use App\Models\Rater;
 use App\Models\Rating;
+use App\Models\User;
 use App\Services\ItchAuthService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -193,6 +194,39 @@ it('does not fetch non https itch urls when resolving review lookups', function 
         ->assertNotFound()
         ->assertJsonPath('error', 'Game not found')
         ->assertJsonPath('has_reviews', false);
+});
+
+it('includes site ratings in aggregate and paginated review API responses', function () {
+    [$game] = createGameReviewApiFixture();
+    $user = User::factory()->create(['name' => 'Site Reviewer']);
+    $siteRating = Rating::create([
+        'game_id' => $game->id,
+        'user_id' => $user->id,
+        'rating' => 4,
+        'review' => "Posted on the site.\n\nWould replay.",
+        'is_visible' => true,
+        'is_reviewed' => true,
+        'source_platform' => 'fvn_li',
+        'published_at' => now()->addMinute(),
+    ]);
+
+    $this->getJson('/api/game-reviews?game_id=' . $game->id)
+        ->assertOk()
+        ->assertJsonPath('review_data.total_reviews', 3)
+        ->assertJsonPath('review_data.recent_reviews.0.id', $siteRating->id)
+        ->assertJsonPath('review_data.recent_reviews.0.user.id', $user->id)
+        ->assertJsonPath('review_data.recent_reviews.0.user.name', 'Site Reviewer')
+        ->assertJsonPath('review_data.recent_reviews.0.rater', null);
+
+    $this->getJson('/api/game-reviews/paginated?' . http_build_query([
+        'game_id' => $game->id,
+        'per_page' => 10,
+    ]))
+        ->assertOk()
+        ->assertJsonPath('pagination.total', 2)
+        ->assertJsonPath('reviews.0.id', $siteRating->id)
+        ->assertJsonPath('reviews.0.user.id', $user->id)
+        ->assertJsonPath('reviews.0.rater', null);
 });
 
 it('returns paginated reviews with rating and review-only filters', function () {

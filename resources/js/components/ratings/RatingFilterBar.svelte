@@ -50,6 +50,7 @@
                 <span>Platform:</span>
                 <Select bind:value={platform} onchange={onFilterChange} class="py-1">
                     <option value="">Any</option>
+                    <option value="fvn_li">FVN.li</option>
                     <option value="itch_io">itch.io</option>
                     <option value="steam">Steam</option>
                 </Select>

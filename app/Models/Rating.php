@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -63,6 +64,21 @@ class Rating extends Model
             ->pluck('aggregate', 'rater_id');
     }
 
+    /**
+     * Native FVN.li reviews and imported ratings whose rater is linked to the user.
+     */
+    public function scopeAuthoredBy(Builder $query, int $userId): Builder
+    {
+        $raterIds = Rater::query()->where('user_id', $userId)->pluck('id');
+
+        return $query->where(function ($ratings) use ($userId, $raterIds) {
+            $ratings->where('user_id', $userId);
+            if ($raterIds->isNotEmpty()) {
+                $ratings->orWhereIn('rater_id', $raterIds);
+            }
+        });
+    }
+
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
@@ -81,5 +97,22 @@ class Rating extends Model
     public function isUserReview(): bool
     {
         return $this->user_id !== null;
+    }
+
+    public function authorUser(): ?User
+    {
+        return $this->user ?? $this->rater?->user;
+    }
+
+    public function assignAuthorUser(): void
+    {
+        if ($this->user !== null) {
+            return;
+        }
+
+        $linked = $this->rater?->user;
+        if ($linked) {
+            $this->setRelation('user', $linked);
+        }
     }
 }

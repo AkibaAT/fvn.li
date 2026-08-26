@@ -207,7 +207,6 @@
         description="Discord server configuration"
         backHref={route('dashboard.discord.index')}
         backLabel="Back to Discord Servers"
-        class="mb-0"
     >
         {#snippet actions()}
             <button

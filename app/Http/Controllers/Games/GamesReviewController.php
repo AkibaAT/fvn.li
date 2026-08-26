@@ -35,7 +35,7 @@ class GamesReviewController extends Controller
             ->where('is_visible', true)
             ->when(! $showAllRatings, fn ($query) => $query->where('is_reviewed', true))
             ->when($selectedRating !== null, fn ($query) => $query->where('rating', $selectedRating))
-            ->with(['rater', 'user:id,name,avatar'])
+            ->with(['rater.user:id,name,avatar', 'user:id,name,avatar'])
             ->orderBy('published_at', 'desc')
             ->paginate($perPage);
 
@@ -46,6 +46,7 @@ class GamesReviewController extends Controller
                 ? $sanitizer->sanitizeFvnReview($rating->review)
                 : $sanitizer->sanitizeReview($rating->review);
             $rating->previous_ratings_count = $rating->rater_id !== null ? (int) ($previousCounts[$rating->rater_id] ?? 0) : 0;
+            $rating->assignAuthorUser();
 
             return $rating;
         });

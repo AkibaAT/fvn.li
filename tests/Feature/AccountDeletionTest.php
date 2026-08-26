@@ -115,6 +115,36 @@ describe('cascade deletion of user data', function () {
         expect(UserGameProgress::where('user_id', $this->user->id)->exists())->toBeFalse();
     });
 
+    test('deletes native site reviews and keeps imported ratings', function () {
+        $game = Game::factory()->create();
+        $importedRater = Rater::factory()->create(['external_platform' => 'itch_io']);
+        $nativeRating = Rating::create([
+            'game_id' => $game->id,
+            'user_id' => $this->user->id,
+            'rating' => 5,
+            'review' => 'Posted on the site.',
+            'is_visible' => true,
+            'is_reviewed' => true,
+            'source_platform' => 'fvn_li',
+            'published_at' => now(),
+        ]);
+        $importedRating = Rating::create([
+            'game_id' => $game->id,
+            'rater_id' => $importedRater->id,
+            'rating' => 4,
+            'review' => 'Imported itch review.',
+            'is_visible' => true,
+            'is_reviewed' => true,
+            'source_platform' => 'itch_io',
+            'published_at' => now(),
+        ]);
+
+        $this->actingAs($this->user)->delete(route('user.account.delete'), ['password' => 'password']);
+
+        expect(Rating::find($nativeRating->id))->toBeNull()
+            ->and(Rating::find($importedRating->id))->not->toBeNull();
+    });
+
     test('deletes all social accounts', function () {
         SocialAccount::create([
             'user_id' => $this->user->id,

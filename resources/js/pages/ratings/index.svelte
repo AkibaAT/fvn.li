@@ -15,10 +15,13 @@
     type SourceRating = {
         id: number;
         game: { id: number; name: string; slug: string; primary_url?: string | null };
-        rater: { id: number; name: string; external_platform?: string };
+        user?: { id: number; name: string; avatar?: string | null } | null;
+        rater?: { id: number; name: string; external_platform?: string } | null;
         score: number;
         created_at: string;
         review?: string | null;
+        has_spoilers?: boolean;
+        source_platform?: string | null;
     };
 
     type Props = {
@@ -84,11 +87,22 @@
                 slug: rating.game.slug,
                 primaryUrl: rating.game.primary_url,
             },
-            rater: {
-                id: rating.rater.id,
-                name: rating.rater.name,
-                externalPlatform: rating.rater.external_platform,
-            },
+            user: rating.user
+                ? {
+                      id: rating.user.id,
+                      name: rating.user.name,
+                      avatar: rating.user.avatar,
+                  }
+                : undefined,
+            rater: rating.rater
+                ? {
+                      id: rating.rater.id,
+                      name: rating.rater.name,
+                      externalPlatform: rating.rater.external_platform,
+                  }
+                : undefined,
+            isFvnReview: rating.source_platform === 'fvn_li',
+            hasSpoilers: rating.has_spoilers,
         })),
     );
 </script>

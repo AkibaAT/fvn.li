@@ -203,6 +203,11 @@ class User extends Authenticatable
         return $this->hasMany(Rating::class);
     }
 
+    public function raters(): HasMany
+    {
+        return $this->hasMany(Rater::class);
+    }
+
     /**
      * Initialize default VN lists for a new user.
      */

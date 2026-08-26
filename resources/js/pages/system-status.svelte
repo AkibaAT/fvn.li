@@ -87,7 +87,7 @@
 <SeoHead {metaTags} />
 
 <div class="space-y-10">
-    <PageHeader title="System Status" class="mb-0" />
+    <PageHeader title="System Status" />
 
     <StatsOverview {gameStats} {ratingStats} />
     <RatingTrends {ratingStats} />

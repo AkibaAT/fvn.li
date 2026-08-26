@@ -10,11 +10,12 @@ interface Review {
     is_reviewed: boolean;
     has_spoilers?: boolean;
     event_id?: string;
-    rater: {
+    source_platform?: string;
+    rater?: {
         id: number;
         name: string;
         external_platform?: string;
-    };
+    } | null;
     user?: {
         id: number;
         name: string;

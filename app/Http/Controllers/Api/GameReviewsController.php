@@ -123,7 +123,7 @@ class GameReviewsController extends Controller
 
             $query = Rating::where('game_id', $game->id)
                 ->where('is_visible', true)
-                ->with(['rater']);
+                ->with(['rater.user:id,name', 'user:id,name']);
 
             if ($ratingFilter !== null) {
                 $query->where('rating', $ratingFilter);
@@ -144,14 +144,20 @@ class GameReviewsController extends Controller
                 return [
                     'id' => $rating->id,
                     'rating' => $rating->rating,
-                    'review' => $sanitizer->sanitizeReview($rating->review),
+                    'review' => $rating->source_platform === 'fvn_li'
+                        ? $sanitizer->sanitizeFvnReview($rating->review)
+                        : $sanitizer->sanitizeReview($rating->review),
                     'is_reviewed' => $rating->is_reviewed,
                     'published_at' => $rating->published_at->toISOString(),
-                    'rater' => [
+                    'user' => ($author = $rating->authorUser()) ? [
+                        'id' => $author->id,
+                        'name' => $author->name,
+                    ] : null,
+                    'rater' => $rating->rater ? [
                         'id' => $rating->rater->id,
                         'name' => $rating->rater->name,
                         'platform' => $rating->rater->external_platform ?? 'itch_io',
-                    ],
+                    ] : null,
                 ];
             });
 
@@ -285,7 +291,7 @@ class GameReviewsController extends Controller
         // are exposed only through explicit history flows, not broad review APIs.
         $ratings = Rating::where('game_id', $game->id)
             ->where('is_visible', true)
-            ->with(['rater:id,name'])
+            ->with(['rater.user:id,name', 'user:id,name'])
             ->orderBy('published_at', 'desc')
             ->get();
 
@@ -319,13 +325,19 @@ class GameReviewsController extends Controller
                 return [
                     'id' => $rating->id,
                     'rating' => $rating->rating,
-                    'review' => $sanitizer->sanitizeReview($rating->review),
+                    'review' => $rating->source_platform === 'fvn_li'
+                        ? $sanitizer->sanitizeFvnReview($rating->review)
+                        : $sanitizer->sanitizeReview($rating->review),
                     'published_at' => $rating->published_at->toISOString(),
-                    'rater' => [
+                    'user' => ($author = $rating->authorUser()) ? [
+                        'id' => $author->id,
+                        'name' => $author->name,
+                    ] : null,
+                    'rater' => $rating->rater ? [
                         'id' => $rating->rater->id,
                         'name' => $rating->rater->name,
                         'platform' => $rating->rater->external_platform ?? 'itch_io',
-                    ],
+                    ] : null,
                 ];
             })
             ->values();

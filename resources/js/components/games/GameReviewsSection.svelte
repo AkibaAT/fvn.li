@@ -77,7 +77,8 @@
     let reviewRefreshLoading = $state(false);
     const isReviewsLoading = $derived(reviewsLoading || reviewRefreshLoading);
 
-    const getReviewAuthorHref = (review: Review) => (review.user ? route('users.reviews', review.user.id) : route('raters.show', review.rater.id));
+    const getReviewAuthorHref = (review: Review) =>
+        review.user ? route('users.reviews', review.user.id) : review.rater ? route('raters.show', review.rater.id) : route('ratings.index');
 
     async function handleReviewChange(hasReview: boolean) {
         hasUserReview = hasReview;
@@ -167,8 +168,8 @@
                                     {#if review.user?.avatar}
                                         <img src={review.user.avatar} alt="" aria-hidden="true" class="h-5 w-5 rounded-full" />
                                     {/if}
-                                    {review.user?.name || review.rater.name}
-                                    {#if review.user}
+                                    {review.user?.name || review.rater?.name}
+                                    {#if review.user && review.source_platform === 'fvn_li'}
                                         <span
                                             class="ml-1 rounded bg-blue-100 px-1 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                                         >
@@ -177,16 +178,21 @@
                                     {/if}
                                 </Link>
                             </span>
-                            {#if !review.user && review.rater.external_platform}
+                            {#if review.rater?.external_platform}
                                 <PlatformIcon platform={review.rater.external_platform} />
                             {/if}
                             <span class="text-sm text-gray-500 dark:text-gray-400">{formatLocalDate(review.published_at)}</span>
-                            {#if !review.user && review.previous_ratings_count}
+                            {#if review.rater && review.previous_ratings_count}
                                 <Button
                                     type="button"
                                     variant="link"
                                     tone="neutral"
-                                    onclick={() => (historyModal = { raterId: review.rater.id, raterName: review.rater.name, open: true })}
+                                    onclick={() =>
+                                        (historyModal = {
+                                            raterId: review.rater?.id ?? null,
+                                            raterName: review.rater?.name ?? '',
+                                            open: true,
+                                        })}
                                     class="text-sm text-gray-500 dark:text-gray-400"
                                     title="Show this rater's earlier ratings of this game"
                                 >
@@ -237,7 +243,7 @@
                                     variant="ghost"
                                     tone="danger"
                                     size="icon-sm"
-                                    onclick={() => onReportReview(review.id, review.user?.name || review.rater.name)}
+                                    onclick={() => onReportReview(review.id, review.user?.name || review.rater?.name || 'Unknown')}
                                     class="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
                                     title="Report review"
                                 >

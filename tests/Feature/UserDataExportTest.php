@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\NotificationHistory;
+use App\Models\Rater;
+use App\Models\Rating;
 use App\Models\SocialAccount;
 use App\Models\User;
 use App\Models\UserGameProgress;
@@ -126,6 +128,30 @@ test('export stream writes complete JSON and CSV files into a valid ZIP', functi
         'provider_id' => 'itch-export',
         'provider_data' => ['username' => 'export-user'],
     ]);
+    Rating::create([
+        'game_id' => $game->id,
+        'user_id' => $this->user->id,
+        'rating' => 5,
+        'review' => 'Native site review.',
+        'is_visible' => true,
+        'is_reviewed' => true,
+        'source_platform' => 'fvn_li',
+        'published_at' => now(),
+    ]);
+    $linkedRater = Rater::factory()->create([
+        'user_id' => $this->user->id,
+        'external_platform' => 'itch_io',
+    ]);
+    Rating::create([
+        'game_id' => $game->id,
+        'rater_id' => $linkedRater->id,
+        'rating' => 4,
+        'review' => 'Imported itch review.',
+        'is_visible' => true,
+        'is_reviewed' => true,
+        'source_platform' => 'itch_io',
+        'published_at' => now()->subHour(),
+    ]);
     $this->user->ignoredGames()->attach($game->id);
 
     $response = $this->actingAs($this->user)->get(route('browser-api.user.export'));
@@ -146,11 +172,19 @@ test('export stream writes complete JSON and CSV files into a valid ZIP', functi
         $lists = json_decode($zip->getFromName('lists.json'), true);
         $progress = json_decode($zip->getFromName('game_progress.json'), true);
         $ignoredGames = json_decode($zip->getFromName('ignored_games.json'), true);
+        $ratings = json_decode($zip->getFromName('ratings.json'), true);
+        $ratingPlatforms = collect($ratings)->pluck('source_platform')->all();
+        $ratingContents = collect($ratings)->pluck('content')->all();
 
         expect($profile['email'])->toBe('test@example.com')
             ->and($lists[0]['entries'][0]['private_notes'])->toBe('Keep this private')
             ->and($progress[0]['game']['slug'])->toBe('exported-game')
             ->and($ignoredGames[0]['slug'])->toBe('exported-game')
+            ->and($ratings)->toHaveCount(2)
+            ->and($ratingPlatforms)->toContain('fvn_li')
+            ->and($ratingPlatforms)->toContain('itch_io')
+            ->and($ratingContents)->toContain('Native site review.')
+            ->and($ratingContents)->toContain('Imported itch review.')
             ->and($zip->getFromName('profile.csv'))->toContain('test@example.com')
             ->and($zip->getFromName('lists.csv'))->toContain('Export List')
             ->and($zip->getFromName('list_entries.csv'))->toContain('Keep this private')
@@ -158,7 +192,9 @@ test('export stream writes complete JSON and CSV files into a valid ZIP', functi
             ->and($zip->getFromName('game_progress.csv'))->toContain('Finished it')
             ->and($zip->getFromName('notification_preferences.csv'))->toContain('weekly')
             ->and($zip->getFromName('notification_history.csv'))->toContain('discord')
-            ->and($zip->getFromName('ignored_games.csv'))->toContain('exported-game');
+            ->and($zip->getFromName('ignored_games.csv'))->toContain('exported-game')
+            ->and($zip->getFromName('ratings.csv'))->toContain('Native site review.')
+            ->and($zip->getFromName('ratings.csv'))->toContain('Imported itch review.');
     } finally {
         $zip->close();
         @unlink($zipPath);

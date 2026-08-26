@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\ChangeLog;
 use App\Models\ClickStat;
+use App\Models\Rating;
 use App\Support\SystemAuditUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -66,6 +67,12 @@ class UserAccountController extends Controller
                     'custom_tags' => [],
                     'custom_page_updated_at' => null,
                 ]);
+
+            Rating::where('user_id', $userId)
+                ->where('source_platform', 'fvn_li')
+                ->get()
+                ->each
+                ->delete();
 
             $user->socialAccounts()->delete();
             if ($user->notificationPreferences) {
@@ -146,6 +153,8 @@ class UserAccountController extends Controller
 
         $user->socialAccounts()
             ->where('provider_name', $provider)
+            ->get()
+            ->each
             ->delete();
 
         // For XHR/JSON requests, return JSON instead of redirect

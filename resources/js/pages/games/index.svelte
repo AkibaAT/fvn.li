@@ -171,7 +171,7 @@
 />
 
 <div class="space-y-8">
-    <PageHeader title="Browse Visual Novels" class="mb-0" />
+    <PageHeader title="Browse Visual Novels" />
 
     <Card variant="glass" padding="none" class="-mt-2 px-4 py-3 shadow-none">
         <div class="flex flex-col gap-3 min-[56rem]:flex-row min-[56rem]:items-center min-[56rem]:justify-between">

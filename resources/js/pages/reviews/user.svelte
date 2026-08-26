@@ -21,6 +21,7 @@
         published_at?: string;
         is_reviewed: boolean;
         has_spoilers: boolean;
+        source_platform?: string;
         game?: ReviewGame | null;
     }
     interface ReviewUser {
@@ -71,7 +72,8 @@
                               slug: review.game.slug,
                               primaryUrl: null,
                           },
-                          isFvnReview: true,
+                          isFvnReview: review.source_platform === 'fvn_li',
+                          sourcePlatform: review.source_platform,
                           hasSpoilers: review.has_spoilers,
                       }
                     : null,
@@ -117,7 +119,7 @@
 <SeoHead {metaTags} title={`${reviewUser.name}'s Reviews`} />
 
 <div class="space-y-6">
-    <PageHeader title={`${reviewUser.name}'s Reviews`} class="mb-0">
+    <PageHeader title={`${reviewUser.name}'s Reviews`}>
         {#snippet leading()}
             {#if reviewUser.avatar}
                 <img src={reviewUser.avatar} alt="" aria-hidden="true" class="h-10 w-10 rounded-full" />

@@ -138,7 +138,6 @@
         description="Manage download links and view analytics for your game"
         backHref={route('my-games.index')}
         backLabel="Back to My Games"
-        class="mb-0"
     >
         {#snippet actions()}
             <Button onclick={save} disabled={saving} loading={saving}>

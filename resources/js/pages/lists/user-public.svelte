@@ -51,7 +51,7 @@
 <SeoHead {metaTags} title={`${user.name}'s Visual Novel Lists`} />
 
 <div class="space-y-8">
-    <PageHeader title={`${user.name}'s Visual Novel Lists`} class="mb-0">
+    <PageHeader title={`${user.name}'s Visual Novel Lists`}>
         {#snippet actions()}
             <Link
                 href={route('lists.public')}

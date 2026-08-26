@@ -71,6 +71,7 @@ it('renders the ratings index with filters, sanitized reviews, and global stats'
         'rater' => $steamRater,
         'rating' => 5,
         'review' => 'Steam review.',
+        'source_platform' => 'steam',
     ]);
     createRatingRecord([
         'game' => $hiddenGame,
@@ -108,6 +109,79 @@ it('renders the ratings index with filters, sanitized reviews, and global stats'
         ->and($props['ratings']['data'][0]['review'])->toContain('Excellent route work')
         ->and($props['ratings']['data'][0]['review'])->not->toContain('<script')
         ->and($props['stats']['visible_games']['total_ratings'])->toBeGreaterThanOrEqual(2);
+});
+
+it('includes site ratings on the ratings index and filters them by fvn_li platform', function () {
+    Cache::flush();
+
+    $user = User::factory()->create(['name' => 'Site Reviewer']);
+    $visibleGame = Game::factory()->create([
+        'name' => 'Site Rated Game',
+        'is_visible' => true,
+        'url' => ['itch_io' => 'https://visible.example/site-game'],
+        'platform' => 'itch_io',
+    ]);
+    $itchRater = Rater::factory()->create([
+        'name' => 'Itch Reviewer',
+        'external_platform' => 'itch_io',
+    ]);
+
+    $siteRating = Rating::create([
+        'game_id' => $visibleGame->id,
+        'user_id' => $user->id,
+        'rating' => 5,
+        'review' => "<p>Posted on the site.</p>\n\n<p>Would play again.</p>",
+        'is_visible' => true,
+        'is_reviewed' => true,
+        'has_spoilers' => true,
+        'source_platform' => 'fvn_li',
+        'published_at' => now(),
+    ]);
+    $itchRating = createRatingRecord([
+        'game' => $visibleGame,
+        'rater' => $itchRater,
+        'rating' => 4,
+        'review' => 'Imported itch review.',
+        'published_at' => now()->subHour(),
+    ]);
+
+    $allResponse = $this->get(route('ratings.index', [
+        'showOnlyReviews' => 'true',
+        'showOnlyVisibleGames' => 'true',
+        'sortField' => 'published_at',
+        'sortDirection' => 'desc',
+    ]));
+
+    $allResponse->assertOk();
+    $allProps = $allResponse->viewData('page')['props'];
+    $allIds = collect($allProps['ratings']['data'])->pluck('id');
+
+    expect($allProps['ratings']['total'])->toBe(2)
+        ->and($allIds)->toContain($siteRating->id)
+        ->and($allIds)->toContain($itchRating->id);
+
+    $siteRow = collect($allProps['ratings']['data'])->firstWhere('id', $siteRating->id);
+
+    expect($siteRow['user']['id'])->toBe($user->id)
+        ->and($siteRow['user']['name'])->toBe('Site Reviewer')
+        ->and($siteRow['rater'])->toBeNull()
+        ->and($siteRow['source_platform'])->toBe('fvn_li')
+        ->and($siteRow['has_spoilers'])->toBeTrue()
+        ->and($siteRow['review'])->toContain('Posted on the site.')
+        ->and($siteRow['review'])->toContain("\n\n");
+
+    $filteredResponse = $this->get(route('ratings.index', [
+        'platform' => 'fvn_li',
+        'showOnlyReviews' => 'true',
+        'showOnlyVisibleGames' => 'true',
+    ]));
+
+    $filteredResponse->assertOk();
+    $filteredProps = $filteredResponse->viewData('page')['props'];
+
+    expect($filteredProps['filters']['platform'])->toBe('fvn_li')
+        ->and($filteredProps['ratings']['total'])->toBe(1)
+        ->and($filteredProps['ratings']['data'][0]['id'])->toBe($siteRating->id);
 });
 
 it('normalizes invalid ratings index filters to safe defaults', function () {

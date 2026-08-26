@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\VnLists;
 
 use App\Http\Controllers\Controller;
+use App\Models\Rater;
 use App\Models\User;
 use App\Models\VnList;
 use App\Support\Seo\MetaTags;
@@ -138,10 +139,11 @@ class VnListPageController extends Controller
         $this->authorize('view', $vnList);
 
         $listOwnerId = $vnList->user_id;
+        $listOwnerRaterIds = Rater::query()->where('user_id', $listOwnerId)->pluck('id');
         $vnList->load([
-            'entries' => function ($query) use ($listOwnerId) {
+            'entries' => function ($query) use ($listOwnerId, $listOwnerRaterIds) {
                 $query->with([
-                    'game' => function ($q) use ($listOwnerId) {
+                    'game' => function ($q) use ($listOwnerId, $listOwnerRaterIds) {
                         $q->select([
                             'id', 'name', 'custom_name', 'has_custom_page', 'view_mode', 'thumb_url', 'is_nsfw', 'slug',
                             'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price',
@@ -156,10 +158,17 @@ class VnListPageController extends Controller
                             ]);
                         }
                         $q->with([
-                            'ratings' => function ($rQuery) use ($listOwnerId) {
-                                $rQuery->where('user_id', $listOwnerId)
-                                    ->where('is_visible', true)
-                                    ->select(['id', 'game_id', 'user_id', 'rating', 'is_reviewed']);
+                            'ratings' => function ($rQuery) use ($listOwnerId, $listOwnerRaterIds) {
+                                $rQuery->where('is_visible', true)
+                                    ->where(function ($ratings) use ($listOwnerId, $listOwnerRaterIds) {
+                                        $ratings->where('user_id', $listOwnerId);
+                                        if ($listOwnerRaterIds->isNotEmpty()) {
+                                            $ratings->orWhereIn('rater_id', $listOwnerRaterIds);
+                                        }
+                                    })
+                                    ->orderByRaw("CASE WHEN source_platform = 'fvn_li' THEN 0 ELSE 1 END")
+                                    ->orderByDesc('published_at')
+                                    ->select(['id', 'game_id', 'user_id', 'rater_id', 'rating', 'is_reviewed', 'source_platform']);
                             },
                         ]);
                     },

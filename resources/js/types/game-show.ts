@@ -96,7 +96,8 @@ export interface Review {
     has_spoilers?: boolean;
     event_id?: string;
     previous_ratings_count?: number;
-    rater: Rater;
+    source_platform?: string;
+    rater?: Rater | null;
     user?: ReviewUser | null;
 }
 

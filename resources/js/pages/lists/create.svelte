@@ -40,7 +40,7 @@
 <SeoHead {metaTags} title="Create New List" />
 
 <div class="mx-auto max-w-2xl space-y-8">
-    <PageHeader title="Create New List" class="mb-0" />
+    <PageHeader title="Create New List" />
 
     <Card variant="glass">
         <form onsubmit={handleSubmit} class="space-y-6">

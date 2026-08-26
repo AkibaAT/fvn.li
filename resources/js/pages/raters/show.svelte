@@ -141,7 +141,7 @@
 
 <SeoHead {metaTags} />
 <div class="space-y-6">
-    <PageHeader title={`${rater.name}'s Ratings`} backHref={route('ratings.index')} backLabel="Back to Ratings" class="mb-0" />
+    <PageHeader title={`${rater.name}'s Ratings`} backHref={route('ratings.index')} backLabel="Back to Ratings" />
 
     <RatingStatsCard stats={safeStats} heading={`${rater.name}'s Rating Statistics`} />
 

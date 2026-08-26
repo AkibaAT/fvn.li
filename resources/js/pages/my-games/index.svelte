@@ -45,7 +45,7 @@
 <SeoHead {metaTags} title="Manage My Games" />
 
 <div class="space-y-8">
-    <PageHeader title="Manage My Games" backHref={route('dashboard')} backLabel="Back to Dashboard" class="mb-0" />
+    <PageHeader title="Manage My Games" backHref={route('dashboard')} backLabel="Back to Dashboard" />
 
     {#if !hasItchio}
         <Alert title="Connect your itch.io account to manage your games" layout="inline" role="status">

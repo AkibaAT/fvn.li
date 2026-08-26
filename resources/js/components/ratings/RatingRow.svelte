@@ -22,7 +22,16 @@
               })
             : '',
     );
+    const sourcePlatform = $derived(row.sourcePlatform ?? row.rater?.externalPlatform);
 </script>
+
+{#snippet platformMark()}
+    {#if row.isFvnReview}
+        <span class="rounded bg-blue-100 px-1 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">FVN.li</span>
+    {:else if sourcePlatform}
+        <PlatformIcon platform={sourcePlatform} />
+    {/if}
+{/snippet}
 
 <div class="p-4 sm:p-6">
     <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
@@ -34,6 +43,7 @@
                 >
                     {row.game.name}
                 </Link>
+                {#if !showRater}{@render platformMark()}{/if}
                 {#if row.previousRatingCount && row.onOpenHistory}
                     <Button type="button" variant="link" tone="neutral" onclick={row.onOpenHistory}>
                         ({row.previousRatingCount} previous {row.previousRatingCount > 1 ? 'ratings' : 'rating'})
@@ -51,14 +61,29 @@
                     </a>
                 {/if}
             </div>
-            {#if showRater && row.rater}
+            {#if showRater && (row.user || row.rater)}
                 <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                    <span
-                        >by <Link href={route('raters.show', row.rater.id)} class="text-gray-800 hover:underline dark:text-gray-100"
-                            >{row.rater.name}</Link
-                        ></span
-                    >
-                    {#if row.rater.externalPlatform}<PlatformIcon platform={row.rater.externalPlatform} />{/if}
+                    {#if row.user}
+                        <span class="inline-flex items-center gap-1">
+                            by
+                            <Link
+                                href={route('users.reviews', row.user.id)}
+                                class="inline-flex items-center gap-1 text-gray-800 hover:underline dark:text-gray-100"
+                            >
+                                {#if row.user.avatar}
+                                    <img src={row.user.avatar} alt="" aria-hidden="true" class="h-4 w-4 rounded-full" />
+                                {/if}
+                                {row.user.name}
+                            </Link>
+                        </span>
+                    {:else if row.rater}
+                        <span
+                            >by <Link href={route('raters.show', row.rater.id)} class="text-gray-800 hover:underline dark:text-gray-100"
+                                >{row.rater.name}</Link
+                            ></span
+                        >
+                    {/if}
+                    {@render platformMark()}
                 </div>
             {/if}
         </div>

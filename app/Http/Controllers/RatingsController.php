@@ -20,6 +20,7 @@ use Inertia\Response;
 class RatingsController extends Controller
 {
     private const array ALLOWED_RATING_PLATFORMS = [
+        'fvn_li',
         'itch_io',
         'steam',
     ];
@@ -66,10 +67,8 @@ class RatingsController extends Controller
                 ->where('games.is_visible', true);
         }
 
-        // Join raters if we need to filter by platform
         if ($platform) {
-            $countQuery->join('raters', 'raters.id', '=', 'ratings.rater_id')
-                ->where('raters.external_platform', $platform);
+            $countQuery->where('ratings.source_platform', $platform);
         }
 
         $countCacheKey = RatingStatsCacheService::key(sprintf(
@@ -86,12 +85,15 @@ class RatingsController extends Controller
         // Data query: includes joins needed for rendering
         $rows = (clone $ratingsFilter)
             ->join('games', 'games.id', '=', 'ratings.game_id')
-            ->join('raters', 'raters.id', '=', 'ratings.rater_id')
+            ->leftJoin('raters', 'raters.id', '=', 'ratings.rater_id')
+            ->leftJoin('users', function ($join) {
+                $join->whereRaw('users.id = COALESCE(ratings.user_id, raters.user_id)');
+            })
             ->when($showOnlyVisibleGames, function ($query) {
                 $query->where('games.is_visible', true);
             })
             ->when($platform, function ($query, $platform) {
-                $query->where('raters.external_platform', $platform);
+                $query->where('ratings.source_platform', $platform);
             })
             ->select([
                 'ratings.id',
@@ -100,6 +102,8 @@ class RatingsController extends Controller
                 'ratings.is_reviewed',
                 'ratings.review',
                 'ratings.event_id',
+                'ratings.source_platform',
+                'ratings.has_spoilers',
                 'games.id as game_id',
                 'games.name as game_name',
                 'games.slug as game_slug',
@@ -109,6 +113,9 @@ class RatingsController extends Controller
                 'raters.id as rater_id',
                 'raters.name as rater_name',
                 'raters.external_platform as rater_platform',
+                'users.id as user_id',
+                'users.name as user_name',
+                'users.avatar as user_avatar',
             ])
             ->orderBy($sortField === 'rating' ? 'ratings.rating' : 'ratings.published_at', $sortDirection)
             ->forPage($page, $perPage)
@@ -168,7 +175,7 @@ class RatingsController extends Controller
                                 ],
                                 'author' => [
                                     '@type' => 'Person',
-                                    'name' => $rating['rater']['name'],
+                                    'name' => $rating['user']['name'] ?? $rating['rater']['name'] ?? 'Unknown',
                                 ],
                                 'reviewRating' => [
                                     '@type' => 'Rating',
@@ -376,7 +383,8 @@ class RatingsController extends Controller
         $review = Rating::with([
             'game:id,name,slug,thumb_url,optimized_thumbnails',
             'user:id,name,avatar',
-            'rater:id,name,external_platform',
+            'rater:id,name,external_platform,user_id',
+            'rater.user:id,name,avatar',
         ])
             ->where('is_visible', true)
             ->findOrFail($rating);
@@ -417,7 +425,7 @@ class RatingsController extends Controller
     }
 
     /**
-     * Show all reviews by a specific user (FVN.li user reviews only).
+     * Show all reviews by a specific user, including linked itch.io and Steam ratings.
      */
     public function userReviews(Request $request, User $user): Response
     {
@@ -431,11 +439,9 @@ class RatingsController extends Controller
             $sortField = 'published_at';
         }
 
-        $query = Rating::where('user_id', $user->id)
+        $query = Rating::query()
             ->where('is_visible', true)
-            ->whereNotNull('user_id');
-
-        $total = $query->count();
+            ->authoredBy($user->id);
 
         $reviews = (clone $query)
             ->with(['game:id,name,slug,thumb_url,optimized_thumbnails'])
@@ -444,10 +450,7 @@ class RatingsController extends Controller
             ->get()
             ->map(fn (Rating $review) => app(RatingPresenter::class)->userReview($review));
 
-        // Stats
-        $stats = DB::table('ratings')
-            ->where('user_id', $user->id)
-            ->where('is_visible', true)
+        $stats = (clone $query)
             ->select([
                 DB::raw('COUNT(*) as total_ratings'),
                 DB::raw('SUM(CASE WHEN is_reviewed THEN 1 ELSE 0 END) as reviewed_count'),
@@ -455,6 +458,8 @@ class RatingsController extends Controller
                 DB::raw('COUNT(DISTINCT game_id) as unique_games'),
             ])
             ->first();
+
+        $total = (int) ($stats->total_ratings ?? 0);
 
         return Inertia::render('reviews/user', [
             'reviewUser' => [

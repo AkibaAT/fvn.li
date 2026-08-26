@@ -66,7 +66,7 @@
 
     const authorName = $derived(review.user?.name ?? review.rater?.name ?? 'Unknown');
     const isUserReview = $derived(Boolean(review.user));
-    const isOwnReview = $derived(isUserReview && currentUserId === review.user?.id);
+    const isOwnReview = $derived(isUserReview && review.source_platform === 'fvn_li' && currentUserId === review.user?.id);
     const reviewStyles = useReviewTextStyles();
     const reviewStyle = $derived(
         `max-width: ${reviewStyles.maxWidth}; font-size: ${reviewStyles.fontSize}; line-height: ${reviewStyles.lineHeight}; margin: ${reviewStyles.margin};`,
@@ -131,7 +131,7 @@
                     {:else}
                         <span class="font-medium text-gray-800 dark:text-gray-100">{authorName}</span>
                     {/if}
-                    {#if isUserReview}
+                    {#if review.source_platform === 'fvn_li'}
                         <span class="rounded bg-blue-100 px-1 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                             >FVN.li</span
                         >

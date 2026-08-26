@@ -59,7 +59,6 @@
         description={`Notifications for ${formattedDate}`}
         backHref={route('dashboard')}
         backLabel="Back to Dashboard"
-        class="mb-0"
     />
 
     <Card variant="glass" padding="lg" class="shadow-none">

@@ -101,7 +101,7 @@
 <SeoHead {metaTags} />
 
 <div class="home-page space-y-10">
-    <PageHeader title="Furry visual novel catalogue" description={catalogueDescription} descriptionWidth="full" class="mb-0" />
+    <PageHeader title="Furry visual novel catalogue" description={catalogueDescription} descriptionWidth="full" />
 
     <div class="space-y-10">
         {#each sections as section (section.title)}

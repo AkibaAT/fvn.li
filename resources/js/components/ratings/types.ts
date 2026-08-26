@@ -28,6 +28,11 @@ export type RatingRowData = {
         slug: string;
         primaryUrl?: string | null;
     };
+    user?: {
+        id: number;
+        name: string;
+        avatar?: string | null;
+    };
     rater?: {
         id: number;
         name: string;
@@ -36,6 +41,7 @@ export type RatingRowData = {
     previousRatingCount?: number;
     onOpenHistory?: () => void;
     isFvnReview?: boolean;
+    sourcePlatform?: string | null;
     hasSpoilers?: boolean;
 };
 
