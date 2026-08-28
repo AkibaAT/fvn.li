@@ -87,6 +87,8 @@ services:
     restart: unless-stopped
     working_dir: /app
     entrypoint: ["php", "artisan", "schedule:work"]
+    healthcheck:
+      disable: true
     depends_on:
       db:
         condition: service_healthy
