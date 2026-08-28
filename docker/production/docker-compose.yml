@@ -95,6 +95,7 @@ services:
     environment: *app-environment
     networks:
       - fvnli
+      - flaresolverr
     volumes: *app-volumes
   stats-runner:
     <<: *fvnli
