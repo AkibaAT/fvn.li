@@ -23,7 +23,8 @@ trait HandlesGameVersionLanguages
             ->schema([
                 FileUpload::make('stats_file')
                     ->label('Stats File')
-                    ->acceptedFileTypes(['application/x-ndjson', 'application/json', 'text/plain', 'text/json'])
+                    ->acceptedFileTypes(['.ndjson', 'application/x-ndjson'])
+                    ->mimeTypeMap(['ndjson' => 'application/x-ndjson'])
                     ->disk('local')
                     ->directory('temp/stats')
                     ->visibility('private')

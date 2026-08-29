@@ -16,16 +16,29 @@ it('normalizes custom text assignment character ids before they become stats key
     expect(preg_match($customAssignmentPattern, $script))->toBe(1);
 });
 
-it('processes ordinary say nodes even when TranslateSay is unavailable', function () {
+it('processes mixed Translate blocks and TranslateSay nodes without default-language duplicates', function () {
     $script = file_get_contents(base_path('resources/renpy/json_stats.rpy'));
 
-    expect($script)->not->toContain('elif has_translate_say and isinstance(node, renpy.ast.Say):')
-        ->and($script)->toContain('elif isinstance(node, renpy.ast.Say):');
+    expect($script)
+        ->not->toContain('has_translate_say')
+        ->toContain('translated_block_say_ids.add(id(stmt))')
+        ->toContain('if isinstance(node, renpy.ast.Translate):')
+        ->toContain('elif isinstance(node, renpy.ast.Say) and id(node) not in translated_block_say_ids:')
+        ->toContain('and isinstance(node, renpy.ast.TranslateSay)')
+        ->toContain('record_say(lang, node)');
+});
 
-    $sayBranchPattern = '/elif isinstance\(node, renpy\.ast\.Say\):\s*' .
-        'if has_translate_say and isinstance\(node, renpy\.ast\.TranslateSay\) and node\.language:/s';
+it('keeps old RenPy string and prompt translations in route maps', function () {
+    $script = file_get_contents(base_path('resources/renpy/json_stats.rpy'));
 
-    expect(preg_match($sayBranchPattern, $script))->toBe(1);
+    expect($script)
+        ->not->toContain('renpy.version_tuple >= (8, 0, 0, 0)')
+        ->toContain('from renpy.translation import translate_string as renpy_translate_string')
+        ->toContain('return renpy_translate_string(text, language=language)')
+        ->toContain('source_say_identifiers[id(stmt)] = ident')
+        ->toContain('translated_language_say_ids.add(id(stmt))')
+        ->toContain('and id(node) not in translated_language_say_ids')
+        ->toContain('last_say_identifier = source_say_identifiers.get(id(node), getattr(node, "identifier", None))');
 });
 
 it('keeps runtime hint availability conditions on inferred hub edges', function () {
@@ -109,4 +122,16 @@ it('detects terminal flow anywhere in a block and ignores menu captions', functi
         'if not is_menu_choice_item\(item_l, item_b\):\s*continue/s';
 
     expect(preg_match($terminalMenuPattern, $script))->toBe(1);
+});
+
+it('counts visible menu captions as dialogue without treating them as options', function () {
+    $script = file_get_contents(base_path('resources/renpy/json_stats.rpy'));
+
+    expect($script)
+        ->toContain('caption_texts_by_language = {')
+        ->toContain('for lang, caption_texts in caption_texts_by_language.items():')
+        ->toContain('all_lang_stats[lang]["filestats"][node.filename].add(caption_text)')
+        ->toContain('all_lang_stats[lang]["characters"]["menu_choice"].add(caption_text)')
+        ->toContain('"text": caption_text')
+        ->toContain('if is_menu_choice_item(l, b):');
 });

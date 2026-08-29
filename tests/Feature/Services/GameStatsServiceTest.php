@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Models\Character;
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Models\Language;
+use App\Models\LanguageMapping;
 use App\Services\GameStatsDialoguePersister;
 use App\Services\GameStatsRouteGraphPersister;
 use App\Services\GameStatsService;
@@ -191,6 +193,59 @@ it('creates new characters with all relevant display languages and preserves exi
             'eng' => 'Akira',
             'jpn' => 'akira',
         ]);
+});
+
+it('imports the source language once when a translation key resolves to the same ISO code', function () {
+    Language::withoutEvents(fn () => Language::create([
+        'id' => 'eng',
+        'part2b' => 'eng',
+        'part2t' => 'eng',
+        'part1' => 'en',
+        'scope' => 'I',
+        'type' => 'L',
+        'ref_name' => 'English',
+        'flag_code' => 'gb',
+    ]));
+    $game = Game::factory()->create(['source_language_id' => 'eng']);
+    $version = GameVersion::factory()->for($game)->create();
+    LanguageMapping::updateOrCreate(
+        ['game_id' => null, 'game_language_key' => 'duplicateSource'],
+        ['iso_code' => 'eng']
+    );
+
+    app(GameStatsService::class)->saveVersionStats($version, new ArrayStatsPayload([
+        'languages' => [
+            'default' => [
+                'blocks' => 1,
+                'words' => 2,
+                'characters' => [
+                    'speaker' => ['display_name' => 'Source Speaker', 'blocks' => 1, 'words' => 2],
+                ],
+            ],
+            'duplicateSource' => [
+                'blocks' => 1,
+                'words' => 2,
+                'characters' => [
+                    'speaker' => ['display_name' => 'Duplicate Speaker', 'blocks' => 1, 'words' => 2],
+                ],
+            ],
+        ],
+        'dialogue_lines' => [
+            'default' => [
+                ['character' => 'speaker', 'text' => 'source words', 'file' => 'script.rpy', 'line' => 1],
+            ],
+            'duplicateSource' => [
+                ['character' => 'speaker', 'text' => 'duplicate words', 'file' => 'tl/duplicate/script.rpy', 'line' => 1],
+            ],
+        ],
+    ]), 'eng', $game);
+
+    expect(DB::table('version_dialogue_lines')->where('game_version_id', $version->id)->count())->toBe(1)
+        ->and(DB::table('version_dialogue_lines')->where('game_version_id', $version->id)->value('file_path'))->toBe('script.rpy')
+        ->and($version->languageStats()->where('iso_code', 'eng')->value('blocks'))->toBe(1)
+        ->and($version->languageStats()->where('iso_code', 'eng')->value('words'))->toBe(2)
+        ->and($version->characterStats()->where('iso_code', 'eng')->value('blocks'))->toBe(1)
+        ->and($version->characterStats()->where('iso_code', 'eng')->value('words'))->toBe(2);
 });
 
 it('detects archive formats from file signatures and extracts zip archives', function () {

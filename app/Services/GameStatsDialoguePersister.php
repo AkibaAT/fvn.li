@@ -46,7 +46,8 @@ class GameStatsDialoguePersister
         StatsPayload $payload,
         string $defaultLanguage = 'eng',
         ?Game $game = null,
-        array $foundLanguages = []
+        array $foundLanguages = [],
+        array $languageCodes = []
     ): int {
         $this->progress("    [Dialogue] Deleting existing dialogue lines\n");
         DialogueLine::where('game_version_id', $version->id)->delete();
@@ -60,25 +61,21 @@ class GameStatsDialoguePersister
         ];
 
         $now = now();
-        $isoCodes = [];
+        if ($languageCodes === []) {
+            $languageCodes = $this->languageMappingService->resolvePayloadLanguageCodes(
+                array_keys($payload->languages()),
+                $defaultLanguage,
+                $game
+            );
+        }
         $buffer = [];
         $written = 0;
 
         foreach ($payload->dialogueLines() as [$langKey, $line]) {
-            if (! array_key_exists($langKey, $isoCodes)) {
-                $isoCodes[$langKey] = $langKey === 'default'
-                    ? $defaultLanguage
-                    : ($this->languageMappingService->resolveLanguageCode($langKey, $game) ?: null);
-
-                if ($isoCodes[$langKey] === null) {
-                    Log::warning("Skipping dialogue lines for language {$langKey} - could not determine ISO code");
-                }
-            }
-
-            $isoCode = $isoCodes[$langKey];
-            if ($isoCode === null) {
+            if (! isset($languageCodes[$langKey])) {
                 continue;
             }
+            $isoCode = $languageCodes[$langKey];
 
             $text = $line['text'] ?? '';
             if ($text === '') {
@@ -239,13 +236,21 @@ class GameStatsDialoguePersister
         GameVersion $version,
         StatsPayload $payload,
         string $defaultLanguage = 'eng',
-        ?Game $game = null
+        ?Game $game = null,
+        array $languageCodes = []
     ): void {
         $this->characterStatsService->calculateAndSaveStatsForVersion($version->id);
 
         $languages = $payload->languages();
         if ($languages === []) {
             return;
+        }
+        if ($languageCodes === []) {
+            $languageCodes = $this->languageMappingService->resolvePayloadLanguageCodes(
+                array_keys($languages),
+                $defaultLanguage,
+                $game
+            );
         }
 
         // Both sides of the comparison are fetched in one query each and matched
@@ -260,13 +265,10 @@ class GameStatsDialoguePersister
         $discrepanciesFound = false;
 
         foreach ($languages as $langKey => $langData) {
-            $isoCode = $langKey === 'default'
-                ? $defaultLanguage
-                : $this->languageMappingService->resolveLanguageCode((string) $langKey, $game);
-
-            if (! $isoCode || ! isset($langData['characters'])) {
+            if (! isset($languageCodes[$langKey], $langData['characters'])) {
                 continue;
             }
+            $isoCode = $languageCodes[$langKey];
 
             foreach ($langData['characters'] as $charId => $charData) {
                 $characterId = $characterIds->get((string) $charId);

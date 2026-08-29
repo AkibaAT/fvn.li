@@ -7,6 +7,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\Log;
 use JsonException;
 use RuntimeException;
+use Symfony\Component\Process\Exception\ProcessSignaledException;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
@@ -115,6 +116,13 @@ class RouteGraphLayoutService
             $process->run();
         } catch (ProcessTimedOutException) {
             Log::info('Route map layout engine timed out', ['engine' => $engine]);
+
+            return null;
+        } catch (ProcessSignaledException $exception) {
+            Log::info('Route map layout engine was terminated', [
+                'engine' => $engine,
+                'signal' => $exception->getSignal(),
+            ]);
 
             return null;
         }

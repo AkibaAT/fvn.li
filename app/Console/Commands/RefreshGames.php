@@ -155,8 +155,8 @@ class RefreshGames extends Command
                     $this->info('Refreshing base info...');
 
                     $itchClient->executeWithRetry(
-                        function () use ($game) {
-                            $game->refreshBaseInfo();
+                        function () use ($game, $syncService) {
+                            $syncService->refreshBaseInfo($game);
                             $game->save();
                         },
                         'Base info',
@@ -173,8 +173,8 @@ class RefreshGames extends Command
                     $this->info('Refreshing metadata (tags, ratings, descriptions, screenshots, game jams)...');
 
                     $itchClient->executeWithRetry(
-                        function () use ($game, $originalThumbUrl, $originalScreenshots) {
-                            $game->refreshMetadata($originalThumbUrl, $originalScreenshots);
+                        function () use ($game, $originalThumbUrl, $originalScreenshots, $syncService) {
+                            $syncService->refreshMetadata($game, $originalThumbUrl, $originalScreenshots);
                             $game->save();
                         },
                         'Metadata',
@@ -191,9 +191,9 @@ class RefreshGames extends Command
                     $this->info('Refreshing version information...');
 
                     $itchClient->executeWithRetry(
-                        function () use ($game, $force) {
-                            $latestVersion = DB::transaction(function () use ($game, $force) {
-                                $game->refreshVersion($force);
+                        function () use ($game, $force, $syncService) {
+                            $latestVersion = DB::transaction(function () use ($game, $force, $syncService) {
+                                $syncService->refreshVersion($game, $force);
                                 $game->save();
 
                                 $latestVersion = $game->gameVersions()

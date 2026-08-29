@@ -161,6 +161,8 @@ class GameArchiveOptimizerDockerRunner
             '--env',
             'ARCHIVE_OPTIMIZER_WORK_DIR=/work',
             '--env',
+            'CACHE_DRIVER=array',
+            '--env',
             'LOG_CHANNEL=stderr',
             '--env',
             // The application directory is mounted read-only and carries no

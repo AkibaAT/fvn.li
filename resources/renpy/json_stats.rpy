@@ -16,6 +16,7 @@ init 10000 python:
     from contextlib import closing
     from renpy import store
     from renpy.loader import listdirfiles
+    from renpy.translation import translate_string as renpy_translate_string
     try:
         import builtins as py_builtins
     except ImportError:
@@ -40,10 +41,7 @@ init 10000 python:
         return pyast.parse(normalized, mode)
 
     def translate_string(text, language=None):
-        if renpy.version_tuple >= (8, 0, 0, 0):
-            return renpy.translate_string(text, language=language)
-        else:
-            return text
+        return renpy_translate_string(text, language=language)
 
     class Count(object):
         def __init__(self):
@@ -1761,14 +1759,17 @@ init 10000 python:
         # Build translation map: {identifier: {lang: translated_text}}
         # This maps original Say statements to their translations across languages
         say_translations = {}
+        source_say_identifiers = {}
         # From Translate blocks (Ren'Py 7.x)
         for node in all_stmts:
-            if isinstance(node, renpy.ast.Translate) and node.language:
+            if isinstance(node, renpy.ast.Translate):
+                ident = getattr(node, "identifier", None)
                 for stmt in getattr(node, "block", []):
-                    if isinstance(stmt, renpy.ast.Say) and stmt.what:
-                        ident = getattr(node, "identifier", None)
-                        if ident:
+                    if isinstance(stmt, renpy.ast.Say) and stmt.what and ident:
+                        if node.language:
                             say_translations.setdefault(ident, {})[node.language] = clean_text(stmt.what)
+                        else:
+                            source_say_identifiers[id(stmt)] = ident
         # From TranslateSay nodes (Ren'Py 8.x)
         if hasattr(renpy.ast, "TranslateSay"):
             for node in all_stmts:
@@ -1836,13 +1837,18 @@ init 10000 python:
                         "line": getattr(node, "linenumber", 0),
                     })
 
-        # Check through all nodes for TranslateSay
-        has_translate_say = False
-        if hasattr(renpy.ast, "TranslateSay"):
-            for node in all_stmts:
-                if isinstance(node, renpy.ast.TranslateSay):
-                    has_translate_say = True
-                    break
+        # Translate blocks and TranslateSay nodes can coexist in one game. The
+        # Say statements inside Translate blocks also appear in all_stmts, so
+        # remember them to avoid counting them again as default-language lines.
+        translated_block_say_ids = set()
+        translated_language_say_ids = set()
+        for node in all_stmts:
+            if isinstance(node, renpy.ast.Translate):
+                for stmt in getattr(node, "block", []) or []:
+                    if isinstance(stmt, renpy.ast.Say):
+                        translated_block_say_ids.add(id(stmt))
+                        if node.language:
+                            translated_language_say_ids.add(id(stmt))
 
         for node in all_stmts:
             if isinstance(node, renpy.ast.Label) and is_game_file(node.filename) and is_route_label(node.name):
@@ -1880,15 +1886,43 @@ init 10000 python:
                 # Regular character - should update last_character tracking
                 return character_id, True
 
+        def record_say(lang, say):
+            """Record one Say statement in its owning language."""
+            all_lang_stats[lang]["filestats"][say.filename].add(say.what)
+
+            cleaned_text = clean_text(say.what)
+            who_var = getattr(say, "who", None)
+            character_id = clean_text(who_var) if who_var else "narrator"
+            character_id, should_update_last = resolve_special_character(character_id, lang, last_character)
+
+            if should_update_last:
+                last_character[lang] = character_id
+
+            character_id, cleaned_text = normalize_dialogue_character(character_id, cleaned_text)
+            dialogue_lines[lang].append({
+                "character": character_id,
+                "text": cleaned_text,
+                "file": say.filename,
+                "line": getattr(say, "linenumber", 0),
+                "context": current_context.get(lang, "")
+            })
+
+            if who_var and who_var in defined_characters:
+                all_lang_stats[lang]["characters"][who_var].add(say.what)
+            else:
+                all_lang_stats[lang]["characters"]["narrator"].add(say.what)
+
         # Second pass: gather dialogue and menu statistics
         last_say_text = None
         last_say_identifier = None  # for looking up prompt translations
         for node in all_stmts:
             # Track the last Say text for menu prompts
             # Include default-language Say/TranslateSay (language is None), skip translated ones
-            if isinstance(node, renpy.ast.Say) and not getattr(node, "language", None):
+            if (isinstance(node, renpy.ast.Say)
+                    and id(node) not in translated_language_say_ids
+                    and not getattr(node, "language", None)):
                 last_say_text = clean_text(node.what) if node.what else None
-                last_say_identifier = getattr(node, "identifier", None)
+                last_say_identifier = source_say_identifiers.get(id(node), getattr(node, "identifier", None))
 
             # Track context (labels)
             if isinstance(node, renpy.ast.Label):
@@ -1962,80 +1996,19 @@ init 10000 python:
                                 ))
                         next_stmt = getattr(next_stmt, "next", None)
 
-            # Older versions (without TranslateSay) - handle both Say and Menu blocks
-            if (not has_translate_say and isinstance(node, renpy.ast.Translate)):
+            if isinstance(node, renpy.ast.Translate):
                 lang = node.language or "default"
-
-                # Handle Say statements in translate blocks
-                if (len(node.block) == 1 and isinstance(node.block[0], renpy.ast.Say)):
-                    say = node.block[0]
-                    all_lang_stats[lang]["filestats"][say.filename].add(say.what)
-
-                    # Clean the text before adding to dialogue lines
-                    cleaned_text = clean_text(say.what)
-                    # Clean the character id if it exists
-                    character_id = clean_text(say.who) if say.who else "narrator"
-
-                    # Handle special Ren'Py characters
-                    character_id, should_update_last = resolve_special_character(character_id, lang, last_character)
-
-                    # Update last character for this language (only for non-special characters)
-                    if should_update_last:
-                        last_character[lang] = character_id
-
-                    # Try to rescue broken game lines
-                    character_id, cleaned_text = normalize_dialogue_character(character_id, cleaned_text)
-
-                    # Add to dialogue lines
-                    dialogue_lines[lang].append({
-                        "character": character_id,
-                        "text": cleaned_text,
-                        "file": say.filename,
-                        "line": getattr(say, "linenumber", 0),
-                        "context": current_context.get(lang, "")
-                    })
-
-                    if say.who and say.who in defined_characters:
-                        all_lang_stats[lang]["characters"][say.who].add(say.what)
-                    else:
-                        all_lang_stats[lang]["characters"]["narrator"].add(say.what)
-            elif isinstance(node, renpy.ast.Say):
-                if has_translate_say and isinstance(node, renpy.ast.TranslateSay) and node.language:
+                for say in getattr(node, "block", []) or []:
+                    if isinstance(say, renpy.ast.Say):
+                        record_say(lang, say)
+            elif isinstance(node, renpy.ast.Say) and id(node) not in translated_block_say_ids:
+                if (hasattr(renpy.ast, "TranslateSay")
+                        and isinstance(node, renpy.ast.TranslateSay)
+                        and node.language):
                     lang = node.language
                 else:
                     lang = "default"
-
-                all_lang_stats[lang]["filestats"][node.filename].add(node.what)
-
-                # Clean the text before adding to dialogue lines
-                cleaned_text = clean_text(node.what)
-                # Clean the character id if it exists
-                who_var = getattr(node, "who", None)
-                character_id = clean_text(who_var) if who_var else "narrator"
-
-                # Handle special Ren'Py characters
-                character_id, should_update_last = resolve_special_character(character_id, lang, last_character)
-
-                # Update last character for this language (only for non-special characters)
-                if should_update_last:
-                    last_character[lang] = character_id
-
-                # Try to rescue broken game lines
-                character_id, cleaned_text = normalize_dialogue_character(character_id, cleaned_text)
-
-                # Add to dialogue lines with character, text, file, and line number
-                dialogue_lines[lang].append({
-                    "character": character_id,
-                    "text": cleaned_text,
-                    "file": node.filename,
-                    "line": getattr(node, "linenumber", 0),
-                    "context": current_context.get(lang, "")
-                })
-
-                if who_var and who_var in defined_characters:
-                    all_lang_stats[lang]["characters"][who_var].add(node.what)
-                else:
-                    all_lang_stats[lang]["characters"]["narrator"].add(node.what)
+                record_say(lang, node)
             elif isinstance(node, renpy.ast.Menu):
                 # Count menus for all languages (they're the same count)
                 for lang in ['default'] + list(known_languages):
@@ -2057,6 +2030,9 @@ init 10000 python:
                 menu_prompt = "\n".join(clean_text(label) for label in menu_caption_labels) or last_say_text
 
                 caption_prompt_translations = {}
+                caption_texts_by_language = {
+                    "default": [clean_text(label) for label in menu_caption_labels]
+                }
                 if menu_caption_labels:
                     for lang in known_languages:
                         translated_parts = []
@@ -2070,8 +2046,24 @@ init 10000 python:
                             else:
                                 translated_parts.append(clean_text(caption_label))
 
+                        caption_texts_by_language[lang] = translated_parts
                         if has_translation:
                             caption_prompt_translations[lang] = "\n".join(translated_parts)
+
+                    # Captions are visible menu questions, but they are not
+                    # selectable options. Keep them in dialogue/word totals and
+                    # separately use the rows with blocks as the option count.
+                    for lang, caption_texts in caption_texts_by_language.items():
+                        for caption_text in caption_texts:
+                            all_lang_stats[lang]["filestats"][node.filename].add(caption_text)
+                            all_lang_stats[lang]["characters"]["menu_choice"].add(caption_text)
+                            dialogue_lines[lang].append({
+                                "character": "menu_choice",
+                                "text": caption_text,
+                                "file": node.filename,
+                                "line": menu_line,
+                                "context": current_context.get(lang, "")
+                            })
 
                 menu_metadata = route_menu_metadata.get(id(node), {})
 

@@ -46,6 +46,7 @@ it('builds a locked down docker command for per-archive optimization', function 
         ->and($command)->toContain('type=bind,source=/host/work/job/work,target=/work')
         ->and($command)->toContain('ARCHIVE_OPTIMIZER_APP_PATH=/srv/app')
         ->and($command)->toContain('ARCHIVE_OPTIMIZER_WORK_DIR=/work')
+        ->and($command)->toContain('CACHE_DRIVER=array')
         // The mounted application directory is read-only and has no storage tree.
         ->and($command)->toContain('VIEW_COMPILED_PATH=/tmp/views')
         ->and($command)->toContain('type=bind,source=/host/work/job/input,target=/input,readonly')

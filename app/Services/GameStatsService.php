@@ -148,7 +148,18 @@ class GameStatsService
 
         // Track all languages found in the stats to update supported languages
         $this->progress("    [Stats] Processing language stats\n");
-        $foundLanguages = $this->saveLanguageAndCharacterStats($version, $payload, $defaultLanguage, $game);
+        $payloadLanguages = $payload->languages();
+        $languageCodes = $this->languageMappingService->resolvePayloadLanguageCodes(
+            array_keys($payloadLanguages),
+            $defaultLanguage,
+            $game
+        );
+        $ignoredLanguageKeys = array_diff(array_keys($payloadLanguages), array_keys($languageCodes));
+        if ($ignoredLanguageKeys !== []) {
+            $this->progress('    [Stats] Ignoring duplicate source-language aliases: '
+                . implode(', ', $ignoredLanguageKeys) . "\n");
+        }
+        $foundLanguages = $this->saveLanguageAndCharacterStats($version, $payloadLanguages, $languageCodes);
 
         $this->progress("    [Stats] Creating essential characters\n");
         $this->essentialCharacterService->createEssentialCharactersWithLanguages(
@@ -191,7 +202,14 @@ class GameStatsService
         $this->progress('    [Stats] Route graph data saved (present: ' . ($hasRouteData ? 'yes' : 'no') . ")\n");
 
         $this->progress("    [Stats] Saving dialogue lines\n");
-        $dialogueLineCount = $this->dialoguePersister->save($version, $payload, $defaultLanguage, $game, $foundLanguages);
+        $dialogueLineCount = $this->dialoguePersister->save(
+            $version,
+            $payload,
+            $defaultLanguage,
+            $game,
+            $foundLanguages,
+            $languageCodes
+        );
         $this->progress("    [Stats] Dialogue lines saved ({$dialogueLineCount} lines)\n");
 
         if ($dialogueLineCount > 0) {
@@ -200,7 +218,13 @@ class GameStatsService
             $this->progress("    [Stats] Character assignments fixed\n");
 
             $this->progress("    [Stats] Calculating stats and checking discrepancies\n");
-            $this->dialoguePersister->calculateStatsAndReportDiscrepancies($version, $payload, $defaultLanguage, $game);
+            $this->dialoguePersister->calculateStatsAndReportDiscrepancies(
+                $version,
+                $payload,
+                $defaultLanguage,
+                $game,
+                $languageCodes
+            );
             $this->progress("    [Stats] Stats calculated\n");
 
             // Queue word frequency calculation for all languages in this version
@@ -255,9 +279,8 @@ class GameStatsService
      */
     private function saveLanguageAndCharacterStats(
         GameVersion $version,
-        StatsPayload $payload,
-        string $defaultLanguage,
-        ?Game $game
+        array $payloadLanguages,
+        array $languageCodes
     ): array {
         $foundLanguages = [];
         $languageRows = [];
@@ -267,16 +290,11 @@ class GameStatsService
         $publishedAt = $this->publishedAtByVersionId($characters);
         $now = now();
 
-        foreach ($payload->languages() as $langKey => $langData) {
-            $isoCode = $langKey === 'default'
-                ? $defaultLanguage
-                : $this->languageMappingService->resolveLanguageCode((string) $langKey, $game);
-
-            if (! $isoCode) {
-                Log::warning("Skipping language {$langKey} - could not determine ISO code");
-
+        foreach ($payloadLanguages as $langKey => $langData) {
+            if (! isset($languageCodes[$langKey])) {
                 continue;
             }
+            $isoCode = $languageCodes[$langKey];
 
             if (! in_array($isoCode, $foundLanguages, true)) {
                 $foundLanguages[] = $isoCode;

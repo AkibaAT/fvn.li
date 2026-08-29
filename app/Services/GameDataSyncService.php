@@ -255,6 +255,7 @@ class GameDataSyncService
                             $versionStats = $archiveResult['stats'];
                         }
                     } else {
+                        $this->progress("    [Version] DenKit archive restored for existing version; processing stored archive\n");
                         $versionStats = $archiveService->processArchive($storedArchivePath);
                     }
                 } else {
@@ -343,7 +344,8 @@ class GameDataSyncService
                     $this->progress("    [Version] Game engine set (will be saved by caller)\n");
 
                     $this->progress("    [Version] Saving version stats...\n");
-                    $statsService = app(GameStatsService::class);
+                    $statsService = app(GameStatsService::class)
+                        ->setProgressReporter(fn (string $message) => $this->progress($message));
                     $statsService->saveVersionStats($gameVersion, $versionStats,
                         $game->source_language_id, $game);
                     $this->progress("    [Version] Version stats saved\n");
@@ -370,7 +372,8 @@ class GameDataSyncService
                     $this->progress("    [Version] Game engine set (will be saved by caller)\n");
 
                     $this->progress("    [Version] Saving version stats to existing version...\n");
-                    $statsService = app(GameStatsService::class);
+                    $statsService = app(GameStatsService::class)
+                        ->setProgressReporter(fn (string $message) => $this->progress($message));
                     $statsService->saveVersionStats($existingVersion, $versionStats,
                         $game->source_language_id, $game);
                     $this->progress("    [Version] Version stats saved to existing version\n");

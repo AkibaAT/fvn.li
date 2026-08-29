@@ -235,23 +235,47 @@ test('refresh itch games clears cached HTTP responses after every game', functio
         });
     app()->instance(ItchHttpClientService::class, $itchClient);
 
+    $progressReporter = null;
+    $reportedProgress = false;
     $syncService = Mockery::mock(GameDataSyncService::class);
-    $syncService->shouldReceive('setProgressReporter')->once()->andReturnSelf();
+    $syncService->shouldReceive('setProgressReporter')
+        ->once()
+        ->withArgs(function (callable $reporter) use (&$progressReporter): bool {
+            $progressReporter = $reporter;
+
+            return true;
+        })
+        ->andReturnSelf();
     foreach ($games as $game) {
         $syncService->shouldReceive('refreshVersion')->once()->with(Mockery::on(
             fn (Game $refreshedGame) => $refreshedGame->id === $game->id
-        ), false);
+        ), false)->andReturnUsing(function () use (&$progressReporter, &$reportedProgress): void {
+            if ($reportedProgress) {
+                return;
+            }
+
+            $progressReporter('    [Version] Version stats saved to existing version');
+            $reportedProgress = true;
+        });
         $syncService->shouldReceive('clearHttpCache')->once()->with(Mockery::on(
             fn (Game $refreshedGame) => $refreshedGame->id === $game->id
         ));
     }
-    app()->instance(GameDataSyncService::class, $syncService);
+    $resolutionCount = 0;
+    app()->bind(GameDataSyncService::class, function () use ($syncService, &$resolutionCount) {
+        $resolutionCount++;
+
+        return $syncService;
+    });
 
     $this
         ->artisan('games:refresh --all --update-version --retry-cooldown=0')
         ->expectsOutput('Starting refresh for all visible games')
+        ->expectsOutput('    [Version] Version stats saved to existing version')
         ->expectsOutputToContain('Refresh process completed')
         ->assertExitCode(0);
+
+    expect($resolutionCount)->toBe(1);
 });
 
 test('fetch game jam details processes pending jams through the itch retry client', function () {

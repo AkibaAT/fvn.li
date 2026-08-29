@@ -46,9 +46,9 @@ it('validates stats import required parameters before reading files', function (
     $this->artisan('games:import-stats', [
         '--game-id' => 1,
         '--version-id' => 2,
-        '--stats-file' => '/tmp/missing-fvn-stats.json',
+        '--stats-file' => '/tmp/missing-fvn-stats.ndjson',
     ])
-        ->expectsOutput('Stats file not found: /tmp/missing-fvn-stats.json')
+        ->expectsOutput('Stats file not found: /tmp/missing-fvn-stats.ndjson')
         ->assertExitCode(1);
 });
 

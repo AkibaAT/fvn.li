@@ -79,6 +79,41 @@ class LanguageMappingService
         return $newCode;
     }
 
+    /**
+     * @param  array<int, string>  $languageKeys
+     * @return array<string, string> Analyzer language key to ISO code
+     */
+    public function resolvePayloadLanguageCodes(
+        array $languageKeys,
+        string $defaultLanguage,
+        ?Game $game = null
+    ): array {
+        $resolved = [];
+
+        foreach ($languageKeys as $languageKey) {
+            $isoCode = $languageKey === 'default'
+                ? $defaultLanguage
+                : $this->resolveLanguageCode($languageKey, $game);
+
+            if (! $isoCode) {
+                continue;
+            }
+
+            $existingKey = array_search($isoCode, $resolved, true);
+            if ($existingKey !== false) {
+                if ($languageKey !== 'default') {
+                    continue;
+                }
+
+                unset($resolved[$existingKey]);
+            }
+
+            $resolved[$languageKey] = $isoCode;
+        }
+
+        return $resolved;
+    }
+
     private function generateNextPlaceholderCode(string $current): string
     {
         if ($current >= 'qtz') {

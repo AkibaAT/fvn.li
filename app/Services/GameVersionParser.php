@@ -143,7 +143,7 @@ class GameVersionParser
             }
         } else {
             // Look for version patterns in filename
-            preg_match_all('/(?:[vV](?:ersion)?)?\s*(\d+(?:\.\d+)*[a-zA-Z]*)(?=[-_. ]|$)/i',
+            preg_match_all('/(?:[vV](?:ersion)?)?\s*(\d+(?:\.\d+)*[a-zA-Z]*)(?=[-_. )]|$)/i',
                 $cleanedFilename, $matches);
             foreach ($matches[1] as $version) {
                 if ($this->isProbableVersion($version)) {

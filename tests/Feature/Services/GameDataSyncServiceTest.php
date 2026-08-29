@@ -12,9 +12,11 @@ use App\Services\GameArchiveService;
 use App\Services\GameDataSyncService;
 use App\Services\GameMetadataImageProcessor;
 use App\Services\GamePendingAssociationProcessor;
+use App\Services\GameStatsService;
 use App\Services\GameVersionArchiveRepositoryService;
 use App\Services\ItchGameMetadataRefresher;
 use App\Services\ItchHttpClientService;
+use App\Support\Stats\StatsPayload;
 use Dom\HTMLDocument;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Storage;
@@ -436,10 +438,16 @@ it('force reprocesses existing versions from the stored archive repository witho
         ->never();
     app()->instance(GameArchiveService::class, $archiveService);
 
-    app(GameDataSyncService::class)->refreshVersion($game, true);
+    $progress = [];
+    app(GameDataSyncService::class)
+        ->setProgressReporter(function (string $message) use (&$progress): void {
+            $progress[] = $message;
+        })
+        ->refreshVersion($game, true);
 
     expect($game->gameVersions()->count())->toBe(1)
-        ->and($version->refresh()->is_windows)->toBeTrue();
+        ->and($version->refresh()->is_windows)->toBeTrue()
+        ->and($progress)->toContain('    [Version] DenKit archive restored for existing version; processing stored archive');
 });
 
 it('force reprocess downloads and persists an existing version when no DenKit archive exists', function () {
@@ -485,6 +493,8 @@ it('force reprocess downloads and persists an existing version when no DenKit ar
     $tempPath = "{$tempDir}/archive.zip";
     File::ensureDirectoryExists($tempDir);
     File::put($tempPath, 'zip');
+    $stats = Mockery::mock(StatsPayload::class);
+    $stats->shouldReceive('release')->once();
 
     $archiveService = Mockery::mock(GameArchiveService::class);
     $archiveService->shouldReceive('getStoredArchive')
@@ -503,17 +513,37 @@ it('force reprocess downloads and persists an existing version when no DenKit ar
         ->andReturn([
             'temp_path' => $tempPath,
             'temp_dir' => $tempDir,
-            'stats' => null,
+            'stats' => $stats,
             'filename' => 'Reprocess-1.2-pc.zip',
             'upload_id' => 20,
         ]);
-    $archiveService->shouldReceive('getLastProcessingError')
-        ->once()
-        ->andReturn(null);
     $archiveService->shouldReceive('moveFromTempToStorage')
         ->once()
         ->with($tempPath, 'Reprocess-1.2-pc.zip', $game->id, $version->id, false);
     app()->instance(GameArchiveService::class, $archiveService);
+
+    $statsProgressReporter = null;
+    $statsService = Mockery::mock(GameStatsService::class);
+    $statsService->shouldReceive('setProgressReporter')
+        ->once()
+        ->withArgs(function (callable $reporter) use (&$statsProgressReporter): bool {
+            $statsProgressReporter = $reporter;
+
+            return true;
+        })
+        ->andReturnSelf();
+    $statsService->shouldReceive('saveVersionStats')
+        ->once()
+        ->with(
+            Mockery::on(fn (GameVersion $argument): bool => $argument->is($version)),
+            $stats,
+            'eng',
+            Mockery::on(fn (Game $argument): bool => $argument->is($game))
+        )
+        ->andReturnUsing(function () use (&$statsProgressReporter): void {
+            $statsProgressReporter('    [Stats] Version stats processing complete');
+        });
+    app()->instance(GameStatsService::class, $statsService);
 
     $repository = Mockery::mock(GameVersionArchiveRepositoryService::class);
     $repository->shouldReceive('discardLocalArchive')
@@ -533,14 +563,25 @@ it('force reprocess downloads and persists an existing version when no DenKit ar
         ]);
     app()->instance(GameVersionArchiveRepositoryService::class, $repository);
 
+    $progress = [];
     try {
-        app(GameDataSyncService::class)->refreshVersion($game, true);
+        app(GameDataSyncService::class)
+            ->setProgressReporter(function (string $message) use (&$progress): void {
+                $progress[] = $message;
+            })
+            ->refreshVersion($game, true);
     } finally {
         File::deleteDirectory($tempDir);
     }
 
     expect($game->gameVersions()->count())->toBe(1)
-        ->and($version->refresh()->is_windows)->toBeTrue();
+        ->and($version->refresh()->is_windows)->toBeTrue()
+        ->and($progress)->toContain(
+            '    [Version] No DenKit archive found for existing version; downloading itch.io archive to seed DenKit',
+            '    [Stats] Version stats processing complete',
+            '    [Version] Version stats saved to existing version',
+            '    [Version] Archive persisted to DenKit Stash fvn-li/reprocess-missing:main build #99'
+        );
 });
 
 it('force reprocess fails when the DenKit Stash lookup errors', function () {

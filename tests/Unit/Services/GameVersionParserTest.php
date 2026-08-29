@@ -43,3 +43,13 @@ test('authoritative upload versions beat parenthesized display name versions', f
             'updated_at' => '2026-05-11T10:00:00Z',
         ]))->toBe('2.0.0');
 });
+
+test('versions in filename parentheses are not truncated at the decimal point', function () {
+    $parser = new GameVersionParser;
+
+    expect($parser->extractVersion([
+        'filename' => 'Nekojishi-pc(1.06).zip',
+        'display_name' => null,
+        'user_version' => null,
+    ]))->toBe('1.06');
+});
