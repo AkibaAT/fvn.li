@@ -22,6 +22,15 @@ test('sanitize fvn review keeps the rich editor formatting controls', function (
     );
 });
 
+test('sanitize review strips global utility classes but preserves spoilers', function () {
+    $sanitizer = new HtmlSanitizerService;
+
+    expect($sanitizer->sanitizeReview('<a class="fixed inset-0 spoiler" href="https://example.com">Review</a>'))
+        ->not->toContain('fixed')
+        ->not->toContain('inset-0')
+        ->toContain('class="spoiler"');
+});
+
 test('sanitize css escapes html delimiters from legacy stored styles', function () {
     $sanitizer = new HtmlSanitizerService;
 

@@ -303,14 +303,19 @@ class ClickStat extends Model
      */
     public static function anonymizePersonalDataForUser(int $userId): int
     {
-        return self::where('user_id', $userId)->update([
-            'user_id' => null,
-            // A pseudonym rather than nothing: unique-visitor counts group on
-            // the address, so an empty one would merge every erased account
-            // into a single visitor and cost other developers their totals.
-            'ip_address' => IpAnonymizationService::pseudonymizeIdentity('click-stat-visitor-' . $userId),
-            'updated_at' => now(),
-        ]);
+        $updated = 0;
+
+        foreach (self::where('user_id', $userId)->distinct()->pluck('game_id') as $gameId) {
+            $updated += self::where('user_id', $userId)->where('game_id', $gameId)->update([
+                'user_id' => null,
+                // Preserve per-game unique-visitor counts without leaving one
+                // stable identifier that links the erased account across games.
+                'ip_address' => IpAnonymizationService::pseudonymizeIdentity('click-stat-erased-' . bin2hex(random_bytes(32))),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return $updated;
     }
 
     public static function getDailyStats(int $gameId, int $days = 30): array

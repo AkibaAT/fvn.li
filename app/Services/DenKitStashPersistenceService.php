@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\Game;
 use App\Models\GameVersion;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -200,40 +201,46 @@ class DenKitStashPersistenceService
 
         $username = $this->username();
         $targetName = $this->targetName($game);
-        $response = $this->httpClient([
-            'timeout' => 30,
-            'connect_timeout' => 10,
-        ])->get($this->serverUrl() . '/wharf/builds', [
-            'http_errors' => false,
-            'headers' => [
-                'Authorization' => 'Bearer ' . $this->apiKey(),
-                'Accept' => 'application/json',
-            ],
-            'query' => [
-                'target' => "{$username}/{$targetName}",
-                'channel' => $channel,
-            ],
-        ]);
+        $cacheKey = 'denkit-stash.archive-availability.' . hash('sha256', "{$username}/{$targetName}:{$channel}");
+        try {
+            $persistedVersions = Cache::remember($cacheKey, 60, function () use ($username, $targetName, $channel): array {
+                $response = $this->httpClient([
+                    'timeout' => 5,
+                    'connect_timeout' => 2,
+                ])->get($this->serverUrl() . '/wharf/builds', [
+                    'http_errors' => false,
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $this->apiKey(),
+                        'Accept' => 'application/json',
+                    ],
+                    'query' => [
+                        'target' => "{$username}/{$targetName}",
+                        'channel' => $channel,
+                    ],
+                ]);
 
-        if ($response->getStatusCode() === 404) {
-            return $availability;
-        }
+                if ($response->getStatusCode() === 404) {
+                    return [];
+                }
 
-        if ($response->getStatusCode() !== 200) {
-            throw new RuntimeException("Failed to query DenKit Stash builds: HTTP {$response->getStatusCode()}");
-        }
+                if ($response->getStatusCode() !== 200) {
+                    throw new RuntimeException("Failed to query DenKit Stash builds: HTTP {$response->getStatusCode()}");
+                }
 
-        $data = json_decode((string) $response->getBody(), true);
-        $persistedVersions = [];
-        foreach (is_array($data['builds'] ?? null) ? $data['builds'] : [] as $build) {
-            if (! is_array($build) || ($build['state'] ?? null) !== 'completed') {
-                continue;
-            }
+                $data = json_decode((string) $response->getBody(), true);
+                $persisted = [];
+                foreach (is_array($data['builds'] ?? null) ? $data['builds'] : [] as $build) {
+                    if (is_array($build) && ($build['state'] ?? null) === 'completed' && is_string($build['user_version'] ?? null)) {
+                        $persisted[$build['user_version']] = true;
+                    }
+                }
 
-            $userVersion = $build['user_version'] ?? null;
-            if (is_string($userVersion)) {
-                $persistedVersions[$userVersion] = true;
-            }
+                return $persisted;
+            });
+        } catch (Throwable $throwable) {
+            Cache::put($cacheKey, [], 15);
+
+            throw $throwable;
         }
 
         foreach ($versionsById as $versionId => $userVersion) {

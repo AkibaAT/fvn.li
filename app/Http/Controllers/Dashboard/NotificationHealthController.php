@@ -13,6 +13,7 @@ use App\Services\NotificationHealthService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 
 class NotificationHealthController extends Controller
 {
@@ -50,7 +51,7 @@ class NotificationHealthController extends Controller
             return response()->json([
                 'success' => $result['sent'] > 0,
                 'code' => $result['sent'] > 0 ? null : 'endpoint_rejected',
-                'result' => $result,
+                'result' => Arr::except($result, 'errors'),
             ], $result['sent'] > 0 ? 200 : 422);
         }
 

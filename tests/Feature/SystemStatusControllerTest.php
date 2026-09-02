@@ -30,6 +30,37 @@ it('makes system status public without exposing scheduled task details', functio
         ->and($userProps)->not->toHaveKey('healthSummary');
 });
 
+it('keeps hidden catalogue and rating aggregates admin-only', function () {
+    Cache::flush();
+    $visibleGame = Game::factory()->create(['is_visible' => true]);
+    $hiddenGame = Game::factory()->create(['is_visible' => false]);
+    $rater = Rater::factory()->create();
+
+    foreach ([$visibleGame, $hiddenGame] as $game) {
+        Rating::create([
+            'game_id' => $game->id,
+            'rater_id' => $rater->id,
+            'rating' => 4,
+            'review' => '',
+            'is_visible' => true,
+            'is_reviewed' => false,
+            'source_platform' => 'itch_io',
+            'published_at' => now(),
+        ]);
+    }
+
+    $publicProps = $this->get(route('system.status'))->viewData('page')['props'];
+    expect($publicProps['gameStats']['total'])->toBe(1)
+        ->and($publicProps['gameStats']['visible'])->toBe(1)
+        ->and($publicProps['ratingStats']['total'])->toBe(1)
+        ->and($publicProps['ratingStats']['monthly_trend'][0]['count'])->toBe(1);
+
+    $admin = User::factory()->create(['is_admin' => true]);
+    $adminProps = $this->actingAs($admin)->get(route('system.status'))->viewData('page')['props'];
+    expect($adminProps['gameStats']['total'])->toBe(2)
+        ->and($adminProps['ratingStats']['total'])->toBe(2);
+});
+
 it('renders system status metrics and scheduled task health', function () {
     Cache::flush();
 

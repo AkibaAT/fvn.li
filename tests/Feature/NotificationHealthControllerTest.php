@@ -61,7 +61,7 @@ it('sends a browser test synchronously through the push service', function () {
     $user = User::factory()->create();
     PushSubscription::create([
         'user_id' => $user->id,
-        'endpoint' => 'https://push.example/test',
+        'endpoint' => 'https://93.184.216.34/test',
         'p256dh' => 'key',
         'auth' => 'auth',
         'subscription_data' => [],
@@ -76,7 +76,8 @@ it('sends a browser test synchronously through the push service', function () {
     $this->actingAs($user)->postJson(route('browser-api.dashboard.notification-health.test'), ['channel' => 'browser'])
         ->assertOk()
         ->assertJsonPath('success', true)
-        ->assertJsonPath('result.sent', 1);
+        ->assertJsonPath('result.sent', 1)
+        ->assertJsonMissingPath('result.errors');
 });
 
 it('reports a browser test action when no subscription exists', function () {
@@ -92,7 +93,7 @@ it('does not retry a browser test against a rejected subscription', function () 
     $user = User::factory()->create();
     PushSubscription::create([
         'user_id' => $user->id,
-        'endpoint' => 'https://push.example/rejected',
+        'endpoint' => 'https://93.184.216.34/rejected',
         'p256dh' => 'key',
         'auth' => 'auth',
         'subscription_data' => [],

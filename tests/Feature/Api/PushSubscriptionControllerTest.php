@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Models\PushSubscription;
 use App\Models\User;
 
-function pushSubscriptionPayload(string $endpoint = 'https://push.example/subscription'): array
+function pushSubscriptionPayload(string $endpoint = 'https://93.184.216.34/subscription'): array
 {
     return [
         'subscription' => [
@@ -28,6 +28,23 @@ it('requires authentication and validates push subscription storage', function (
         ->assertJsonValidationErrors(['subscription.keys']);
 });
 
+it('rejects push endpoints that could target internal services', function (string $endpoint) {
+    $this->actingAs(User::factory()->create())
+        ->postJson(route('browser-api.push-subscriptions.store'), pushSubscriptionPayload($endpoint))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('subscription.endpoint');
+})->with([
+    'loopback' => 'https://127.0.0.1/push',
+    'internal hostname' => 'https://localhost/push',
+    'unsafe scheme' => 'http://93.184.216.34/push',
+]);
+
+it('accepts arbitrary public HTTPS push services', function () {
+    $this->actingAs(User::factory()->create())
+        ->postJson(route('browser-api.push-subscriptions.store'), pushSubscriptionPayload('https://93.184.216.34:8443/push'))
+        ->assertOk();
+});
+
 it('creates reuses and transfers push subscriptions by endpoint', function () {
     $user = User::factory()->create();
     $otherUser = User::factory()->create();
@@ -39,7 +56,7 @@ it('creates reuses and transfers push subscriptions by endpoint', function () {
 
     $subscription = PushSubscription::query()->first();
     expect($subscription->user_id)->toBe($user->id)
-        ->and($subscription->subscription_data['endpoint'])->toBe('https://push.example/subscription');
+        ->and($subscription->subscription_data['endpoint'])->toBe('https://93.184.216.34/subscription');
 
     $this->actingAs($user)
         ->postJson(route('browser-api.push-subscriptions.store'), pushSubscriptionPayload())
@@ -61,42 +78,42 @@ it('verifies and deletes the current users push subscription', function () {
     $otherUser = User::factory()->create();
     PushSubscription::create([
         'user_id' => $user->id,
-        'endpoint' => 'https://push.example/current',
+        'endpoint' => 'https://93.184.216.34/current',
         'p256dh' => 'key',
         'auth' => 'auth',
-        'subscription_data' => ['endpoint' => 'https://push.example/current'],
+        'subscription_data' => ['endpoint' => 'https://93.184.216.34/current'],
     ]);
     PushSubscription::create([
         'user_id' => $otherUser->id,
-        'endpoint' => 'https://push.example/other',
+        'endpoint' => 'https://93.184.216.34/other',
         'p256dh' => 'key',
         'auth' => 'auth',
-        'subscription_data' => ['endpoint' => 'https://push.example/other'],
+        'subscription_data' => ['endpoint' => 'https://93.184.216.34/other'],
     ]);
 
     $this->actingAs($user)
-        ->postJson(route('browser-api.push-subscriptions.verify'), ['endpoint' => 'https://push.example/current'])
+        ->postJson(route('browser-api.push-subscriptions.verify'), ['endpoint' => 'https://93.184.216.34/current'])
         ->assertOk()
         ->assertJsonPath('exists', true);
 
     $this->actingAs($user)
-        ->postJson(route('browser-api.push-subscriptions.verify'), ['endpoint' => 'https://push.example/other'])
+        ->postJson(route('browser-api.push-subscriptions.verify'), ['endpoint' => 'https://93.184.216.34/other'])
         ->assertOk()
         ->assertJsonPath('exists', false);
 
-    PushSubscription::where('endpoint', 'https://push.example/current')->update(['delivery_status' => PushSubscription::STATUS_INVALID]);
+    PushSubscription::where('endpoint', 'https://93.184.216.34/current')->update(['delivery_status' => PushSubscription::STATUS_INVALID]);
     $this->actingAs($user)
-        ->postJson(route('browser-api.push-subscriptions.verify'), ['endpoint' => 'https://push.example/current'])
+        ->postJson(route('browser-api.push-subscriptions.verify'), ['endpoint' => 'https://93.184.216.34/current'])
         ->assertOk()
         ->assertJsonPath('exists', false);
 
     $this->actingAs($user)
-        ->deleteJson(route('browser-api.push-subscriptions.destroy'), pushSubscriptionPayload('https://push.example/current'))
+        ->deleteJson(route('browser-api.push-subscriptions.destroy'), pushSubscriptionPayload('https://93.184.216.34/current'))
         ->assertOk()
         ->assertJsonPath('message', 'Push subscription removed successfully');
 
     $this->actingAs($user)
-        ->deleteJson(route('browser-api.push-subscriptions.destroy'), pushSubscriptionPayload('https://push.example/current'))
+        ->deleteJson(route('browser-api.push-subscriptions.destroy'), pushSubscriptionPayload('https://93.184.216.34/current'))
         ->assertNotFound()
         ->assertJsonPath('message', 'Push subscription not found');
 });
@@ -105,7 +122,7 @@ it('only reactivates a rejected subscription after an explicit setup action', fu
     $user = User::factory()->create();
     $subscription = PushSubscription::create([
         'user_id' => $user->id,
-        'endpoint' => 'https://push.example/subscription',
+        'endpoint' => 'https://93.184.216.34/subscription',
         'p256dh' => 'p256dh-key',
         'auth' => 'auth-key',
         'subscription_data' => [],

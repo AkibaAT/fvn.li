@@ -285,6 +285,26 @@ describe('click statistics export for GDPR', function () {
 });
 
 describe('IP anonymization in click stats', function () {
+    test('does not link an erased visitor across games', function () {
+        $otherGame = Game::factory()->create();
+
+        foreach ([$this->game, $otherGame] as $game) {
+            ClickStat::create([
+                'game_id' => $game->id,
+                'user_id' => $this->user->id,
+                'type' => ClickStat::TYPE_PAGE_VIEW,
+                'session_id' => 'test-session-' . $game->id,
+                'ip_address' => '192.168.1.100',
+                'clicked_at' => now(),
+            ]);
+        }
+
+        ClickStat::anonymizePersonalDataForUser($this->user->id);
+
+        expect(ClickStat::whereIn('game_id', [$this->game->id, $otherGame->id])->pluck('ip_address')->unique())
+            ->toHaveCount(2);
+    });
+
     test('gives two erased accounts distinct pseudonyms', function () {
         $otherUser = User::factory()->create();
 

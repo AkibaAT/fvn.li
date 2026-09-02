@@ -60,13 +60,13 @@ function notificationUserFor(Game $game, array $preferences = [], bool $withDisc
     }
 
     if ((bool) $user->notificationPreferences->browser_notifications_enabled) {
-        pushSubscriptionFor($user, "https://push.example/{$user->id}");
+        pushSubscriptionFor($user, "https://93.184.216.34/{$user->id}");
     }
 
     return $user;
 }
 
-function pushSubscriptionFor(User $user, string $endpoint = 'https://push.example/endpoint'): PushSubscription
+function pushSubscriptionFor(User $user, string $endpoint = 'https://93.184.216.34/endpoint'): PushSubscription
 {
     return PushSubscription::create([
         'user_id' => $user->id,

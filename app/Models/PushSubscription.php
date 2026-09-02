@@ -34,6 +34,45 @@ class PushSubscription extends Model
         'delivery_last_failed_at' => 'datetime',
     ];
 
+    public static function isSafeEndpoint(string $endpoint): bool
+    {
+        $parts = parse_url($endpoint);
+        if (! is_array($parts)
+            || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+            || empty($parts['host'])
+            || isset($parts['user'])
+            || isset($parts['pass'])) {
+            return false;
+        }
+
+        $host = trim(rtrim(strtolower((string) $parts['host']), '.'), '[]');
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            return self::isPublicIp($host);
+        }
+
+        $records = @dns_get_record($host, DNS_A | DNS_AAAA);
+        if (! is_array($records) || $records === []) {
+            return false;
+        }
+
+        $hasPublicIp = false;
+        foreach ($records as $record) {
+            $ip = $record['ip'] ?? $record['ipv6'] ?? null;
+            if (! is_string($ip) || ! self::isPublicIp($ip)) {
+                return false;
+            }
+
+            $hasPublicIp = true;
+        }
+
+        return $hasPublicIp;
+    }
+
+    private static function isPublicIp(string $ip): bool
+    {
+        return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

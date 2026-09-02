@@ -142,6 +142,19 @@ describe('DiscordEmbedRendererService', function () {
             ->and($result)->not->toHaveKey('footer');
     });
 
+    test('removes unsafe embed urls before they reach previews or Discord', function () {
+        $result = $this->service->renderEmbed([
+            'title' => 'Unsafe link',
+            'url' => 'javascript:alert(1)',
+            'image' => ['url' => 'data:text/html,bad'],
+            'footer' => ['icon_url' => 'https://example.com/icon.png'],
+        ], $this->game, 'update');
+
+        expect($result)->not->toHaveKey('url')
+            ->and($result)->not->toHaveKey('image')
+            ->and($result['footer']['icon_url'])->toBe('https://example.com/icon.png');
+    });
+
     test('preserves numeric values like color', function () {
         $template = [
             'title' => '{game.name}',

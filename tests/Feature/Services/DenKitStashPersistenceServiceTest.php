@@ -527,11 +527,16 @@ it('resolves persisted archive availability for loaded versions in one request',
     $failedVersion = GameVersion::factory()->create(['game_id' => $game->id, 'version' => '2.0']);
     $missingVersion = GameVersion::factory()->create(['game_id' => $game->id, 'version' => '3.0']);
 
-    expect($service->persistedArchiveAvailability($game, [
+    $versions = [
         $availableVersion,
         $failedVersion,
         $missingVersion,
-    ]))->toBe([
+    ];
+    expect($service->persistedArchiveAvailability($game, $versions))->toBe([
+        $availableVersion->id => true,
+        $failedVersion->id => false,
+        $missingVersion->id => false,
+    ])->and($service->persistedArchiveAvailability($game, $versions))->toBe([
         $availableVersion->id => true,
         $failedVersion->id => false,
         $missingVersion->id => false,
@@ -542,6 +547,31 @@ it('resolves persisted archive availability for loaded versions in one request',
     expect((string) $request->getUri())->toContain('https://stash.example/wharf/builds')
         ->and((string) $request->getUri())->toContain('target=fvn-li%2F' . $game->slug)
         ->and((string) $request->getUri())->toContain('channel=main');
+});
+
+it('briefly caches DenKit Stash availability failures', function () {
+    Config::set('services.denkit_stash.url', 'https://stash.example');
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+
+    $history = [];
+    $handlerStack = HandlerStack::create(new MockHandler([
+        new Response(503, [], 'unavailable'),
+    ]));
+    $handlerStack->push(Middleware::history($history));
+
+    $service = new DenKitStashPersistenceService(
+        Mockery::mock(GameArchiveService::class),
+        new Client(['handler' => $handlerStack, 'http_errors' => false])
+    );
+    $game = Game::factory()->create(['slug' => 'unavailable-game']);
+    $version = GameVersion::factory()->create(['game_id' => $game->id, 'version' => '1.0']);
+
+    expect(fn () => $service->persistedArchiveAvailability($game, [$version]))
+        ->toThrow(RuntimeException::class, 'HTTP 503');
+
+    expect($service->persistedArchiveAvailability($game, [$version]))
+        ->toBe([$version->id => false])
+        ->and($history)->toHaveCount(1);
 });
 
 it('returns null when DenKit Stash inlines archive bytes instead of a URL', function () {

@@ -376,23 +376,18 @@ test('game show exposes rich version review progress analytics and recommendatio
         ->and($response->json('props.developerGames.0.name'))->toBe('Developer Game');
 });
 
-test('game show caches similar games it found and retries after an empty result', function () {
+test('game show caches empty similar-game results', function () {
     $game = Game::factory()->create(['name' => 'Recommendation Host', 'is_visible' => true]);
-    $similar = Game::factory()->create(['name' => 'Similar Game', 'is_visible' => true]);
 
     $recommendations = Mockery::mock(SimilarGamesService::class);
     $recommendations->shouldReceive('findDeveloperGames')->andReturn(collect());
-    $recommendations->shouldReceive('findSimilarGames')
-        ->times(3)
-        ->andReturn(collect(), collect(), collect([$similar]));
+    $recommendations->shouldReceive('findSimilarGames')->once()->andReturn(collect());
     app()->instance(SimilarGamesService::class, $recommendations);
 
     $show = fn () => $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game));
 
     expect($show()->json('props.similarGames'))->toBe([])
-        ->and($show()->json('props.similarGames'))->toBe([])
-        ->and($show()->json('props.similarGames.0.name'))->toBe('Similar Game')
-        ->and($show()->json('props.similarGames.0.name'))->toBe('Similar Game');
+        ->and($show()->json('props.similarGames'))->toBe([]);
 });
 
 test('game show character count matches modal display name fallback semantics', function () {

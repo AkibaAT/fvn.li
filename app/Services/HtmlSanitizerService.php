@@ -48,12 +48,12 @@ class HtmlSanitizerService
 
     public function sanitizeReview(?string $html): ?string
     {
-        return $this->doSanitize($this->reviewSanitizer, $html);
+        return $this->doSanitize($this->reviewSanitizer, $html, restrictReviewClasses: true);
     }
 
     public function sanitizeFvnReview(?string $html): ?string
     {
-        return $this->doSanitize($this->reviewSanitizer, $html, preserveLineBreaks: true);
+        return $this->doSanitize($this->reviewSanitizer, $html, preserveLineBreaks: true, restrictReviewClasses: true);
     }
 
     public function sanitizeDescription(?string $html): ?string
@@ -95,21 +95,26 @@ class HtmlSanitizerService
         $game->custom_css = $this->sanitizeCss($game->custom_css);
     }
 
-    private function doSanitize(HtmlSanitizer $sanitizer, ?string $html, bool $preserveLineBreaks = false): ?string
-    {
+    private function doSanitize(
+        HtmlSanitizer $sanitizer,
+        ?string $html,
+        bool $preserveLineBreaks = false,
+        bool $restrictReviewClasses = false,
+    ): ?string {
         if ($html === null || $html === '') {
             return $html;
         }
 
-        $html = $this->sanitizeInlineStyleAttributes($sanitizer->sanitize($html));
+        $html = $this->sanitizeAttributes($sanitizer->sanitize($html), $restrictReviewClasses);
         $html = preg_replace($preserveLineBreaks ? '/[^\S\r\n]+/' : '/\s+/', ' ', str_replace("\u{00A0}", ' ', $html));
 
         return trim($preserveLineBreaks ? preg_replace('/(?:\R[^\S\r\n]*){3,}/u', "\n\n", $html) : $html);
     }
 
-    private function sanitizeInlineStyleAttributes(string $html): string
+    private function sanitizeAttributes(string $html, bool $restrictReviewClasses): string
     {
-        if (! str_contains(strtolower($html), 'style=')) {
+        if (! str_contains(strtolower($html), 'style=')
+            && (! $restrictReviewClasses || ! str_contains(strtolower($html), 'class='))) {
             return $html;
         }
 
@@ -127,19 +132,26 @@ class HtmlSanitizerService
         }
 
         $xpath = new DOMXPath($dom);
-        foreach ($xpath->query('//*[@style]') ?: [] as $element) {
+        $query = $restrictReviewClasses ? '//*[@style or @class]' : '//*[@style]';
+        foreach ($xpath->query($query) ?: [] as $element) {
             if (! $element instanceof DOMElement) {
                 continue;
             }
 
-            $style = $this->sanitizeInlineCss($element->getAttribute('style'));
-            if ($style === '') {
-                $element->removeAttribute('style');
-
-                continue;
+            if ($element->hasAttribute('style')) {
+                $style = $this->sanitizeInlineCss($element->getAttribute('style'));
+                $style === '' ? $element->removeAttribute('style') : $element->setAttribute('style', $style);
             }
 
-            $element->setAttribute('style', $style);
+            if ($restrictReviewClasses && $element->hasAttribute('class')) {
+                $classes = array_values(array_filter(
+                    preg_split('/\s+/', trim($element->getAttribute('class'))) ?: [],
+                    fn (string $class): bool => $class === 'spoiler',
+                ));
+                $classes === []
+                    ? $element->removeAttribute('class')
+                    : $element->setAttribute('class', implode(' ', $classes));
+            }
         }
 
         $root = $dom->getElementById('fvn-sanitizer-root');

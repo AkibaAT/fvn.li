@@ -13,6 +13,8 @@ test('production Postgres initializes the DenKit Stash role and database on a fr
         ->toContain('DENKIT_STASH_POSTGRES_PASSWORD=${DENKIT_STASH_POSTGRES_PASSWORD}')
         ->toContain('${PWD}/scripts/postgres-init-denkit-stash.sh:/docker-entrypoint-initdb.d/10-denkit-stash.sh:ro')
         ->and($initializer)
+        ->not->toContain('--set=denkit_password=')
+        ->toContain('\getenv denkit_password DENKIT_STASH_POSTGRES_PASSWORD')
         ->toContain('CREATE ROLE %I LOGIN PASSWORD %L')
         ->toContain('CREATE DATABASE %I OWNER %I');
 });

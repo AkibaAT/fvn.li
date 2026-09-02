@@ -535,16 +535,22 @@ init 10000 python:
         attribute to every literal label assigned to it, but only if the
         unresolved expression first becomes a route edge.
         """
-        if isinstance(node, pyast.Name):
-            return node.id
-        if isinstance(node, pyast.Attribute):
-            owner = dynamic_label_expression_from_ast(node.value)
-            return (owner + "." if owner else "") + node.attr
-        if isinstance(node, pyast.Subscript):
-            return dynamic_label_expression_from_ast(node.value)
-        if isinstance(node, pyast.Call):
-            return dynamic_label_expression_from_ast(node.func)
-        return None
+        parts = []
+        while True:
+            if isinstance(node, pyast.Name):
+                parts.append(node.id)
+                return ".".join(reversed(parts))
+            if isinstance(node, pyast.Attribute):
+                parts.append(node.attr)
+                node = node.value
+                continue
+            if isinstance(node, pyast.Subscript):
+                node = node.value
+                continue
+            if isinstance(node, pyast.Call):
+                node = node.func
+                continue
+            return None
 
     def collect_screens_from_action_expr(expr):
         if not expr:

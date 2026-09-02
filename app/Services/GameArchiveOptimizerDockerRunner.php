@@ -178,11 +178,18 @@ class GameArchiveOptimizerDockerRunner
             "type=bind,source={$hostJobDir}/output,target=/output",
         ];
 
-        // The image does not contain the application code; it is bind-mounted at runtime.
+        // Mount only source and dependencies needed to bootstrap Laravel. The
+        // deployment root also contains .env and runtime data, so it must never
+        // cross the untrusted-archive sandbox boundary as one broad mount.
         $hostAppDir = rtrim((string) config('services.archive_optimizer.host_app_dir', ''), '/');
         if ($hostAppDir !== '') {
-            $command[] = '--mount';
-            $command[] = "type=bind,source={$hostAppDir},target=" . (string) config('services.archive_optimizer.app_path', '/app') . ',readonly';
+            $appPath = rtrim((string) config('services.archive_optimizer.app_path', '/app'), '/');
+            foreach (['app', 'bootstrap', 'config', 'resources', 'routes', 'vendor'] as $path) {
+                $command[] = '--mount';
+                $command[] = "type=bind,source={$hostAppDir}/{$path},target={$appPath}/{$path},readonly";
+            }
+            $command[] = '--tmpfs';
+            $command[] = "{$appPath}/bootstrap/cache:rw,nosuid,nodev,noexec,mode=0770,size=16m";
         }
 
         // The compiled scripts are regenerated with the game's own runtime, and

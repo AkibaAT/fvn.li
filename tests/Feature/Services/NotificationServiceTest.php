@@ -41,12 +41,30 @@ it('returns a structured no-subscription result', function () {
     ]);
 });
 
+it('invalidates stored internal endpoints without attempting delivery', function () {
+    configuredWebPush();
+    $subscription = PushSubscription::create([
+        'user_id' => User::factory()->create()->id,
+        'endpoint' => 'https://127.0.0.1/internal',
+        'p256dh' => 'key',
+        'auth' => 'auth',
+        'subscription_data' => [],
+    ]);
+
+    expect(app(NotificationService::class)->sendPushNotifications(collect([$subscription]), ['title' => 'Test']))->toBe([
+        'sent' => 0,
+        'failed' => 1,
+        'pruned' => 0,
+        'errors' => ['untrusted_push_endpoint'],
+    ])->and($subscription->fresh()->delivery_status)->toBe(PushSubscription::STATUS_INVALID);
+});
+
 it('reports failures and prunes expired push endpoints', function () {
     configuredWebPush();
     $user = User::factory()->create();
     $subscription = PushSubscription::create([
         'user_id' => $user->id,
-        'endpoint' => 'https://push.example/expired',
+        'endpoint' => 'https://93.184.216.34/expired',
         'p256dh' => 'key',
         'auth' => 'auth',
         'subscription_data' => [],
@@ -84,7 +102,7 @@ it('verifies subscriptions after a successful delivery', function () {
     configuredWebPush();
     $subscription = PushSubscription::create([
         'user_id' => User::factory()->create()->id,
-        'endpoint' => 'https://push.example/working',
+        'endpoint' => 'https://93.184.216.34/working',
         'p256dh' => 'key',
         'auth' => 'auth',
         'subscription_data' => [],
@@ -114,7 +132,7 @@ it('invalidates endpoints rejected for the current VAPID identity', function () 
     configuredWebPush();
     $subscription = PushSubscription::create([
         'user_id' => User::factory()->create()->id,
-        'endpoint' => 'https://push.example/wrong-vapid',
+        'endpoint' => 'https://93.184.216.34/wrong-vapid',
         'p256dh' => 'key',
         'auth' => 'auth',
         'subscription_data' => [],

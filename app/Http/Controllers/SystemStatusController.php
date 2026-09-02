@@ -21,11 +21,14 @@ class SystemStatusController extends Controller
 {
     public function systemStatus(Request $request): Response
     {
+        $isAdmin = (bool) $request->user()?->is_admin;
+
         // Cache game stats until end of day
-        $gameStats = Cache::remember('system_status.game_stats', now()->endOfDay(), function () {
+        $gameStats = Cache::remember('system_status.game_stats.' . ($isAdmin ? 'admin' : 'public'), now()->endOfDay(), function () use ($isAdmin) {
+            $visible = Game::where('is_visible', true)->count();
             $stats = [
-                'total' => Game::count(),
-                'visible' => Game::where('is_visible', true)->count(),
+                'total' => $isAdmin ? Game::count() : $visible,
+                'visible' => $visible,
                 'latest_update' => Game::where('is_visible', true)
                     ->orderBy('updated_at', 'desc')
                     ->value('updated_at'),
@@ -58,9 +61,11 @@ class SystemStatusController extends Controller
         });
 
         // Bump cache key version when the payload shape changes
-        $ratingStats = Cache::remember('system_status.rating_stats.v2', now()->endOfDay(), function () {
+        $ratingStats = Cache::remember('system_status.rating_stats.v3.' . ($isAdmin ? 'admin' : 'public'), now()->endOfDay(), function () use ($isAdmin) {
             // Base queries
-            $visibleRatingsQuery = Rating::query()->where('is_visible', true);
+            $visibleRatingsQuery = Rating::query()
+                ->where('is_visible', true)
+                ->when(! $isAdmin, fn ($query) => $query->whereHas('game', fn ($game) => $game->where('is_visible', true)));
 
             $visibleRatingsCount = (clone $visibleRatingsQuery)->count();
             $visibleReviewsCount = (clone $visibleRatingsQuery)->where('is_reviewed', true)->count();

@@ -152,7 +152,7 @@ class ReviewReportResource extends Resource
                         ]);
 
                         if ($record->rating) {
-                            $record->rating->update(['is_visible' => false]);
+                            $record->rating->update(['is_visible' => false, 'is_moderation_hidden' => true]);
                         }
 
                         Notification::make()

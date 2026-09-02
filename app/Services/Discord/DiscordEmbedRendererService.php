@@ -7,6 +7,7 @@ namespace App\Services\Discord;
 use App\Models\DiscordServer;
 use App\Models\Game;
 use App\Models\GameVersion;
+use Illuminate\Support\Arr;
 
 class DiscordEmbedRendererService
 {
@@ -174,9 +175,25 @@ class DiscordEmbedRendererService
     private function cleanEmbed(array $embed): array
     {
         $embed = $this->sanitizeEmbedTextFields($embed);
+        $embed = $this->sanitizeEmbedUrls($embed);
         $embed = $this->removeIncompleteFields($embed);
         $embed = $this->removeEmptyStrings($embed);
         $embed = $this->enforceDiscordLimits($embed);
+
+        return $embed;
+    }
+
+    private function sanitizeEmbedUrls(array $embed): array
+    {
+        foreach (['url', 'author.url', 'thumbnail.url', 'image.url', 'footer.icon_url'] as $path) {
+            $url = data_get($embed, $path);
+            $parts = is_string($url) ? parse_url($url) : false;
+            if (! is_array($parts)
+                || ! in_array(strtolower((string) ($parts['scheme'] ?? '')), ['http', 'https'], true)
+                || empty($parts['host'])) {
+                Arr::forget($embed, $path);
+            }
+        }
 
         return $embed;
     }

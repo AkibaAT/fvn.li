@@ -34,9 +34,27 @@ class NotificationService
             return ['sent' => 0, 'failed' => 0, 'pruned' => 0, 'errors' => ['no_push_subscriptions']];
         }
 
-        $webPush = $this->createWebPush();
+        $result = ['sent' => 0, 'failed' => 0, 'pruned' => 0, 'errors' => []];
+        $trustedSubscriptions = collect();
 
         foreach ($subscriptions as $subscription) {
+            if (! PushSubscription::isSafeEndpoint((string) $subscription->endpoint)) {
+                $subscription->markInvalid('Untrusted push endpoint');
+                $result['failed']++;
+                $result['errors'][] = 'untrusted_push_endpoint';
+
+                continue;
+            }
+
+            $trustedSubscriptions->push($subscription);
+        }
+
+        if ($trustedSubscriptions->isEmpty()) {
+            return $result;
+        }
+
+        $webPush = $this->createWebPush();
+        foreach ($trustedSubscriptions as $subscription) {
             $webPush->queueNotification(Subscription::create([
                 'endpoint' => $subscription->endpoint,
                 'keys' => [
@@ -45,8 +63,6 @@ class NotificationService
                 ],
             ]), json_encode($payload, JSON_THROW_ON_ERROR));
         }
-
-        $result = ['sent' => 0, 'failed' => 0, 'pruned' => 0, 'errors' => []];
 
         try {
             foreach ($webPush->flush() as $report) {
@@ -82,7 +98,7 @@ class NotificationService
                 'error' => $exception->getMessage(),
                 'trace' => $exception->getTraceAsString(),
             ]);
-            $result['failed'] += max(1, $subscriptions->count() - $result['sent']);
+            $result['failed'] += max(1, $trustedSubscriptions->count() - $result['sent']);
             $result['errors'][] = $exception->getMessage();
         }
 

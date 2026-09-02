@@ -316,12 +316,7 @@ class GamesDisplayController extends Controller
                         'platform' => $g->platform,
                     ]);
 
-                // An index rebuilding its vectors answers with no neighbours, so
-                // an empty result stays uncached and costs one query per request
-                // rather than an hour of an empty section.
-                if ($similarGames->isNotEmpty()) {
-                    Cache::put($similarCacheKey, $similarGames, 3600);
-                }
+                Cache::put($similarCacheKey, $similarGames, $similarGames->isEmpty() ? 60 : 3600);
             } catch (Exception $e) {
                 Log::warning('Similar games lookup failed', [
                     'game_id' => $game->id,

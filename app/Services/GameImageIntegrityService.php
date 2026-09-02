@@ -26,7 +26,8 @@ class GameImageIntegrityService
                 continue;
             }
 
-            $variantIssues = $this->variantIssues($screenshot['optimized'] ?? null, self::SCREENSHOT_VARIANTS);
+            $optimized = $screenshot['optimized'] ?? null;
+            $variantIssues = $this->variantIssues(is_array($optimized) ? $optimized : null, self::SCREENSHOT_VARIANTS);
             if ($variantIssues !== []) {
                 $issues[$index] = $variantIssues;
             }

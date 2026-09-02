@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\PushSubscription;
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,7 +17,16 @@ class PushSubscriptionController extends Controller
     {
         $request->validate([
             'subscription' => 'required|array',
-            'subscription.endpoint' => 'required|string|max:500',
+            'subscription.endpoint' => [
+                'required',
+                'string',
+                'max:500',
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    if (! is_string($value) || ! PushSubscription::isSafeEndpoint($value)) {
+                        $fail('The push subscription endpoint must be a public HTTPS URL.');
+                    }
+                },
+            ],
             'subscription.keys' => 'required|array',
             'subscription.keys.p256dh' => 'required|string',
             'subscription.keys.auth' => 'required|string',
