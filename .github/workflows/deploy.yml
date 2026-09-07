@@ -277,7 +277,7 @@ jobs:
         run: mv docker/production/docker-compose.yml docker-compose.yml
 
       - name: Deploy to server using rsync
-        uses: burnett01/rsync-deployments@4d419d1dc46d4a8a2b6ceab2f951f0f93b2da8f5 # 9
+        uses: burnett01/rsync-deployments@155b6d6c1219ab2224c20c58d423a3f1b850395f # 9
         with:
           switches: -rlptvz --delete --dirs --exclude-from=scripts/rsync-exclude.txt --chmod=D2775,F664,F+X
           path: ./
