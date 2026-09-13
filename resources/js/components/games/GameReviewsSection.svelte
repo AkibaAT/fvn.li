@@ -5,14 +5,12 @@
     import FlagIcon from '@/components/icons/Flag.svelte';
     import LinkIcon from '@/components/icons/Link.svelte';
     import StarIcon from '@/components/icons/Star.svelte';
-    import { untrack } from 'svelte';
     import { Link } from '@inertiajs/svelte';
     import RatingHistoryDialog from '@/components/RatingHistoryDialog.svelte';
     import Pagination from '@/components/Pagination.svelte';
     import LoadingSpinner from '@/components/LoadingSpinner.svelte';
     import UserReviewForm from '@/components/games/UserReviewForm.svelte';
-    import { Button, Card, PlatformIcon } from '@/components/ui';
-    import { fetchReviews } from '@/api';
+    import { Alert, Button, Card, PlatformIcon } from '@/components/ui';
     import { formatLocalDate } from '@/utils/date-formatting';
     import { shouldCollapseReview } from '@/utils/game-show';
     import type { PaginationMeta, Review } from '@/types/game-show';
@@ -26,6 +24,8 @@
         selectedRating,
         showAllRatings,
         reviewsLoading,
+        reviewsError,
+        onRefreshReviews,
         copiedReviewId,
         expandedReviews,
         revealedSpoilers,
@@ -55,6 +55,8 @@
         selectedRating: number | null;
         showAllRatings: boolean;
         reviewsLoading: boolean;
+        reviewsError: string | null;
+        onRefreshReviews: () => void;
         copiedReviewId: number | null;
         expandedReviews: Record<number, boolean>;
         revealedSpoilers: Record<number, boolean>;
@@ -73,32 +75,10 @@
     let reviewForm = $state<{ startEditing: () => void } | null>(null);
     let reviewFormEditing = $state(false);
     let historyModal = $state<{ raterId: number | null; raterName: string; open: boolean }>({ raterId: null, raterName: '', open: false });
-    let hasUserReview = $state(untrack(() => Boolean(initialUserReview)));
-    let reviewRefreshLoading = $state(false);
-    const isReviewsLoading = $derived(reviewsLoading || reviewRefreshLoading);
+    const hasUserReview = $derived(Boolean(initialUserReview));
 
     const getReviewAuthorHref = (review: Review) =>
         review.user ? route('users.reviews', review.user.id) : review.rater ? route('raters.show', review.rater.id) : route('ratings.index');
-
-    async function handleReviewChange(hasReview: boolean) {
-        hasUserReview = hasReview;
-        reviewRefreshLoading = true;
-        try {
-            const refreshed = await fetchReviews(gameId, {
-                showAllRatings,
-                selectedRating,
-                page: pagination.current_page,
-                perPage: pagination.per_page,
-            });
-            reviews = refreshed.reviews;
-            availableRatings = refreshed.availableRatings;
-            pagination = refreshed.pagination;
-        } catch {
-            // Keep the current list if the refresh fails; the saved review remains visible above it.
-        } finally {
-            reviewRefreshLoading = false;
-        }
-    }
 </script>
 
 <Card id="reviews" padding="lg" class="mb-6">
@@ -111,7 +91,6 @@
                     onchange={(event) =>
                         onRatingFilterChange((event.target as HTMLSelectElement).value ? Number((event.target as HTMLSelectElement).value) : null)}
                     class="rounded border border-gray-200 bg-white px-3 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-                    disabled={isReviewsLoading}
                 >
                     <option value="">Any Stars</option>
                     {#each availableRatings as rating (rating)}
@@ -129,11 +108,11 @@
                 variant="link"
                 tone="primary"
                 onclick={onToggleRatingsView}
-                disabled={isReviewsLoading}
-                loading={isReviewsLoading}
+                disabled={reviewsLoading}
+                loading={reviewsLoading}
                 size="sm"
             >
-                {isReviewsLoading ? 'Loading...' : `Show ${showAllRatings ? 'reviews only' : 'all ratings'}`}
+                {reviewsLoading ? 'Loading...' : `Show ${showAllRatings ? 'reviews only' : 'all ratings'}`}
             </Button>
         </div>
     </div>
@@ -144,15 +123,18 @@
             {gameId}
             initialReview={initialUserReview}
             onEditingChange={(editing) => (reviewFormEditing = editing)}
-            onReviewChange={handleReviewChange}
+            onReviewChange={onRefreshReviews}
         />
     </div>
 
-    {#if isReviewsLoading}
+    {#if reviewsLoading}
         <div class="flex items-center justify-center py-8">
             <LoadingSpinner size="lg" label="Loading reviews" />
             <span class="ml-2 text-gray-600 dark:text-gray-400">Loading reviews...</span>
         </div>
+    {:else if reviewsError}
+        <Alert tone="danger">{reviewsError}</Alert>
+        <Button type="button" variant="link" onclick={onRefreshReviews}>Retry</Button>
     {:else if reviews.length === 0}
         <div class="py-8 text-center text-gray-500 dark:text-gray-400">
             No {showAllRatings ? 'ratings' : 'reviews'} found{selectedRating ? ` with ${selectedRating} star${selectedRating !== 1 ? 's' : ''}` : ''}.
@@ -306,7 +288,7 @@
     {/if}
 
     <div class="mt-4">
-        <Pagination layout="full" meta={pagination} onChange={onPageChange} {onPerPageChange} loading={isReviewsLoading} label="reviews" />
+        <Pagination layout="full" meta={pagination} onChange={onPageChange} {onPerPageChange} loading={reviewsLoading} label="reviews" />
     </div>
 </Card>
 

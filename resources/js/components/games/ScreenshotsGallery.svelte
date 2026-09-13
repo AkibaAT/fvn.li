@@ -1,11 +1,12 @@
 <script lang="ts">
+    import { refreshPage } from '@/utils/refreshPage';
     import PlusIcon from '@/components/icons/Plus.svelte';
     import TrashIcon from '@/components/icons/Trash.svelte';
     import { deleteMyGameScreenshot, uploadMyGameScreenshots } from '@/api/my-games';
     import LoadingSpinner from '@/components/LoadingSpinner.svelte';
     import { toast } from '@/utils/toast';
     import { Alert, Button, Card } from '@/components/ui';
-    import { resolveDeletedScreenshots, resolveUploadedScreenshots, type Screenshot } from './screenshotState';
+    import type { Screenshot } from '@/types/game-show';
     import { gameScreenshotAltText } from '@/utils/imageAltText';
 
     function getThumbnailUrl(screenshot: Screenshot): string {
@@ -19,10 +20,9 @@
         canEdit?: boolean;
         gameSlug?: string;
         gameName?: string;
-        onUpdate?: (thumbnail: string | null, screenshots: Screenshot[]) => void;
     }
 
-    let { screenshots, blur = false, onOpenLightbox, canEdit = false, gameSlug, gameName, onUpdate }: Props = $props();
+    let { screenshots, blur = false, onOpenLightbox, canEdit = false, gameSlug, gameName }: Props = $props();
 
     const shouldBlur = $derived(blur && !canEdit);
     let uploadingScreenshots = $state(false);
@@ -31,7 +31,7 @@
 
     async function handleScreenshotUpload(files: FileList) {
         if (typeof window === 'undefined') return;
-        if (uploadingScreenshots) return;
+        if (uploadingScreenshots || deletingScreenshotIndex !== null) return;
         const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
         if (imageFiles.length === 0) {
             alert('Please upload image files');
@@ -41,10 +41,8 @@
         uploadingScreenshots = true;
 
         try {
-            const data = await uploadMyGameScreenshots(gameSlug, imageFiles);
-            const updatedScreenshots = resolveUploadedScreenshots(displayedScreenshots, data.screenshots, data.new_screenshots);
-            displayedScreenshots = updatedScreenshots;
-            onUpdate?.(null, updatedScreenshots);
+            await uploadMyGameScreenshots(gameSlug, imageFiles);
+            if (!(await refreshPage(['game', 'metaTags']))) return;
             toast.success('Screenshots uploaded successfully');
         } catch (e: unknown) {
             console.error('Failed to upload screenshots', e);
@@ -61,10 +59,8 @@
 
         deletingScreenshotIndex = index;
         try {
-            const data = await deleteMyGameScreenshot(gameSlug, index);
-            const updatedScreenshots = resolveDeletedScreenshots(displayedScreenshots, index, data.screenshots);
-            displayedScreenshots = updatedScreenshots;
-            onUpdate?.(null, updatedScreenshots);
+            await deleteMyGameScreenshot(gameSlug, index, displayedScreenshots[index]?.id);
+            if (!(await refreshPage(['game', 'metaTags']))) return;
             toast.success('Screenshot deleted successfully');
         } catch (e: unknown) {
             console.error('Failed to delete screenshot', e);
@@ -82,7 +78,7 @@
             {#if canEdit}
                 <label
                     aria-busy={uploadingScreenshots}
-                    class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-white transition-colors {uploadingScreenshots
+                    class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-white transition-colors focus-within:ring-2 focus-within:ring-blue-500 {uploadingScreenshots
                         ? 'cursor-wait bg-blue-500'
                         : 'cursor-pointer bg-blue-600 hover:bg-blue-700'}"
                 >
@@ -95,15 +91,16 @@
                     {/if}
                     <input
                         type="file"
+                        aria-label="Add screenshots"
                         accept="image/*"
                         multiple
-                        disabled={uploadingScreenshots}
+                        disabled={uploadingScreenshots || deletingScreenshotIndex !== null}
                         onchange={(e) => {
                             const input = e.target as HTMLInputElement;
                             if (input.files) handleScreenshotUpload(input.files);
                             input.value = '';
                         }}
-                        class="hidden"
+                        class="sr-only"
                     />
                 </label>
             {/if}

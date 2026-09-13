@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { formatCalendarDate } from '@/utils/date-formatting';
     import { onMount } from 'svelte';
     import { Button, Card } from '@/components/ui';
 
@@ -68,8 +69,7 @@
             if (!dailyStats || dailyStats.length === 0) return null;
 
             const labels = dailyStats.map((d) => {
-                const date = new Date(d.date);
-                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                return formatCalendarDate(d.date, { month: 'short', day: 'numeric', year: undefined });
             });
 
             const overviewData = {
@@ -148,8 +148,7 @@
             if (!dailyStats || dailyStats.length === 0) return null;
 
             const labels = dailyStats.map((d) => {
-                const date = new Date(d.date);
-                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                return formatCalendarDate(d.date, { month: 'short', day: 'numeric', year: undefined });
             });
 
             return {
@@ -305,7 +304,7 @@
 
     <Card variant="glass" padding="none" class="shadow-none">
         <div class="border-b border-gray-200 dark:border-gray-700">
-            <nav class="flex space-x-8 px-6" aria-label="Tabs">
+            <nav class="flex space-x-8 overflow-x-auto px-6" aria-label="Tabs">
                 {#each tabs as tab (tab.id)}
                     <Button
                         type="button"

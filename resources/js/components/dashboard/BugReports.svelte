@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { formatLocalDate, formatLocalDateTime } from '@/utils/date-formatting';
     import ChevronRightIcon from '@/components/icons/ChevronRight.svelte';
     import { addBugReportComment, closeBugReport, fetchBugReport, type BugReportComment, type BugReportDetail, type BugReportSummary } from '@/api';
     import { notify } from '@/components/Toast.svelte';
@@ -22,6 +23,7 @@
     let submittingComment = $state(false);
     let closingTicket = $state(false);
     let bugReportModalOpen = $state(false);
+    let reportGeneration = 0;
 
     function getStatusBadgeTone(color: string): BadgeTone {
         switch (color) {
@@ -39,22 +41,29 @@
     }
 
     async function openBugReport(reportId: number) {
+        closeBugReportModal();
+        const generation = reportGeneration;
         loadingBugReport = true;
         bugReportModalOpen = true;
         try {
             const data = await fetchBugReport(reportId);
+            if (generation !== reportGeneration) return;
             selectedBugReport = data.report;
             bugReportComments = data.comments;
             bugReports = bugReports.map((r) => (r.id === reportId ? { ...r, unread_count: 0 } : r));
         } catch (error) {
+            if (generation !== reportGeneration) return;
             notify(error instanceof Error ? error.message : 'Failed to load bug report', 'error');
             bugReportModalOpen = false;
         } finally {
-            loadingBugReport = false;
+            if (generation === reportGeneration) loadingBugReport = false;
         }
     }
 
     function closeBugReportModal() {
+        reportGeneration++;
+        submittingComment = false;
+        closingTicket = false;
         bugReportModalOpen = false;
         selectedBugReport = null;
         bugReportComments = [];
@@ -62,34 +71,40 @@
     }
 
     async function submitBugReportComment() {
-        if (!selectedBugReport || !newComment.trim()) return;
+        if (!selectedBugReport || !newComment.trim() || submittingComment) return;
+        const reportId = selectedBugReport.id;
+        const generation = reportGeneration;
+        const draft = newComment;
 
         submittingComment = true;
         try {
-            const comment = await addBugReportComment(selectedBugReport.id, newComment.trim());
+            const comment = await addBugReportComment(reportId, draft.trim());
+            if (generation !== reportGeneration) return;
             bugReportComments = [...bugReportComments, comment];
-            newComment = '';
+            if (newComment === draft) newComment = '';
             notify('Comment added', 'success');
         } catch (error) {
             notify(error instanceof Error ? error.message : 'Failed to add comment', 'error');
         } finally {
-            submittingComment = false;
+            if (generation === reportGeneration) submittingComment = false;
         }
     }
 
     async function closeTicket() {
-        if (!selectedBugReport) return;
+        if (!selectedBugReport || closingTicket) return;
+        const reportId = selectedBugReport.id;
+        const generation = reportGeneration;
 
         closingTicket = true;
         try {
-            await closeBugReport(selectedBugReport.id);
-            bugReports = bugReports.filter((r) => r.id !== selectedBugReport!.id);
-            closeBugReportModal();
+            await closeBugReport(reportId);
+            bugReports = bugReports.filter((r) => r.id !== reportId);
+            if (generation === reportGeneration) closeBugReportModal();
             notify('Ticket closed', 'success');
         } catch (error) {
             notify(error instanceof Error ? error.message : 'Failed to close ticket', 'error');
         } finally {
-            closingTicket = false;
+            if (generation === reportGeneration) closingTicket = false;
         }
     }
 
@@ -144,7 +159,7 @@
                                     {report.description}
                                 </p>
                                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    Reported {new Date(report.created_at).toLocaleDateString()}
+                                    Reported {formatLocalDate(report.created_at)}
                                 </p>
                             </div>
                             <ChevronRightIcon class="ml-2 h-5 w-5 flex-shrink-0 text-gray-400" />
@@ -174,7 +189,7 @@
                     {selectedBugReport.status_label}
                 </Badge>
                 <span class="text-xs text-gray-500 dark:text-gray-400">
-                    Submitted {new Date(selectedBugReport.created_at).toLocaleDateString()}
+                    Submitted {formatLocalDate(selectedBugReport.created_at)}
                 </span>
             </div>
 
@@ -219,10 +234,7 @@
                                 <span
                                     class="text-xs {comment.is_from_admin ? 'text-gray-600 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}"
                                 >
-                                    {new Date(comment.created_at).toLocaleDateString()} at {new Date(comment.created_at).toLocaleTimeString([], {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    })}
+                                    {formatLocalDateTime(comment.created_at)}
                                 </span>
                             </div>
                             <p class="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300">

@@ -58,7 +58,6 @@
         onSaleToggle: () => void;
         onDelistedToggle: () => void;
         updateFilters: (filters: Partial<CurrentFilters>) => void;
-        onIgnoreToggle?: (gameId: number, isIgnored: boolean, ignoredGameIds: number[]) => void;
     }
 
     let {
@@ -75,7 +74,6 @@
         onDemoToggle,
         onSaleToggle,
         onDelistedToggle,
-        onIgnoreToggle,
     }: Props = $props();
 </script>
 
@@ -110,7 +108,6 @@
                 {onDemoToggle}
                 {onSaleToggle}
                 {onDelistedToggle}
-                {onIgnoreToggle}
             />
         {/each}
     </div>

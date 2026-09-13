@@ -1,6 +1,8 @@
 <script lang="ts">
+    import { refreshPage } from '@/utils/refreshPage';
     import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
     import PlusCircleIcon from '@/components/icons/PlusCircle.svelte';
+    import { notify } from '@/components/Toast.svelte';
     import { page } from '@inertiajs/svelte';
     import { untrack } from 'svelte';
     import {
@@ -19,10 +21,12 @@
         gameName,
         isPaid = false,
         userProgress = null,
+        listMemberships = [],
     }: {
         gameId: number;
         gameName: string;
         isPaid?: boolean;
+        listMemberships?: Array<{ list_id: number; name: string; type: string; is_default: boolean }>;
         userProgress?: { id: number; game_id: number; user_id: number; receive_updates: boolean } | null;
     } = $props();
 
@@ -39,7 +43,7 @@
     const isAuthenticated = $derived(Boolean(auth?.user));
 
     let allLists = $state<VnList[]>([]);
-    let userLists = $state<VnList[]>([]);
+    let userLists = $state<VnList[]>(untrack(() => listMemberships.map((list) => ({ ...list, id: list.list_id }))));
     let showListDialog = $state(false);
     let showUserLists = $state(false);
     let isTogglingNotifications = $state(false);
@@ -48,8 +52,17 @@
     let newListName = $state('');
     let newListIsPublic = $state(false);
     let isCreatingList = $state(false);
-    let listStates = $state<Record<number, boolean>>({});
+    let listStates = $state<Record<number, boolean>>(untrack(() => Object.fromEntries(listMemberships.map((list) => [list.list_id, true]))));
     let loadingStates = $state<Record<number, boolean>>({});
+
+    let defaultListQueue = Promise.resolve();
+
+    const refreshUserData = () => refreshPage(['game', 'games', 'vnLists', 'vnList', 'availableLists']);
+
+    $effect(() => {
+        userLists = listMemberships.map((list) => ({ ...list, id: list.list_id }));
+        listStates = Object.fromEntries(listMemberships.map((list) => [list.list_id, true]));
+    });
 
     let messageTimeout: ReturnType<typeof setTimeout>;
 
@@ -70,7 +83,7 @@
             const [lists, currentListIds] = await Promise.all([fetchUserLists(), fetchGameListMemberships(gameId)]);
 
             allLists = lists;
-            userLists = lists.filter((list: VnList) => list.user?.id === auth?.user?.id);
+            userLists = lists;
 
             const initialStates: Record<number, boolean> = {};
             lists.forEach((list: VnList) => {
@@ -83,13 +96,19 @@
         }
     };
 
-    const handleDefaultListToggle = async (listType: string) => {
+    const handleDefaultListToggle = (listType: string) => {
+        defaultListQueue = defaultListQueue.then(() => saveDefaultListToggle(listType));
+        return defaultListQueue;
+    };
+
+    const saveDefaultListToggle = async (listType: string) => {
         const listId = allLists.find((list) => list.type === listType)?.id;
         if (!listId) return;
 
         loadingStates = { ...loadingStates, [listId]: true };
         try {
             const message = await addGameToDefaultList(gameId, listType);
+            if (!(await refreshUserData())) return;
 
             const isRemoved = message.includes('removed');
             if (!isRemoved) {
@@ -118,6 +137,7 @@
         loadingStates = { ...loadingStates, [listId]: true };
         try {
             const message = await addGameToCustomList(listId, gameId);
+            if (!(await refreshUserData())) return;
             const isRemoved = message.includes('removed');
             listStates = { ...listStates, [listId]: !isRemoved };
             showMessage(message, 'success');
@@ -140,9 +160,10 @@
                 is_public: newListIsPublic,
                 game_id: gameId,
             });
+            if (!(await refreshUserData())) return;
             const newList = data.list;
             allLists = [...allLists, newList];
-            userLists = [...userLists, newList];
+            userLists = [...userLists.filter((list) => list.id !== newList.id), newList];
             listStates = { ...listStates, [newList.id]: true };
             newListName = '';
             newListIsPublic = false;
@@ -155,29 +176,19 @@
         }
     };
 
-    const handleToggleNotifications = async () => {
+    const handleToggleNotifications = async (event: Event) => {
+        (event.currentTarget as HTMLInputElement).checked = notificationStatus;
         if (isTogglingNotifications || isPaid) return;
 
         isTogglingNotifications = true;
         try {
             const newStatus = !notificationStatus;
             const data = await toggleUserProgressUpdates(gameId, newStatus);
+            if (!(await refreshUserData())) return;
             notificationStatus = data.receive_updates;
-            document.dispatchEvent(
-                new CustomEvent('show-toast', {
-                    detail: {
-                        message: `Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${gameName}"`,
-                        type: 'success',
-                    },
-                }),
-            );
+            notify(`Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${gameName}"`, 'success');
         } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Failed to toggle notifications';
-            document.dispatchEvent(
-                new CustomEvent('show-toast', {
-                    detail: { message: msg, type: 'error' },
-                }),
-            );
+            notify(error instanceof Error ? error.message : 'Failed to toggle notifications', 'error');
         } finally {
             isTogglingNotifications = false;
         }

@@ -34,17 +34,25 @@ export const announceToScreenReader = (message: string, priority: 'polite' | 'as
 export const trapFocus = (container: HTMLElement) => {
     if (typeof document === 'undefined') return () => {};
 
-    const focusableElements = container.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    ) as NodeListOf<HTMLElement>;
-
-    if (focusableElements.length === 0) return () => {};
-
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
+    const focusableElements = () =>
+        Array.from(
+            container.querySelectorAll<HTMLElement>(
+                'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+            ),
+        ).filter(
+            (element) =>
+                element.tabIndex >= 0 &&
+                !element.matches(':disabled') &&
+                getComputedStyle(element).display !== 'none' &&
+                getComputedStyle(element).visibility !== 'hidden',
+        );
 
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key !== 'Tab') return;
+        const elements = focusableElements();
+        const firstElement = elements[0];
+        const lastElement = elements.at(-1);
+        if (!firstElement || !lastElement) return;
 
         if (e.shiftKey) {
             if (document.activeElement === firstElement) {
@@ -54,7 +62,7 @@ export const trapFocus = (container: HTMLElement) => {
         } else {
             if (document.activeElement === lastElement) {
                 e.preventDefault();
-                firstElement.focus();
+                focusableElements()[0]?.focus();
             }
         }
     };
@@ -62,7 +70,7 @@ export const trapFocus = (container: HTMLElement) => {
     container.addEventListener('keydown', handleKeyDown);
 
     // Focus first element
-    firstElement.focus();
+    focusableElements()[0]?.focus();
 
     return () => {
         container.removeEventListener('keydown', handleKeyDown);

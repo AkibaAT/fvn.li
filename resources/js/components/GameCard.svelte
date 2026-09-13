@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { refreshPage } from '@/utils/refreshPage';
     import NoSymbolIcon from '@/components/icons/NoSymbol.svelte';
     import NoSymbolSolidIcon from '@/components/icons/NoSymbolSolid.svelte';
     import { untrack } from 'svelte';
@@ -19,6 +20,7 @@
     import { useStorePlatformIcons } from '@/hooks/useStorePlatformIcons';
     import type { Game } from '@/types';
     import { page } from '@inertiajs/svelte';
+    import { toast } from '@/utils/toast';
 
     let props: GameCardProps = $props();
 
@@ -36,10 +38,6 @@
         handleSaleToggle,
         handleDelistedToggle,
         orderedTags,
-        tagsExpanded,
-        setTagsExpanded,
-        languagesExpanded,
-        setLanguagesExpanded,
     } = untrack(() => useGameCard(props));
 
     const {
@@ -54,14 +52,15 @@
         showSale,
         delisted,
         ignoredGameIds,
-        onIgnoreToggle,
         fixedHeight = false,
     } = $derived(props);
     const { getSupportedPlatforms, getPlatformIcon } = usePlatformIcons();
     const { getStorePlatformIcon, getStorePlatformFromString } = useStorePlatformIcons();
     const auth = $derived((page as any).props?.auth);
 
-    let isIgnored = $derived(untrack(() => ignoredGameIds?.includes(game.id) || false));
+    const isIgnored = $derived(ignoredGameIds?.includes(game.id) || false);
+    let tagsExpanded = $state(false);
+    let languagesExpanded = $state(false);
     let isTogglingIgnore = $state(false);
 
     const supportedPlatforms = $derived(getSupportedPlatforms(game));
@@ -75,13 +74,10 @@
 
         isTogglingIgnore = true;
         try {
-            const result = await toggleIgnoredGame(game.id);
-            isIgnored = result.isIgnored;
-            if (onIgnoreToggle) {
-                onIgnoreToggle(game.id, result.isIgnored, result.ignoredGameIds);
-            }
+            await toggleIgnoredGame(game.id);
+            if (!(await refreshPage())) return;
         } catch (error) {
-            console.error('Failed to toggle ignore status:', error);
+            toast.error(error instanceof Error ? error.message : 'Failed to update ignore list');
         } finally {
             isTogglingIgnore = false;
         }
@@ -96,7 +92,7 @@
     variant="glass"
     padding="none"
     hover
-    class="group relative flex {fixedHeight
+    class="group relative flex {fixedHeight && !tagsExpanded && !languagesExpanded
         ? 'h-[43rem]'
         : 'h-full'} flex-col overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
 >
@@ -151,11 +147,11 @@
                 languages={game.supported_languages}
                 {selectedLanguages}
                 {languagesExpanded}
-                {setLanguagesExpanded}
+                setLanguagesExpanded={(value) => (languagesExpanded = value)}
                 {handleLanguage}
             />
 
-            <GameTagSection {orderedTags} {selectedTags} {tagsExpanded} {setTagsExpanded} {handleTag} />
+            <GameTagSection {orderedTags} {selectedTags} {tagsExpanded} setTagsExpanded={(value) => (tagsExpanded = value)} {handleTag} />
 
             {#if showFooterBadges}
                 <div class="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-700/50">
@@ -177,7 +173,13 @@
             {/if}
 
             {#if !fixedHeight}
-                <GameCardUserSection gameId={game.id} gameName={game.name} isPaid={game.is_paid} userProgress={game.user_progress?.[0] ?? null} />
+                <GameCardUserSection
+                    gameId={game.id}
+                    gameName={game.name}
+                    isPaid={game.is_paid}
+                    userProgress={game.user_progress?.[0] ?? null}
+                    listMemberships={game.user_list_memberships ?? []}
+                />
             {/if}
         </div>
     </div>

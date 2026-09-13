@@ -1,7 +1,7 @@
 <script lang="ts">
     import Stars from '@/components/ui/Stars.svelte';
     import { Card } from '@/components/ui';
-    import { formatRelativeDateTime, getUserTimezone } from '@/utils/date-formatting';
+    import { formatRelativeDateTime } from '@/utils/date-formatting';
     import { formatNumber } from '@/utils/number-formatting';
     import StatTile from './StatTile.svelte';
 
@@ -32,7 +32,6 @@
 
     const gameLatestUpdate = $derived(formatRelativeDateTime(gameStats.latest_update));
     const ratingLatest = $derived(formatRelativeDateTime(ratingStats.latest));
-    const userTimezone = getUserTimezone();
 </script>
 
 <section class="space-y-6">
@@ -55,7 +54,7 @@
                 <div class="mt-4 text-sm">
                     <span class="text-gray-500 dark:text-gray-400">Latest Update:</span><span class="ml-1 text-gray-900 dark:text-gray-100"
                         >{gameLatestUpdate.timeAgo}
-                        <span class="text-xs text-gray-500 dark:text-gray-400">({gameLatestUpdate.formattedDate} {userTimezone})</span></span
+                        <span class="text-xs text-gray-500 dark:text-gray-400">({gameLatestUpdate.formattedDate})</span></span
                     >
                 </div>
             {/if}
@@ -120,7 +119,7 @@
                 <div class="mt-4 text-sm">
                     <span class="text-gray-500 dark:text-gray-400">Latest Rating:</span><span class="ml-1 text-gray-900 dark:text-gray-100"
                         >{ratingLatest.timeAgo}
-                        <span class="text-xs text-gray-500 dark:text-gray-400">({ratingLatest.formattedDate} {userTimezone})</span></span
+                        <span class="text-xs text-gray-500 dark:text-gray-400">({ratingLatest.formattedDate})</span></span
                     >
                 </div>
             {/if}

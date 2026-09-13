@@ -15,6 +15,7 @@
     import { toast } from '@/utils/toast';
     import { Card, Switch } from '@/components/ui';
     import ChannelPicker from './ChannelPicker.svelte';
+    import { SvelteMap } from 'svelte/reactivity';
 
     interface Props {
         overrides: GameOverride[];
@@ -32,71 +33,76 @@
     let searchResults = $state<GameSearchResult[]>([]);
     let searching = $state(false);
     let showSearch = $state(false);
+    let adding = $state(false);
     let deleteConfirmId = $state<number | null>(null);
+    const savedOverrides = new SvelteMap<number, GameOverride>();
+    const pendingSaves: { id: number; changes: { is_ignored?: boolean; channel_id?: string | null } }[] = [];
 
     const filteredOverrides = $derived(filter === 'ignored' ? overrides.filter((o) => o.is_ignored) : overrides);
 
-    async function searchGames(query: string) {
-        if (!query || query.length < 2) {
-            searchResults = [];
-            return;
-        }
-        searching = true;
-        try {
-            const results = await searchGamesRequest(query, 10);
+    $effect(() => {
+        const query = searchQuery.trim();
+        searchResults = [];
+        searching = showSearch && query.length >= 2;
+        if (!showSearch || query.length < 2) return;
 
-            searchResults = results
-                .map((game) => ({
-                    ...game,
-                    thumb_url: game.thumb_url || game.cover_image,
-                }))
-                .filter((game) => !overrides.some((override) => override.game_id === game.id));
-        } catch {
-            searchResults = [];
-        } finally {
-            searching = false;
-        }
-    }
+        let active = true;
+        const timeout = setTimeout(async () => {
+            try {
+                const results = await searchGamesRequest(query, 10);
+                if (!active) return;
+                searchResults = results
+                    .map((game) => ({ ...game, thumb_url: game.thumb_url || game.cover_image }))
+                    .filter((game) => !overrides.some((override) => override.game_id === game.id));
+            } catch {
+                if (active) searchResults = [];
+            } finally {
+                if (active) searching = false;
+            }
+        }, 300);
 
-    let searchTimeout: ReturnType<typeof setTimeout>;
-    function onSearchInput(e: Event) {
-        const query = (e.target as HTMLInputElement).value;
-        searchQuery = query;
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => searchGames(query), 300);
-    }
+        return () => {
+            active = false;
+            clearTimeout(timeout);
+        };
+    });
 
     async function addOverride(game: GameSearchResult, isIgnored = false) {
+        if (adding) return;
+        adding = true;
         try {
             const override = await createGameOverride(serverId, {
                 game_id: game.id,
                 is_ignored: isIgnored,
                 channel_id: null,
             });
-            onchange([...overrides, override]);
+            onchange([...overrides.filter((o) => o.id !== override.id && o.game_id !== override.game_id), override]);
             searchQuery = '';
             searchResults = [];
             toast.success(`Added override for ${game.name}`);
         } catch (e) {
             toast.error(e instanceof Error ? e.message : 'Failed to add override');
+        } finally {
+            adding = false;
         }
     }
 
-    async function toggleIgnored(override: GameOverride) {
+    async function saveOverride(override: GameOverride, changes: { is_ignored?: boolean; channel_id?: string | null }) {
+        const id = override.id;
+        if (!savedOverrides.has(id)) savedOverrides.set(id, $state.snapshot(override));
+        const save = { id, changes: { ...changes } };
+        pendingSaves.push(save);
+        onchange(overrides.map((o) => (o.id === id ? { ...o, ...save.changes } : o)));
         try {
-            const updated = await updateGameOverride(serverId, override.id, { is_ignored: !override.is_ignored });
-            onchange(overrides.map((o) => (o.id === override.id ? updated : o)));
+            savedOverrides.set(id, await updateGameOverride(serverId, id, save.changes));
         } catch (e) {
             toast.error(e instanceof Error ? e.message : 'Failed to update override');
-        }
-    }
-
-    async function updateChannel(override: GameOverride, channelId: string | null) {
-        try {
-            const updated = await updateGameOverride(serverId, override.id, { channel_id: channelId });
-            onchange(overrides.map((o) => (o.id === override.id ? updated : o)));
-        } catch (e) {
-            toast.error(e instanceof Error ? e.message : 'Failed to update channel');
+        } finally {
+            pendingSaves.splice(pendingSaves.indexOf(save), 1);
+            const remaining = pendingSaves.filter((pending) => pending.id === id);
+            const current = Object.assign({}, savedOverrides.get(id), ...remaining.map((pending) => pending.changes));
+            onchange(overrides.map((o) => (o.id === id ? current : o)));
+            if (remaining.length === 0) savedOverrides.delete(id);
         }
     }
 
@@ -138,8 +144,7 @@
                 <input
                     id="{uid}-vn-search"
                     type="text"
-                    value={searchQuery}
-                    oninput={onSearchInput}
+                    bind:value={searchQuery}
                     placeholder="Type to search..."
                     class="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 />
@@ -164,6 +169,7 @@
                             <div class="flex gap-1">
                                 <button
                                     onclick={() => addOverride(game, filter === 'ignored')}
+                                    disabled={adding}
                                     class="rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700"
                                 >
                                     {filter === 'ignored' ? 'Ignore' : 'Add Override'}
@@ -228,7 +234,7 @@
                             <td class="px-4 py-3">
                                 <Switch
                                     checked={override.is_ignored}
-                                    onchange={() => toggleIgnored(override)}
+                                    onchange={() => saveOverride(override, { is_ignored: !override.is_ignored })}
                                     ariaLabel={`Ignore ${override.game?.name || `game ${override.game_id}`}`}
                                     size="sm"
                                     tone="danger"
@@ -244,14 +250,15 @@
                                             searchPlaceholder="Type to filter channels..."
                                             allowNone
                                             noneLabel="Default channel"
-                                            onselect={(channelId) => updateChannel(override, channelId)}
+                                            onselect={(channelId) => saveOverride(override, { channel_id: channelId })}
                                         />
                                     {:else}
                                         <input
                                             type="text"
                                             value={override.channel_id || ''}
                                             placeholder="Enter channel ID"
-                                            onchange={(event) => updateChannel(override, (event.target as HTMLInputElement).value.trim() || null)}
+                                            onchange={(event) =>
+                                                saveOverride(override, { channel_id: (event.target as HTMLInputElement).value.trim() || null })}
                                             class="w-full rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                         />
                                     {/if}

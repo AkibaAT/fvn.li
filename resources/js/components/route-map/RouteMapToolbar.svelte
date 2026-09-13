@@ -64,7 +64,9 @@
             value={selectedVersionId}
             onchange={(e) => {
                 const target = e.target as HTMLSelectElement;
-                onLoadVersion(Number(target.value));
+                const requestedVersion = Number(target.value);
+                target.value = String(selectedVersionId);
+                onLoadVersion(requestedVersion);
             }}
             disabled={isLoading}
         >

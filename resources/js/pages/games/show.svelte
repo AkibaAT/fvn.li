@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { refreshPage } from '@/utils/refreshPage';
+    import { toast } from '@/utils/toast';
     import GameStats from '@/components/GameStats.svelte';
     import ChevronLeftIcon from '@/components/icons/ChevronLeft.svelte';
     import VersionComparisonModal from '@/components/VersionComparisonModal.svelte';
@@ -89,7 +91,6 @@
     let visitorViewMode = $state<'custom' | 'original'>('original');
     let previewingVisitorView = $state(false);
     let isUploadingThumbnail = $state(false);
-    let lastSyncedMediaKey: string | null = null;
     const currentScreenshots = $derived(editPermissions.canEdit && !previewingVisitorView ? customScreenshots : visitorScreenshots);
 
     function customScreenshotsForEditor(): Screenshot[] {
@@ -97,12 +98,6 @@
     }
 
     $effect(() => {
-        const nextMediaKey = `${game.id}:${game.custom_page_updated_at ?? game.updated_at ?? ''}`;
-        if (lastSyncedMediaKey === nextMediaKey) {
-            return;
-        }
-
-        lastSyncedMediaKey = nextMediaKey;
         currentThumbnail = game.optimized_thumbnail_url || null;
         customScreenshots = customScreenshotsForEditor();
         visitorScreenshots = game.effective_screenshots || game.screenshots || [];
@@ -134,18 +129,32 @@
     );
 
     let reviewsInitial = true;
+    let reviewsRevision = $state(0);
+    let reviewsError = $state<string | null>(null);
     $effect(() => {
-        // Track all reactive deps
+        const revision = reviewsRevision;
+        const gameId = game.id;
         const params = { showAllRatings, selectedRating, page: reviewsPage, perPage: reviewsPerPage };
         if (reviewsInitial) {
             reviewsInitial = false;
-            if (params.page === 1 && !params.showAllRatings && params.selectedRating === null) return;
+            if (revision === 0 && params.page === 1 && !params.showAllRatings && params.selectedRating === null) return;
         }
-        fetchReviews(game.id, params)
+        let active = true;
+        reviewsLoading = true;
+        reviewsError = null;
+        fetchReviews(gameId, params)
             .then((data) => {
-                reviewsData = data;
+                if (active) reviewsData = data;
             })
-            .catch(() => {});
+            .catch(() => {
+                if (active) reviewsError = 'Unable to load reviews. Please try again.';
+            })
+            .finally(() => {
+                if (active) reviewsLoading = false;
+            });
+        return () => {
+            active = false;
+        };
     });
 
     // Versions state
@@ -171,15 +180,18 @@
 
     let versionsInitial = true;
     $effect(() => {
-        // Track reactive deps
+        const gameId = game.id;
         const page = versionsPage;
         const perPage = versionsPerPage;
         if (versionsInitial) {
             versionsInitial = false;
             if (page === 1) return;
         }
-        fetchVersions(game.id, page, perPage)
+        let active = true;
+        versionsLoading = true;
+        fetchVersions(gameId, page, perPage)
             .then((data) => {
+                if (!active) return;
                 versionHasFileStats = {
                     ...versionHasFileStats,
                     ...data.versionHasFileStats,
@@ -190,29 +202,59 @@
                 };
                 versionsData = data;
             })
-            .catch(() => {});
+            .catch(() => {
+                if (active) toast.error('Unable to load versions. Please try again.');
+            })
+            .finally(() => {
+                if (active) versionsLoading = false;
+            });
+        return () => {
+            active = false;
+        };
     });
 
     $effect(() => {
+        characterStatsData = null;
+        characterStatsLoading = showCharacterStats;
         if (showCharacterStats === null) return;
+        let active = true;
         fetchCharacterStats(game.slug, showCharacterStats)
             .then((data) => {
-                characterStatsData = data;
+                if (active) characterStatsData = data;
             })
             .catch(() => {
-                characterStatsData = null;
+                if (!active) return;
+                showCharacterStats = null;
+                toast.error('Unable to load character statistics. Please try again.');
+            })
+            .finally(() => {
+                if (active) characterStatsLoading = null;
             });
+        return () => {
+            active = false;
+        };
     });
 
     $effect(() => {
+        fileStatsData = null;
+        fileStatsLoading = showFileStats;
         if (showFileStats === null) return;
+        let active = true;
         fetchFileStats(game.slug, showFileStats)
             .then((data) => {
-                fileStatsData = data;
+                if (active) fileStatsData = data;
             })
             .catch(() => {
-                fileStatsData = null;
+                if (!active) return;
+                showFileStats = null;
+                toast.error('Unable to load file statistics. Please try again.');
+            })
+            .finally(() => {
+                if (active) fileStatsLoading = null;
             });
+        return () => {
+            active = false;
+        };
     });
 
     const activePlatforms = $derived(getGamePlatforms(platforms, game.latest_version));
@@ -322,38 +364,22 @@
     };
 
     const loadCharacterStats = (versionId: number) => {
-        characterStatsLoading = versionId;
         showCharacterStats = versionId;
     };
     const loadFileStats = (versionId: number) => {
-        fileStatsLoading = versionId;
         showFileStats = versionId;
     };
 
-    const closeCharacterStatsDialog = (versionId: number) => {
-        const dialog = document.getElementById(`character-stats-${versionId}`) as HTMLDialogElement;
-        if (dialog) dialog.close();
+    const closeCharacterStatsDialog = () => {
         showCharacterStats = null;
     };
-    const closeFileStatsDialog = (versionId: number) => {
-        const dialog = document.getElementById(`file-stats-${versionId}`) as HTMLDialogElement;
-        if (dialog) dialog.close();
+    const closeFileStatsDialog = () => {
         showFileStats = null;
     };
 
     const compareVersions = () => {
         if (!compareFromVersionId || !compareToVersionId) return;
         showVersionComparison = true;
-    };
-
-    const handleMediaUpdate = (newThumbnail: string | null, newScreenshots: any[]) => {
-        if (newThumbnail !== null) {
-            currentThumbnail = newThumbnail;
-        }
-        customScreenshots = newScreenshots;
-        if (visitorViewMode === 'custom') {
-            visitorScreenshots = newScreenshots;
-        }
     };
 
     const handleVisitorViewModeUpdate = (data: {
@@ -396,8 +422,8 @@
 
         isUploadingThumbnail = true;
         try {
-            const data = await uploadThumbnail({ gameSlug: game.slug, file });
-            currentThumbnail = data.thumbnail_url;
+            await uploadThumbnail({ gameSlug: game.slug, file });
+            if (!(await refreshPage(['game', 'metaTags']))) return;
         } catch (error: any) {
             console.error('Failed to upload thumbnail', error);
             if (error?.response?.data?.message) {
@@ -411,23 +437,6 @@
             isUploadingThumbnail = false;
         }
     };
-
-    // Effects for dialog management
-    $effect(() => {
-        if (showCharacterStats !== null && characterStatsData) {
-            characterStatsLoading = null;
-            const dialog = document.getElementById(`character-stats-${showCharacterStats}`) as HTMLDialogElement;
-            if (dialog && !dialog.open) dialog.showModal();
-        }
-    });
-
-    $effect(() => {
-        if (showFileStats !== null && fileStatsData) {
-            fileStatsLoading = null;
-            const dialog = document.getElementById(`file-stats-${showFileStats}`) as HTMLDialogElement;
-            if (dialog && !dialog.open) dialog.showModal();
-        }
-    });
 
     // Scroll to review anchor on mount
     $effect(() => {
@@ -528,7 +537,6 @@
         canEdit={editPermissions.canEdit && !previewingVisitorView}
         gameSlug={game.slug}
         gameName={game.name}
-        onUpdate={handleMediaUpdate}
     />
 {/if}
 
@@ -637,6 +645,8 @@
     {selectedRating}
     {showAllRatings}
     {reviewsLoading}
+    {reviewsError}
+    onRefreshReviews={() => (reviewsRevision += 1)}
     {copiedReviewId}
     {expandedReviews}
     {revealedSpoilers}

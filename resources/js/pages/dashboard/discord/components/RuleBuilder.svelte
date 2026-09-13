@@ -51,7 +51,6 @@
     let expandedRule = $state<string | number | null>(null);
     let valuePickerKey = $state<string | null>(null);
     let valueSearch = $state('');
-    let valuePickerEl: HTMLDivElement | undefined = $state();
 
     const fieldOptions = [
         { value: 'notification_type', label: 'Notification Type' },
@@ -68,7 +67,7 @@
     const operatorOptions = [
         { value: 'equals', label: 'Equals' },
         { value: 'not_equals', label: 'Not Equals' },
-        { value: 'contains', label: 'Contains' },
+        { value: 'contains', label: 'Contains All' },
         { value: 'not_contains', label: 'Not Contains' },
         { value: 'contains_any', label: 'Contains Any' },
         { value: 'in', label: 'In' },
@@ -154,6 +153,18 @@
         updateCondition(ruleId, index, next);
     }
 
+    function handleOperatorChange(ruleId: string, index: number, condition: RuleCondition, operator: string) {
+        const multi = getFieldType(condition.field) === 'multi_enum' || ['in', 'not_in'].includes(operator);
+        const value = multi
+            ? Array.isArray(condition.value)
+                ? condition.value
+                : [String(condition.value)]
+            : Array.isArray(condition.value)
+              ? (condition.value[0] ?? '')
+              : condition.value;
+        updateCondition(ruleId, index, { operator, value });
+    }
+
     function getOperatorOptions(field: string) {
         const allowed = fieldMetadata[field]?.operators;
         return allowed?.length ? operatorOptions.filter((option) => allowed.includes(option.value)) : operatorOptions;
@@ -167,12 +178,16 @@
         return fieldMetadata[field]?.type ?? 'text';
     }
 
+    function conditionValues(value: RuleCondition['value']): string[] {
+        return (Array.isArray(value) ? value : [value]).map(String).filter(Boolean);
+    }
+
     function toggleMultiValue(ruleId: string | number | undefined, index: number, rawValue: string) {
         const rule = rules.find((r) => r.id === ruleId);
         const condition = rule?.conditions[index];
         if (!condition) return;
 
-        const current = Array.isArray(condition.value) ? condition.value.map(String) : [];
+        const current = conditionValues(condition.value);
         const next = current.includes(rawValue) ? current.filter((value) => value !== rawValue) : [...current, rawValue];
         updateCondition(ruleId, index, { value: next });
     }
@@ -199,7 +214,8 @@
         if (valuePickerKey === null) return;
 
         const handleClickOutside = (event: MouseEvent) => {
-            if (valuePickerEl && !valuePickerEl.contains(event.target as Node)) {
+            const picker = document.getElementById(`${uid}-picker-${valuePickerKey}`);
+            if (!picker?.contains(event.target as Node)) {
                 valuePickerKey = null;
                 valueSearch = '';
             }
@@ -346,15 +362,15 @@
                                                 aria-label="Condition {cIndex + 1} operator"
                                                 value={condition.operator}
                                                 onchange={(e) =>
-                                                    updateCondition(rule.id, cIndex, { operator: (e.target as HTMLSelectElement).value })}
+                                                    handleOperatorChange(rule.id, cIndex, condition, (e.target as HTMLSelectElement).value)}
                                                 class="rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                             >
                                                 {#each getOperatorOptions(condition.field) as opt (opt.value)}
                                                     <option value={opt.value}>{opt.label}</option>
                                                 {/each}
                                             </select>
-                                            {#if getFieldType(condition.field) === 'multi_enum'}
-                                                <div class="relative min-w-0 flex-1" bind:this={valuePickerEl}>
+                                            {#if getFieldType(condition.field) === 'multi_enum' || ['in', 'not_in'].includes(condition.operator)}
+                                                <div class="relative min-w-0 flex-1" id={`${uid}-picker-${rule.id}:${cIndex}`}>
                                                     <button
                                                         type="button"
                                                         onclick={() => {
@@ -365,9 +381,7 @@
                                                         class="flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-2 py-1.5 text-left text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                                     >
                                                         <span class="truncate">
-                                                            {Array.isArray(condition.value) && condition.value.length > 0
-                                                                ? condition.value.join(', ')
-                                                                : 'Select values'}
+                                                            {conditionValues(condition.value).join(', ') || 'Select values'}
                                                         </span>
                                                         <ChevronDownIcon class="h-4 w-4 shrink-0" />
                                                     </button>
@@ -394,9 +408,7 @@
                                                                         class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
                                                                     >
                                                                         <span class="truncate">{option.label}</span>
-                                                                        {#if Array.isArray(condition.value) && condition.value
-                                                                                .map(String)
-                                                                                .includes(String(option.value))}
+                                                                        {#if conditionValues(condition.value).includes(String(option.value))}
                                                                             <CheckIcon class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                                                                         {/if}
                                                                     </button>

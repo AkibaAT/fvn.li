@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-type ToastType = 'success' | 'error' | 'info';
+type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface ToastMessage {
     id: number;
@@ -17,7 +17,6 @@ function createToastStore() {
         const id = nextId++;
         update((toasts) => [...toasts, { id, message, type }]);
 
-        // Auto-dismiss after 5 seconds
         setTimeout(() => {
             dismiss(id);
         }, 5000);
@@ -29,6 +28,7 @@ function createToastStore() {
 
     return {
         subscribe,
+        add,
         dismiss,
         success: (message: string) => add(message, 'success'),
         error: (message: string) => add(message, 'error'),
@@ -38,7 +38,6 @@ function createToastStore() {
 
 export const toastStore = createToastStore();
 
-// Convenience export matching the old API
 export const toast = {
     success: (message: string) => toastStore.success(message),
     error: (message: string) => toastStore.error(message),

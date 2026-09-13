@@ -52,7 +52,7 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
         const url = `/games?${searchParams.toString()}`;
 
         if (onGamesPage) {
-            router.visit(url, { replace: true, preserveState: true, preserveScroll: true });
+            router.visit(url, { preserveState: true, preserveScroll: true });
         } else {
             router.visit(url);
         }

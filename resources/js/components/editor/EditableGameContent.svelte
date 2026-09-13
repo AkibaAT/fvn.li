@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { refreshPage } from '@/utils/refreshPage';
     import { onMount, untrack } from 'svelte';
     import TinyMCEEditor from './TinyMCEEditor.svelte';
     import { Button } from '@/components/ui';
@@ -70,6 +71,8 @@
         }
     });
     let showEditorLoading = $state(false);
+    let viewModeQueue = Promise.resolve();
+    const refreshGame = () => refreshPage(['game', 'metaTags']);
 
     $effect(() => {
         displayContent = content;
@@ -110,9 +113,15 @@
         }
     }
 
-    async function handleViewModeChange(newMode: 'custom' | 'original') {
+    function handleViewModeChange(newMode: 'custom' | 'original') {
+        viewModeQueue = viewModeQueue.then(() => saveViewMode(newMode));
+        return viewModeQueue;
+    }
+
+    async function saveViewMode(newMode: 'custom' | 'original') {
         try {
             const data = await updateGameViewMode(gameId, newMode);
+            if (!(await refreshGame())) return;
             viewMode = newMode;
             onViewModeUpdate?.(data);
         } catch (error) {
@@ -135,13 +144,14 @@
     }
 
     async function handleSave() {
-        if (!canEdit) return;
+        if (!canEdit || isSaving) return;
 
         isSaving = true;
         saveStatus = 'saving';
 
         try {
             const data = await updateGameContent(gameId, editContent);
+            if (!(await refreshGame())) return;
 
             isEditing = false;
             saveStatus = 'saved';
@@ -195,42 +205,12 @@
                 revert_screenshots: screenshots,
                 revert_thumbnail: thumbnail,
             });
+            if (!(await refreshGame())) return;
 
             saveStatus = 'saved';
 
-            // Full revert disables the custom page entirely; reload to reflect the new state
-            if (data.has_custom_page === false) {
-                window.location.reload();
-                return;
-            }
-
-            const revertedContent = data.content;
-            displayContent = revertedContent;
-            editContent = revertedContent;
             isEditing = false;
-
-            if (onContentUpdate) {
-                onContentUpdate(revertedContent);
-            }
-
-            if (name && data.effective_name) {
-                const event = new CustomEvent('name-reverted', {
-                    detail: { effectiveName: data.effective_name },
-                });
-                window.dispatchEvent(event);
-            }
-
-            if (screenshots && data.screenshots) {
-                window.location.reload();
-            }
-
-            if (thumbnail && data.thumbnail_url) {
-                const event = new CustomEvent('thumbnail-reverted', {
-                    detail: { thumbnailUrl: data.thumbnail_url },
-                });
-                window.dispatchEvent(event);
-                setTimeout(() => window.location.reload(), 1000);
-            }
+            onContentUpdate?.(data.content);
 
             setTimeout(() => {
                 saveStatus = 'idle';
@@ -253,7 +233,7 @@
 
 <div class="{controlsTarget ? '' : 'relative'} {className}">
     {#if canEdit && !isEditing}
-        <div class="flex items-center gap-2 {controlsTarget ? '' : 'absolute top-2 right-2'}" bind:this={controlsEl}>
+        <div class="flex flex-wrap items-center gap-2 {controlsTarget ? '' : 'absolute top-2 right-2'}" bind:this={controlsEl}>
             {#if hasCustomPage && !isLoadingViewMode}
                 <div class="mr-2 flex items-center gap-1">
                     <span class="mr-2 text-xs text-gray-600 dark:text-gray-400">Visitors see:</span>

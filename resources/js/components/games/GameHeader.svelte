@@ -58,16 +58,24 @@
 
 <Card padding="lg" class="mb-6">
     <div class="flex flex-col gap-6 md:flex-row">
-        {#if game.is_visible && currentThumbnail}
+        {#if game.is_visible && (currentThumbnail || editPermissions.canEdit)}
             <div class="group relative shrink-0">
-                <img
-                    src={currentThumbnail}
-                    alt={gameCoverAltText(game.name)}
-                    class="max-h-52 max-w-64 rounded-lg {game.platform === 'steam' ? 'object-contain' : 'object-cover'}"
-                />
+                {#if currentThumbnail}
+                    <img
+                        src={currentThumbnail}
+                        alt={gameCoverAltText(game.name)}
+                        class="max-h-52 max-w-64 rounded-lg {game.platform === 'steam' ? 'object-contain' : 'object-cover'}"
+                    />
+                {:else}
+                    <div
+                        class="flex h-36 w-64 items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-600 dark:bg-gray-900 dark:text-gray-400"
+                    >
+                        No thumbnail
+                    </div>
+                {/if}
                 {#if editPermissions.canEdit}
                     <label
-                        class="absolute top-2 right-2 cursor-pointer rounded-full bg-blue-600 p-2 text-white shadow-lg transition-colors hover:bg-blue-700"
+                        class="absolute top-2 right-2 cursor-pointer rounded-full bg-blue-600 p-2 text-white shadow-lg transition-colors focus-within:ring-2 focus-within:ring-blue-500 hover:bg-blue-700"
                     >
                         {#if isUploadingThumbnail}
                             <LoadingSpinner size="sm" currentColor isBusy={false} />
@@ -77,7 +85,9 @@
                         <input
                             type="file"
                             accept="image/*"
-                            class="hidden"
+                            class="sr-only"
+                            aria-label="Upload thumbnail"
+                            disabled={isUploadingThumbnail}
                             onchange={(e) => {
                                 const file = (e.target as HTMLInputElement).files?.[0];
                                 if (file) {
@@ -90,7 +100,7 @@
             </div>
         {/if}
 
-        <div class="flex-1">
+        <div class="min-w-0 flex-1">
             <div class="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
                 <div class="group min-w-0 flex-1">
                     {#if editPermissions.canEdit}
@@ -194,7 +204,8 @@
                 gameId={game.id}
                 gameName={game.effective_name}
                 isPaid={game.is_paid}
-                userProgress={(game as any).user_progress ?? null}
+                userProgress={(game as any).user_progress?.[0] ?? null}
+                listMemberships={(game as any).user_list_memberships ?? []}
             />
         </div>
     {:else}

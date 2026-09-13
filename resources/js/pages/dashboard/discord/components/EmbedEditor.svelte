@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { onDestroy } from 'svelte';
     import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
     import XMarkIcon from '@/components/icons/XMark.svelte';
     import { previewEmbed } from '@/api/discord';
@@ -8,15 +9,19 @@
         template: Record<string, unknown>;
         notificationType: string;
         serverId: number;
-        onchange: (template: Record<string, unknown>) => void;
+        onchange: (template: Record<string, unknown>) => void | Promise<boolean | void>;
+        onvaliditychange?: (valid: boolean) => void;
     }
 
-    let { template, notificationType, serverId, onchange }: Props = $props();
+    let { template, notificationType, serverId, onchange, onvaliditychange = () => {} }: Props = $props();
 
     const uid = $props.id();
+    onDestroy(() => onvaliditychange(true));
+    let jsonSaveSequence = 0;
 
     let jsonMode = $state(false);
     let jsonText = $state('');
+    let jsonError = $state<string | null>(null);
     let previewData = $state<Record<string, unknown> | null>(null);
     let previewLoading = $state(false);
     let showVariableMenu = $state(false);
@@ -129,7 +134,15 @@
 
     function arrayField(obj: Record<string, unknown>, key: string): EmbedField[] {
         const val = obj[key];
-        return Array.isArray(val) ? (val as EmbedField[]) : [];
+        return Array.isArray(val)
+            ? (val as EmbedField[])
+                  .filter((field) => field && typeof field === 'object')
+                  .map((field) => ({
+                      ...field,
+                      name: field.name === '\u200b' ? '' : field.name,
+                      value: field.value === '\u200b' ? '' : field.value,
+                  }))
+            : [];
     }
 
     function colorIntToHex(c: unknown): string {
@@ -175,15 +188,14 @@
         else delete result.thumbnail;
         if (imageUrl) result.image = { url: imageUrl };
         else delete result.image;
-        if (footerText || footerIconUrl) {
+        if (footerText) {
             const footer: Record<string, unknown> = {};
             if (footerText) footer.text = footerText;
             if (footerIconUrl) footer.icon_url = footerIconUrl;
             result.footer = footer;
         } else delete result.footer;
-        const validFields = fields.filter((f) => f.name || f.value);
-        if (validFields.length > 0) {
-            result.fields = validFields.map((f) => ({
+        if (fields.length > 0) {
+            result.fields = fields.map((f) => ({
                 name: f.name || '\u200b',
                 value: f.value || '\u200b',
                 inline: f.inline ?? false,
@@ -230,7 +242,10 @@
     function applyPreset(name: string) {
         const preset = presets[name];
         if (!preset) return;
-        onchange({ ...preset });
+        jsonError = null;
+        onvaliditychange(true);
+        if (jsonMode) void updateJson(JSON.stringify(preset, null, 2));
+        else onchange({ ...preset });
         toast.info(`Applied "${name}" preset`);
     }
 
@@ -269,18 +284,40 @@
         }
     }
 
-    function toggleJsonMode() {
-        if (!jsonMode) {
-            jsonText = JSON.stringify(template, null, 2);
-        } else {
-            try {
-                onchange(JSON.parse(jsonText));
-            } catch {
-                toast.error('Invalid JSON');
-                return;
-            }
+    async function updateJson(text: string): Promise<boolean> {
+        jsonText = text;
+        const sequence = ++jsonSaveSequence;
+        try {
+            const value = JSON.parse(text);
+            if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Enter a JSON object.');
+            jsonError = null;
+            onvaliditychange(true);
+            const saved = await onchange(value);
+            if (sequence !== jsonSaveSequence) return false;
+            if (saved === false) throw new Error('The template could not be saved. Check its fields and retry.');
+            return true;
+        } catch (error) {
+            if (sequence !== jsonSaveSequence) return false;
+            jsonError = error instanceof Error ? error.message : 'Invalid JSON';
+            onvaliditychange(false);
+            return false;
         }
+    }
+
+    async function toggleJsonMode() {
+        if (!jsonMode) jsonText = JSON.stringify(template, null, 2);
+        else if (!(await updateJson(jsonText))) return;
         jsonMode = !jsonMode;
+    }
+
+    async function copyVariable(token: string) {
+        try {
+            await navigator.clipboard.writeText(token);
+            toast.success(`Copied ${token}`);
+            showVariableMenu = false;
+        } catch {
+            toast.error('Could not copy. Select and copy the variable text instead.');
+        }
     }
 
     const groupedVariables = $derived(
@@ -313,7 +350,7 @@
     });
 
     const previewSrc = $derived(previewData ?? {});
-    let previewTitle = $derived(stringField(previewSrc, 'title') || 'Embed Preview');
+    let previewTitle = $derived(stringField(previewSrc, 'title'));
     let previewDesc = $derived(stringField(previewSrc, 'description'));
     let previewColor = $derived(colorIntToHex(previewSrc.color));
     let previewFields = $derived(arrayField(previewSrc, 'fields'));
@@ -343,7 +380,7 @@
                         onclick={() => (showVariableMenu = !showVariableMenu)}
                         class="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
                     >
-                        Insert Variable
+                        Copy Variable
                     </button>
                     {#if showVariableMenu}
                         <div
@@ -357,9 +394,7 @@
                                 </div>
                                 {#each vars as v (v.token)}
                                     <button
-                                        onclick={() => {
-                                            showVariableMenu = false;
-                                        }}
+                                        onclick={() => copyVariable(v.token)}
                                         class="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-700"
                                         title="Click to copy: {v.token}"
                                     >
@@ -373,7 +408,7 @@
                 </div>
                 <button
                     onclick={previewWithGame}
-                    disabled={previewLoading}
+                    disabled={previewLoading || !!jsonError}
                     class="rounded bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-200 disabled:opacity-50 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50"
                 >
                     {previewLoading ? 'Loading...' : 'Preview with Game'}
@@ -395,10 +430,15 @@
 
         {#if jsonMode}
             <textarea
-                bind:value={jsonText}
+                aria-label="Embed JSON"
+                value={jsonText}
+                oninput={(event) => updateJson(event.currentTarget.value)}
+                aria-invalid={!!jsonError}
+                aria-describedby={jsonError ? `${uid}-json-error` : undefined}
                 rows={16}
                 class="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white"
                 spellcheck="false"></textarea>
+            {#if jsonError}<p id="{uid}-json-error" role="alert" class="text-sm text-red-600 dark:text-red-400">{jsonError}</p>{/if}
         {:else}
             <div class="space-y-3">
                 <div>
@@ -515,6 +555,8 @@
                             type="text"
                             value={footerIconUrl}
                             aria-label="Footer icon URL"
+                            disabled={!footerText}
+                            title={footerText ? undefined : 'Add footer text before an icon.'}
                             oninput={(e) =>
                                 applyUpdate(() => {
                                     footerIconUrl = (e.target as HTMLInputElement).value;
@@ -603,6 +645,9 @@
                 {:else if previewError && !previewData}
                     <div class="text-sm text-red-300">{previewError}</div>
                 {:else}
+                    {#if stringField(previewSrc, 'message_content')}
+                        <p class="mb-3 text-sm whitespace-pre-wrap text-[#dbdee1]">{stringField(previewSrc, 'message_content')}</p>
+                    {/if}
                     {#if previewTitle}
                         <div class="mb-1">
                             {#if stringField(previewSrc, 'url')}
@@ -622,7 +667,7 @@
                     {/if}
                     {#if previewFields && previewFields.length > 0}
                         <div class="mb-3 grid gap-x-4 {previewFields.some((f) => f.inline) ? 'grid-cols-3' : 'grid-cols-1'}">
-                            {#each previewFields as field (field.name + '|' + field.value)}
+                            {#each previewFields as field, index (index)}
                                 <div class={field.inline ? '' : 'col-span-3'}>
                                     <div class="font-semibold text-white">{field.name || '\u200b'}</div>
                                     <div class="text-sm text-[#dbdee1]">{field.value || '\u200b'}</div>
@@ -643,7 +688,6 @@
                                 </div>
                             {/if}
                             <span>{previewFooterText}</span>
-                            <span class="text-[#949ba4]">&bull; Today at 12:00</span>
                         </div>
                     {/if}
                     {#if previewThumbnail && !previewImage}

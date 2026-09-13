@@ -36,9 +36,7 @@ export interface RevertGameContentData {
 }
 
 export async function fetchGameContentView(gameId: number): Promise<{ current_view_mode?: GameViewMode | null }> {
-    const { data } = await http.get<Envelope<{ current_view_mode?: GameViewMode | null }>>(
-        route('browser-api.games.content.view', { game: gameId }),
-    );
+    const { data } = await http.get<Envelope<{ current_view_mode?: GameViewMode | null }>>(route('browser-api.games.content.view', { game: gameId }));
     return unwrap(data, 'Failed to load view mode');
 }
 

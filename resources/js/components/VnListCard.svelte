@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { formatLocalDate } from '@/utils/date-formatting';
     import ChevronLeftSolidIcon from '@/components/icons/ChevronLeftSolid.svelte';
     import ChevronRightSolidIcon from '@/components/icons/ChevronRightSolid.svelte';
     import { Link } from '@inertiajs/svelte';
@@ -61,18 +62,12 @@
         showActions?: boolean;
         isOwner?: boolean;
         onToggleVisibility?: (list: VnList) => void | Promise<void>;
-        onDelete?: (list: VnList) => void;
+        onDelete?: (list: VnList) => void | Promise<void>;
         class?: string;
     } = $props();
 
     const borderClass = $derived(listTypeBorderClass(list.type));
     const typeTone = $derived(listTypeTone(list.type));
-
-    const formatDate = (dateStr?: string) => {
-        if (!dateStr) return '';
-        const d = new Date(dateStr);
-        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-    };
 
     const getThumb = (game: Game) => {
         if (game.optimized_thumbnails?.default?.path) {
@@ -83,6 +78,7 @@
 
     let index = $state(0);
     let isToggling = $state(false);
+    let isDeleting = $state(false);
     const total = $derived(list.entries.length);
     const currentGame = $derived(total > 0 ? list.entries[index % total].game : undefined);
 
@@ -110,10 +106,15 @@
         }
     };
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
         if (!onDelete) return;
         if (!confirm('Are you sure you want to delete this list?')) return;
-        onDelete(list);
+        isDeleting = true;
+        try {
+            await onDelete(list);
+        } finally {
+            isDeleting = false;
+        }
     };
 
     const handleKeydown = (e: KeyboardEvent) => {
@@ -192,7 +193,7 @@
                 </h2>
                 <div class="mb-3 text-xs text-gray-500 dark:text-gray-400">
                     {entriesCount}
-                    {entriesCount === 1 ? 'game' : 'games'} &middot; Updated {formatDate(list.updated_at || list.created_at)}
+                    {entriesCount === 1 ? 'game' : 'games'} &middot; Updated {formatLocalDate(list.updated_at || list.created_at)}
                 </div>
                 <p class="line-clamp-2 text-sm text-gray-600 dark:text-gray-300">
                     {list.description || 'No description available.'}
@@ -301,7 +302,7 @@
                 {#if onToggleVisibility}
                     <Button
                         onclick={handleToggleVisibility}
-                        disabled={isToggling}
+                        disabled={isToggling || isDeleting}
                         variant="link"
                         tone={list.is_public ? 'primary' : 'neutral'}
                         size="sm"
@@ -316,7 +317,9 @@
                     Edit
                 </Link>
                 {#if !list.is_default && onDelete}
-                    <Button onclick={handleDelete} variant="link" tone="danger" size="sm">Delete</Button>
+                    <Button onclick={handleDelete} disabled={isToggling || isDeleting} variant="link" tone="danger" size="sm">
+                        {isDeleting ? 'Deleting...' : 'Delete'}
+                    </Button>
                 {/if}
             {/if}
         </div>

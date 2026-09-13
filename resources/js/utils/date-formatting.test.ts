@@ -5,7 +5,9 @@ import {
     formatLocalDate,
     formatLocalDateTime,
     formatRelativeDateTime,
-    getUserTimezone,
+    formatCalendarDate,
+    localDateTimeToUtc,
+    toLocalDateTimeInput,
 } from './date-formatting';
 
 describe('date formatting utilities', () => {
@@ -15,7 +17,7 @@ describe('date formatting utilities', () => {
             hour12: false,
         });
 
-        expect(formatted).toContain('05/03/2026');
+        expect(formatted).toContain('May 3, 2026');
         expect(formatted).toContain('12:34:56');
     });
 
@@ -53,7 +55,53 @@ describe('date formatting utilities', () => {
 
         expect(withoutTimezone).not.toBeNull();
         expect(withTimezone).toContain(withoutTimezone ?? '');
-        expect(getUserTimezone()).toBeTruthy();
         expect(formatDateTimeWithTimezone('invalid')).toBeNull();
+    });
+});
+
+describe('calendar dates and timestamps', () => {
+    test('preserves calendar days and chart months in every timezone', () => {
+        expect(formatCalendarDate('2026-05-03')).toBe('May 3, 2026');
+        expect(formatCalendarDate('2026-05-03T00:00:00.000000Z')).toBe('May 3, 2026');
+        expect(formatLocalDate('2026-05-03')).toBe('May 3, 2026');
+        expect(formatCalendarDate('2026-05-01', { month: 'short', year: 'numeric', day: undefined })).toBe('May 2026');
+        expect(formatCalendarDate('2026-02-30')).toBeNull();
+        expect(formatCalendarDate('invalid')).toBeNull();
+        expect(formatCalendarDate(null)).toBeNull();
+    });
+
+    test('localizes instants while treating unzoned backend timestamps as UTC', () => {
+        const instant = '2026-05-03T00:30:00Z';
+        const expected = new Date(instant).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        expect(formatLocalDate(instant)).toBe(expected);
+        expect(formatLocalDate('2026-05-03 00:30:00')).toBe(expected);
+        expect(formatLocalDateTime('2026-05-03T00:30:00')).toBe(formatLocalDateTime(instant));
+        expect(formatLocalDateTime('2026-05-02T20:30:00-04:00')).toBe(formatLocalDateTime(instant));
+        expect(formatLocalDateTime('2026-05-03T06:15:00+05:45')).toBe(formatLocalDateTime(instant));
+    });
+
+    test('uses the displayed date for daylight-saving labels', () => {
+        vi.setSystemTime(new Date('2026-07-15T12:00:00Z'));
+        const winter = '2026-01-15T12:00:00Z';
+        const expected = new Date(winter).toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZoneName: 'short',
+        });
+        expect(formatDateTimeWithTimezone(winter)).toBe(expected);
+        expect(formatRelativeDateTime(winter)?.formattedDate).toBe(expected);
+    });
+
+    test.each(['2026-01-15T12:00', '2026-07-15T12:00'])('round-trips local release time %s using its own date offset', (local) => {
+        const utc = localDateTimeToUtc(local);
+        expect(utc).toBe(new Date(local).toISOString());
+        expect(toLocalDateTimeInput(utc)).toBe(local);
+        expect(toLocalDateTimeInput(null)).toBeNull();
+        expect(toLocalDateTimeInput('invalid')).toBeNull();
+        expect(localDateTimeToUtc(null)).toBeNull();
     });
 });

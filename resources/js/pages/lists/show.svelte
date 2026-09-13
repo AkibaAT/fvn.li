@@ -1,7 +1,7 @@
 <script lang="ts">
+    import { refreshPage } from '@/utils/refreshPage';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { Attachment } from 'svelte/attachments';
-    import { untrack } from 'svelte';
     import { Link } from '@inertiajs/svelte';
     import { notify } from '@/components/Toast.svelte';
     import {
@@ -107,14 +107,14 @@
 
     let { vnList, isOwner, availableLists = [], metaTags, versionHasCharacterStats = {} }: ListShowProps = $props();
 
-    let entries = $state<VnListEntry[]>(untrack(() => vnList.entries));
-    let isPublic = $state<boolean>(untrack(() => vnList.is_public));
-    let listData = $state(untrack(() => ({ name: vnList.name, description: vnList.description })));
+    let entries = $derived(vnList.entries);
+    const isPublic = $derived(vnList.is_public);
+    const listData = $derived(vnList);
     let isToggleVisibilityLoading = $state(false);
     let isEditingList = $state(false);
     let isListSaveLoading = $state(false);
     let isListDeleteLoading = $state(false);
-    let listFormData = $state(untrack(() => ({ name: vnList.name, description: vnList.description || '' })));
+    let listFormData = $state({ name: '', description: '' });
     let showVersionComparison = $state(false);
     let comparisonVersions = $state<{ gameId: number; fromVersionId: number; toVersionId: number } | null>(null);
     let editingEntryId = $state<number | null>(null);
@@ -138,16 +138,14 @@
     const freeGames = $derived(entries.filter((e) => !e.game.is_paid));
     const allFreeGamesReceiveUpdates = $derived(freeGames.length > 0 && freeGames.every((e) => e.game.user_progress?.[0]?.receive_updates ?? false));
 
+    const refreshList = () => refreshPage(['vnList', 'availableLists', 'metaTags']);
+
     const handleSaveList = async () => {
         isListSaveLoading = true;
         try {
-            const data = await updateVnList(vnList.id, { ...listFormData, is_public: isPublic });
+            await updateVnList(vnList.id, { ...listFormData, is_public: isPublic });
+            if (!(await refreshList())) return;
             isEditingList = false;
-            if (data.vnList) {
-                listData = { name: data.vnList.name, description: data.vnList.description };
-                isPublic = data.vnList.is_public;
-            }
-            document.title = `${listFormData.name} - ${document.title.split(' - ').slice(1).join(' - ')}`;
             notify('List updated successfully', 'success');
         } catch (error) {
             console.error('Error updating list:', error);
@@ -181,7 +179,7 @@
         isToggleVisibilityLoading = true;
         try {
             const data = await toggleVnListVisibility(vnList.id);
-            isPublic = data.is_public;
+            if (!(await refreshList())) return;
             notify(data.message || 'List visibility updated', 'success');
         } catch (error) {
             console.error('Error toggling visibility:', error);
@@ -204,31 +202,10 @@
         if (!confirm('Are you sure you want to remove this game from the list?')) return;
         try {
             await destroyListEntry(entryId);
-            entries = entries.filter((e) => e.id !== entryId);
+            if (!(await refreshList())) return;
         } catch (error) {
-            console.error('Error removing entry:', error);
+            notify(error instanceof Error ? error.message : 'Failed to remove entry', 'error');
         }
-    };
-
-    const handleEntryUpdate = (entryId: number, updatedData?: { entry?: Partial<VnListEntry>; progress?: Partial<UserGameProgress> }) => {
-        if (updatedData) {
-            entries = entries.map((entry) => {
-                if (entry.id === entryId) {
-                    const updatedEntry = { ...entry };
-                    if (updatedData.entry) {
-                        Object.assign(updatedEntry, updatedData.entry);
-                    }
-                    if (updatedData.progress && updatedEntry.game.user_progress) {
-                        updatedEntry.game.user_progress = [{ ...updatedEntry.game.user_progress[0], ...updatedData.progress }];
-                    } else if (updatedData.progress) {
-                        updatedEntry.game.user_progress = [{ id: 0, user_id: 0, game_id: updatedEntry.game.id, ...updatedData.progress }];
-                    }
-                    return updatedEntry;
-                }
-                return entry;
-            });
-        }
-        notify('Entry updated', 'success');
     };
 
     const getEntryVersionValue = (entry: VnListEntry) => {
@@ -259,11 +236,12 @@
     const handleSaveEntry = async (entryId: number) => {
         entryFormLoading = true;
         try {
-            const data = await updateListEntry<Partial<VnListEntry>, Partial<UserGameProgress>>(entryId, entryFormData);
+            await updateListEntry(entryId, entryFormData);
+            if (!(await refreshList())) return;
             editingEntryId = null;
-            handleEntryUpdate(entryId, data);
+            notify('Entry updated', 'success');
         } catch (error) {
-            console.error('Error updating entry:', error);
+            notify(error instanceof Error ? error.message : 'Failed to update entry', 'error');
         } finally {
             entryFormLoading = false;
         }
@@ -280,11 +258,11 @@
         entryFormLoading = true;
         try {
             await moveListEntry(entryId, entryFormData.target_list_id);
-            entries = entries.filter((e) => e.id !== entryId);
+            if (!(await refreshList())) return;
             movingEntryId = null;
             notify('Entry moved successfully', 'success');
         } catch (error) {
-            console.error('Error moving entry:', error);
+            notify(error instanceof Error ? error.message : 'Failed to move entry', 'error');
         } finally {
             entryFormLoading = false;
         }
@@ -293,21 +271,7 @@
     const handleToggleNotification = async (game: Game, newStatus: boolean) => {
         try {
             const data = await toggleUserProgressUpdates(game.id, newStatus);
-            entries = entries.map((entry) => {
-                if (entry.game.id === game.id) {
-                    return {
-                        ...entry,
-                        game: {
-                            ...entry.game,
-                            user_progress:
-                                entry.game.user_progress && entry.game.user_progress.length > 0
-                                    ? entry.game.user_progress.map((p) => ({ ...p, receive_updates: data.receive_updates }))
-                                    : [{ id: 0, user_id: 0, game_id: game.id, receive_updates: data.receive_updates }],
-                        },
-                    };
-                }
-                return entry;
-            });
+            if (!(await refreshList())) return;
             notify(data.message || `Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${game.effective_name}"`, 'success');
         } catch (error) {
             console.error('Error toggling notifications:', error);
@@ -319,25 +283,8 @@
         const newStatus = !allFreeGamesReceiveUpdates;
         try {
             const data = await toggleAllListUpdates(vnList.id, newStatus);
+            if (!(await refreshList())) return;
             notify(data.message || `Notifications ${newStatus ? 'enabled' : 'disabled'} for all games`, 'success');
-            if (data.updated_game_ids && Array.isArray(data.updated_game_ids)) {
-                const updatedGameIds = data.updated_game_ids;
-                entries = entries.map((entry) => {
-                    if (updatedGameIds.includes(entry.game.id)) {
-                        return {
-                            ...entry,
-                            game: {
-                                ...entry.game,
-                                user_progress:
-                                    entry.game.user_progress && entry.game.user_progress.length > 0
-                                        ? entry.game.user_progress.map((p) => ({ ...p, receive_updates: data.receive_updates }))
-                                        : [{ id: 0, user_id: 0, game_id: entry.game.id, receive_updates: data.receive_updates }],
-                            },
-                        };
-                    }
-                    return entry;
-                });
-            }
         } catch (error) {
             console.error('Error toggling all notifications:', error);
             notify(error instanceof Error ? error.message : 'Failed to update notifications', 'error');
@@ -352,6 +299,7 @@
                 vnList.id,
                 newEntries.map((e) => e.id),
             );
+            if (!(await refreshList())) return;
             notify(data.message || 'List order updated', 'success');
         } catch (error) {
             console.error('Error updating order:', error);
@@ -437,7 +385,11 @@
                             tone="warning"
                             size="xs"
                             onclick={() => {
-                                isEditingList = !isEditingList;
+                                if (isEditingList) handleCancelListEdit();
+                                else {
+                                    listFormData = { name: listData.name, description: listData.description || '' };
+                                    isEditingList = true;
+                                }
                             }}
                         >
                             {isEditingList ? 'Cancel Edit' : 'Edit List'}

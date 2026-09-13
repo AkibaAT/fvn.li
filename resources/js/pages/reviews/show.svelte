@@ -1,11 +1,11 @@
 <script lang="ts">
+    import { refreshPage } from '@/utils/refreshPage';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import TinyMCEEditor from '@/components/editor/TinyMCEEditor.svelte';
     import ChevronLeftIcon from '@/components/icons/ChevronLeft.svelte';
     import PencilIcon from '@/components/icons/Pencil.svelte';
     import StarIcon from '@/components/icons/Star.svelte';
     import ReviewTextControls, { useReviewTextStyles } from '@/components/ReviewTextControls.svelte';
-    import { untrack } from 'svelte';
     import { Link, page } from '@inertiajs/svelte';
     import { Button, Card, Checkbox, PlatformIcon, Stars } from '@/components/ui';
     import type { SharedData } from '@/types';
@@ -47,20 +47,19 @@
         metaTags?: { title?: string; description?: string };
     }
 
-    let { review: initialReview, metaTags }: Props = $props();
+    let { review, metaTags }: Props = $props();
 
     const auth = $derived((page.props as SharedData).auth);
     const currentUserId = $derived(auth?.user?.id ?? null);
 
-    let review = $state(untrack(() => initialReview));
     let isEditing = $state(false);
     let spoilerRevealed = $state(false);
 
     // Inline editor state
-    let editRating = $state(untrack(() => review.rating));
+    let editRating = $state(0);
     let editHoveredRating = $state(0);
-    let editReviewText = $state(untrack(() => review.review ?? ''));
-    let editHasSpoilers = $state(untrack(() => review.has_spoilers));
+    let editReviewText = $state('');
+    let editHasSpoilers = $state(false);
     let editIsSubmitting = $state(false);
     let editError = $state<string | null>(null);
 
@@ -72,24 +71,26 @@
         `max-width: ${reviewStyles.maxWidth}; font-size: ${reviewStyles.fontSize}; line-height: ${reviewStyles.lineHeight}; margin: ${reviewStyles.margin};`,
     );
 
+    function setEditing(editing: boolean) {
+        editRating = review.rating;
+        editReviewText = review.review ?? '';
+        editHasSpoilers = review.has_spoilers;
+        editError = null;
+        isEditing = editing;
+    }
+
     async function handleEditSubmit(e: Event) {
         e.preventDefault();
-        if (editRating === 0 || !review.game) return;
+        if (editIsSubmitting || editRating === 0 || !review.game) return;
         editIsSubmitting = true;
         editError = null;
         try {
-            const { review: savedReview } = await submitUserReview(review.game.id, {
+            await submitUserReview(review.game.id, {
                 rating: editRating,
                 review: editReviewText,
                 has_spoilers: editHasSpoilers,
             });
-            review = {
-                ...review,
-                rating: savedReview.rating,
-                review: savedReview.review,
-                has_spoilers: savedReview.has_spoilers,
-                is_reviewed: Boolean(savedReview.review?.replace(/<[^>]*>/g, '').trim()),
-            };
+            if (!(await refreshPage(['review', 'metaTags']))) return;
             isEditing = false;
         } catch (err) {
             editError = err instanceof Error ? err.message : 'Failed to update review';
@@ -150,7 +151,7 @@
                     <span class="font-semibold text-gray-700 dark:text-gray-300">{review.rating}/5</span>
                 </div>
                 {#if isOwnReview && review.game && !isEditing}
-                    <Button type="button" variant="soft" tone="primary" size="sm" onclick={() => (isEditing = true)} class="gap-1.5">
+                    <Button type="button" variant="soft" tone="primary" size="sm" onclick={() => setEditing(true)} class="gap-1.5">
                         <PencilIcon class="h-4 w-4" />
                         Edit review
                     </Button>
@@ -218,7 +219,7 @@
                     <Button type="submit" variant="solid" tone="primary" disabled={editRating === 0 || editIsSubmitting} loading={editIsSubmitting}>
                         {editIsSubmitting ? 'Saving...' : 'Update Review'}
                     </Button>
-                    <Button type="button" variant="soft" tone="neutral" size="sm" onclick={() => (isEditing = false)}>Cancel</Button>
+                    <Button type="button" variant="soft" tone="neutral" size="sm" onclick={() => setEditing(false)}>Cancel</Button>
                 </div>
             </form>
         {:else}

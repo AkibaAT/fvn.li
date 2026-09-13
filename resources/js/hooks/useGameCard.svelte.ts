@@ -78,7 +78,6 @@ export interface GameCardProps {
     onDemoToggle?: () => void;
     onSaleToggle?: () => void;
     onDelistedToggle?: () => void;
-    onIgnoreToggle?: (gameId: number, isIgnored: boolean, ignoredGameIds: number[]) => void;
 }
 
 export function useGameCard({
@@ -186,9 +185,6 @@ export function useGameCard({
               })
             : [];
 
-    let tagsExpanded = $state(false);
-    let languagesExpanded = $state(false);
-
     return {
         // Image handling
         thumbnailUrl: getThumbnailUrl(),
@@ -210,19 +206,5 @@ export function useGameCard({
 
         // Tags
         orderedTags,
-        get tagsExpanded() {
-            return tagsExpanded;
-        },
-        setTagsExpanded(value: boolean) {
-            tagsExpanded = value;
-        },
-
-        // Languages
-        get languagesExpanded() {
-            return languagesExpanded;
-        },
-        setLanguagesExpanded(value: boolean) {
-            languagesExpanded = value;
-        },
     };
 }

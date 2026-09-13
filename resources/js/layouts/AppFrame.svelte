@@ -69,42 +69,13 @@
         };
 
         document.addEventListener('inertia:start', onStart as EventListener);
-        document.addEventListener('inertia:complete', onComplete as EventListener);
+        document.addEventListener('inertia:navigate', onComplete as EventListener);
+        document.addEventListener('inertia:finish', onComplete as EventListener);
 
         return () => {
             document.removeEventListener('inertia:start', onStart as EventListener);
-            document.removeEventListener('inertia:complete', onComplete as EventListener);
-        };
-    });
-
-    onMount(() => {
-        let searching = false;
-
-        const onSearchStart = () => {
-            searching = true;
-        };
-        const onSearchFinish = () => {
-            searching = false;
-        };
-        const onComplete = () => {
-            if (!searching) return;
-            const active = document.activeElement as HTMLElement | null;
-            const tag = active?.tagName ?? '';
-            const isInteractiveTag = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(tag);
-            const isFocusable = !!active && active !== document.body && (isInteractiveTag || (active?.tabIndex ?? -1) >= 0);
-            if (isFocusable) return;
-            const el = document.getElementById('global-search-input') as HTMLElement | null;
-            el?.focus?.();
-        };
-
-        window.addEventListener('fvn:search:start', onSearchStart as EventListener);
-        window.addEventListener('fvn:search:finish', onSearchFinish as EventListener);
-        document.addEventListener('inertia:complete', onComplete as EventListener);
-
-        return () => {
-            window.removeEventListener('fvn:search:start', onSearchStart as EventListener);
-            window.removeEventListener('fvn:search:finish', onSearchFinish as EventListener);
-            document.removeEventListener('inertia:complete', onComplete as EventListener);
+            document.removeEventListener('inertia:navigate', onComplete as EventListener);
+            document.removeEventListener('inertia:finish', onComplete as EventListener);
         };
     });
 </script>

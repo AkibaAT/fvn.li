@@ -9,17 +9,10 @@ interface UseSearchProps {
 
 const SEARCH_CHANGE_RESET_PARAMS = new Set(['search', 'page']);
 
-export function getSearchFilterParams(search: string): Record<string, string> {
+export function getSearchFilterParams(search: string): SvelteURLSearchParams {
     const urlParams = new SvelteURLSearchParams(search);
-    const params: Record<string, string> = {};
-
-    for (const [key, value] of urlParams.entries()) {
-        if (!SEARCH_CHANGE_RESET_PARAMS.has(key)) {
-            params[key] = value;
-        }
-    }
-
-    return params;
+    for (const key of SEARCH_CHANGE_RESET_PARAMS) urlParams.delete(key);
+    return urlParams;
 }
 
 export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchProps = {}) {
@@ -60,6 +53,7 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
             return;
         }
 
+        if (timeoutId !== null) return;
         const urlParams = new SvelteURLSearchParams(window.location.search);
         searchTerm = urlParams.get('search') ?? '';
         lastSearchQuery = searchTerm.trim();
@@ -69,48 +63,45 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
         syncSearchTermFromCurrentRoute();
     };
 
-    const updateGamesSearchUrl = (value: string) => {
-        if (typeof window === 'undefined' || !isCurrentGamesIndexPage()) {
-            return;
-        }
-
-        const url = new SvelteURL(window.location.href);
-        if (value.trim()) {
-            url.searchParams.set('search', value.trim());
-        } else {
-            url.searchParams.delete('search');
-        }
-        window.history.replaceState({}, '', url.toString());
-    };
-
     // Keep local searchTerm in sync with the URL after navigations and back/forward
     $effect(() => {
-        window.addEventListener('popstate', syncSearchTermFromCurrentRoute);
-        document.addEventListener('inertia:complete', syncSearchTermFromCurrentRoute as EventListener);
+        const stopNavigationListener = router.on('start', cancelPendingSearch);
+        const stopNavigateListener = router.on('navigate', syncSearchTermFromCurrentRoute);
+        const stopSuccessListener = router.on('success', syncSearchTermFromCurrentRoute);
+        window.addEventListener('popstate', handlePopstate);
 
         return () => {
-            window.removeEventListener('popstate', syncSearchTermFromCurrentRoute);
-            document.removeEventListener('inertia:complete', syncSearchTermFromCurrentRoute as EventListener);
+            cancelPendingSearch();
+            stopNavigationListener();
+            stopNavigateListener();
+            stopSuccessListener();
+            window.removeEventListener('popstate', handlePopstate);
         };
     });
 
-    // Helper function to get current filter parameters from URL
     const getCurrentFilterParams = () => {
-        if (typeof window === 'undefined') return {};
+        if (typeof window === 'undefined' || !isCurrentGamesIndexPage()) return new SvelteURLSearchParams();
 
         return getSearchFilterParams(window.location.search);
     };
 
-    // Live search functionality
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
+    const cancelPendingSearch = () => {
+        if (timeoutId !== null) clearTimeout(timeoutId);
+        timeoutId = null;
+    };
+
+    const handlePopstate = () => {
+        cancelPendingSearch();
+        syncSearchTermFromCurrentRoute();
+    };
+
     const performLiveSearch = (searchQuery: string) => {
-        if (timeoutId) {
-            clearTimeout(timeoutId);
-        }
+        cancelPendingSearch();
 
         timeoutId = setTimeout(() => {
-            // Prevent duplicate searches for the same query
+            timeoutId = null;
             if (searchQuery.trim() === lastSearchQuery) {
                 return;
             }
@@ -120,10 +111,6 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
             if (searchQuery.trim().length >= 2) {
                 isSearching = true;
                 if (isCurrentGamesIndexPage()) {
-                    if (typeof window !== 'undefined') {
-                        window.dispatchEvent(new CustomEvent('fvn:search:start'));
-                    }
-
                     const currentParams = getCurrentFilterParams();
                     const params = new SvelteURLSearchParams(currentParams);
                     params.set('search', searchQuery.trim());
@@ -133,9 +120,6 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
                         preserveState: true,
                         onFinish: () => {
                             isSearching = false;
-                            if (typeof window !== 'undefined') {
-                                window.dispatchEvent(new CustomEvent('fvn:search:finish'));
-                            }
                         },
                     });
                 } else {
@@ -168,6 +152,8 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
 
     const handleSearchSubmit = (e: Event) => {
         e.preventDefault();
+        cancelPendingSearch();
+        lastSearchQuery = searchTerm.trim();
 
         const currentParams = getCurrentFilterParams();
         const params = new SvelteURLSearchParams(currentParams);
@@ -184,16 +170,13 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
         const value = (e.target as HTMLInputElement).value;
         searchTerm = value;
 
-        updateGamesSearchUrl(value);
-
         performLiveSearch(value);
     };
 
     const handleSearchClear = () => {
+        cancelPendingSearch();
         searchTerm = '';
         lastSearchQuery = '';
-
-        updateGamesSearchUrl('');
 
         if (isCurrentGamesIndexPage()) {
             isSearching = true;
@@ -202,7 +185,6 @@ export function useSearch({ isGamesPage = false, debounceMs = 500 }: UseSearchPr
             const params = new SvelteURLSearchParams(currentParams);
 
             router.visit(gamesIndexUrl(params), {
-                replace: true,
                 preserveState: true,
                 onFinish: () => {
                     isSearching = false;

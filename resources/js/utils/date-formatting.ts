@@ -1,125 +1,65 @@
-/**
- * Date and time formatting utilities
- *
- * All dates from the backend are in UTC. These utilities help format them
- * in the user's local timezone with proper timezone indication.
- */
+type DateValue = string | null | undefined;
 
-/**
- * Format a UTC date string to the user's local timezone
- *
- * @param dateString - ISO 8601 date string in UTC
- * @param options - Intl.DateTimeFormatOptions for customization
- * @returns Formatted date string in user's local timezone
- */
-export function formatLocalDateTime(dateString: string | null | undefined, options?: Intl.DateTimeFormatOptions): string | null {
-    if (!dateString) return null;
+const dateOptions: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
 
-    let dateStr = dateString.trim();
-
-    if (dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/)) {
-        dateStr = dateStr.replace(' ', 'T') + 'Z';
-    } else if (!dateStr.endsWith('Z') && !dateStr.includes('+') && !dateStr.includes('T')) {
-        // If it's just a date without time, treat as UTC midnight
-        dateStr = dateStr + 'T00:00:00Z';
-    } else if (!dateStr.endsWith('Z') && !dateStr.includes('+') && dateStr.includes('T')) {
-        // If it has time but no timezone, assume UTC
-        dateStr = dateStr + 'Z';
-    }
-
-    const date = new Date(dateStr);
-
-    if (isNaN(date.getTime())) return null;
-
-    const defaultOptions: Intl.DateTimeFormatOptions = {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-        ...options,
-    };
-
-    return date.toLocaleString(undefined, defaultOptions);
+function parseTimestamp(value: DateValue): Date | null {
+    if (!value?.trim()) return null;
+    let timestamp = value.trim().replace(/^(\d{4}-\d{2}-\d{2}) /, '$1T');
+    // Backend timestamps without an explicit offset are UTC.
+    if (/^\d{4}-\d{2}-\d{2}T/.test(timestamp) && !/(Z|[+-]\d{2}:?\d{2})$/i.test(timestamp)) timestamp += 'Z';
+    const date = new Date(timestamp);
+    return Number.isNaN(date.getTime()) ? null : date;
 }
 
-/**
- * Format a UTC date string to the user's local date only (no time)
- *
- * @param dateString - ISO 8601 date string in UTC
- * @param options - Intl.DateTimeFormatOptions for customization
- * @returns Formatted date string in user's local timezone
- */
-export function formatLocalDate(dateString: string | null | undefined, options?: Intl.DateTimeFormatOptions): string | null {
-    if (!dateString) return null;
-
-    const date = new Date(dateString);
-
-    if (isNaN(date.getTime())) return null;
-
-    const defaultOptions: Intl.DateTimeFormatOptions = {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        ...options,
-    };
-
-    return date.toLocaleDateString('en-US', defaultOptions);
+export function formatCalendarDate(value: DateValue, options?: Intl.DateTimeFormatOptions): string | null {
+    const day = value?.trim().slice(0, 10);
+    if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+    const date = new Date(`${day}T00:00:00Z`);
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== day) return null;
+    return date.toLocaleDateString(undefined, { ...dateOptions, ...options, timeZone: 'UTC' });
 }
 
-/**
- * Get the user's timezone abbreviation (e.g., "PST", "EST", "UTC")
- *
- * @returns Timezone abbreviation or offset
- */
-export function getUserTimezone(): string {
-    try {
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-        const date = new Date();
-        const shortFormat = date.toLocaleTimeString('en-US', {
-            timeZoneName: 'short',
-            timeZone: timezone,
-        });
-
-        const match = shortFormat.match(/\b([A-Z]{2,5})\b$/);
-        if (match) {
-            return match[1];
-        }
-
-        // Fallback to timezone name
-        return timezone;
-    } catch {
-        // Fallback to UTC offset
-        const offset = -new Date().getTimezoneOffset();
-        const hours = Math.floor(Math.abs(offset) / 60);
-        const minutes = Math.abs(offset) % 60;
-        const sign = offset >= 0 ? '+' : '-';
-        return `UTC${sign}${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-    }
+export function formatLocalDate(value: DateValue, options?: Intl.DateTimeFormatOptions): string | null {
+    if (value && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return formatCalendarDate(value, options);
+    return parseTimestamp(value)?.toLocaleDateString(undefined, { ...dateOptions, ...options }) ?? null;
 }
 
-/**
- * Format a date with relative time (e.g., "2 hours ago") and absolute time
- *
- * @param dateString - ISO 8601 date string in UTC
- * @returns Object with relative time and formatted date, or null if invalid
- */
+export function formatLocalDateTime(value: DateValue, options?: Intl.DateTimeFormatOptions): string | null {
+    return (
+        parseTimestamp(value)?.toLocaleString(undefined, {
+            ...dateOptions,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            ...options,
+        }) ?? null
+    );
+}
+
+export function formatDateTimeWithTimezone(value: DateValue, showTimezone: boolean = true): string | null {
+    return formatLocalDateTime(value, { timeZoneName: showTimezone ? 'short' : undefined });
+}
+
+export function toLocalDateTimeInput(value: DateValue): string | null {
+    const date = parseTimestamp(value);
+    if (!date) return null;
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
+export function localDateTimeToUtc(value: DateValue): string | null {
+    return value ? new Date(value).toISOString() : null;
+}
+
 export function formatRelativeDateTime(dateString: string | null | undefined): { timeAgo: string; formattedDate: string } | null {
-    if (!dateString) return null;
-
-    const date = new Date(dateString);
-
-    if (isNaN(date.getTime())) return null;
+    const date = parseTimestamp(dateString);
+    if (!date) return null;
 
     const now = new Date();
     const diffInMs = now.getTime() - date.getTime();
     const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
     const diffInDays = Math.floor(diffInHours / 24);
 
-    const formattedDate = formatLocalDateTime(dateString) || '';
+    const formattedDate = formatDateTimeWithTimezone(dateString) || '';
     let timeAgo: string;
 
     if (diffInDays > 0) {
@@ -138,18 +78,9 @@ export function formatRelativeDateTime(dateString: string | null | undefined): {
     return { timeAgo, formattedDate };
 }
 
-/**
- * Format a date for future events (e.g., "in 2 hours", "in 3 days")
- *
- * @param dateString - ISO 8601 date string in UTC
- * @returns Object with relative time and formatted date, or null if invalid
- */
 export function formatFutureDateTime(dateString: string | null | undefined): { timeUntil: string; formattedDate: string } | null {
-    if (!dateString) return null;
-
-    const date = new Date(dateString);
-
-    if (isNaN(date.getTime())) return null;
+    const date = parseTimestamp(dateString);
+    if (!date) return null;
 
     const now = new Date();
     const diffInMs = date.getTime() - now.getTime();
@@ -157,7 +88,7 @@ export function formatFutureDateTime(dateString: string | null | undefined): { t
     const absHours = Math.floor(absMs / (1000 * 60 * 60));
     const absDays = Math.floor(absHours / 24);
 
-    const formattedDate = formatLocalDateTime(dateString) || '';
+    const formattedDate = formatDateTimeWithTimezone(dateString) || '';
     const isFuture = diffInMs > 0;
     let timeUntil: string;
 
@@ -171,23 +102,4 @@ export function formatFutureDateTime(dateString: string | null | undefined): { t
     }
 
     return { timeUntil, formattedDate };
-}
-
-/**
- * Format a date for display with timezone indicator
- *
- * @param dateString - ISO 8601 date string in UTC
- * @param showTimezone - Whether to show timezone abbreviation (default: true)
- * @returns Formatted date string with timezone, or null if invalid
- */
-export function formatDateTimeWithTimezone(dateString: string | null | undefined, showTimezone: boolean = true): string | null {
-    const formatted = formatLocalDateTime(dateString);
-    if (!formatted) return null;
-
-    if (showTimezone) {
-        const timezone = getUserTimezone();
-        return `${formatted} ${timezone}`;
-    }
-
-    return formatted;
 }

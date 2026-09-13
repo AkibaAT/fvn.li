@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { refreshPage } from '@/utils/refreshPage';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import { untrack } from 'svelte';
     import { destroyVnList, updateVnList } from '@/api/lists';
@@ -42,6 +43,7 @@
 
         try {
             await updateVnList(vnList.id, formData);
+            if (!(await refreshPage(['vnList']))) return;
             router.visit(route('lists.show', vnList.id));
         } catch (error) {
             console.error('Error updating list:', error);
@@ -60,7 +62,7 @@
 
         try {
             await destroyVnList(vnList.id);
-            router.visit(route('lists.index'));
+            router.visit(route('lists.index'), { replace: true });
         } catch (error) {
             console.error('Error deleting list:', error);
             alert(error instanceof Error ? error.message : 'Failed to delete list');
@@ -88,7 +90,7 @@
                     </span>
                 </div>
                 {#if vnList.is_default}
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Default lists cannot be modified</p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">The type of a default list cannot be changed</p>
                 {/if}
             </div>
 

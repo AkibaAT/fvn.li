@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { refreshPage } from '@/utils/refreshPage';
     import StarIcon from '@/components/icons/Star.svelte';
     import TinyMCEEditor from '@/components/editor/TinyMCEEditor.svelte';
     import { untrack } from 'svelte';
@@ -10,7 +11,7 @@
         gameId: number;
         initialReview?: UserReview | null;
         onEditingChange?: (editing: boolean) => void;
-        onReviewChange?: (hasReview: boolean) => void;
+        onReviewChange?: () => void;
     }
 
     let { gameId, initialReview = null, onEditingChange, onReviewChange }: Props = $props();
@@ -23,7 +24,7 @@
     let hoveredRating = $state(0);
     let reviewText = $state(untrack(() => initialReview?.review ?? ''));
     let hasSpoilers = $state(untrack(() => initialReview?.has_spoilers ?? false));
-    let userReview = $state<UserReview | null>(untrack(() => initialReview));
+    const userReview = $derived(initialReview);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let showDeleteConfirm = $state(false);
     let isSubmitting = $state(false);
@@ -64,6 +65,7 @@
 
     async function handleSubmit(e: Event) {
         e.preventDefault();
+        if (isSubmitting || isDeleting) return;
         if (rating === 0) {
             showMessageFn('Please select a rating', 'error');
             return;
@@ -71,14 +73,14 @@
 
         isSubmitting = true;
         try {
-            const { review, message: successMessage } = await submitUserReview(gameId, {
+            const { message: successMessage } = await submitUserReview(gameId, {
                 rating,
                 review: reviewText,
                 has_spoilers: hasSpoilers,
             });
-            userReview = review;
+            if (!(await refreshReview())) return;
             isEditing = false;
-            onReviewChange?.(true);
+            onReviewChange?.();
             onEditingChange?.(false);
             showMessageFn(successMessage, 'success');
         } catch (error) {
@@ -90,16 +92,17 @@
     }
 
     async function handleDelete() {
+        if (isSubmitting || isDeleting) return;
         isDeleting = true;
         try {
             const successMessage = await deleteUserReview(gameId);
-            userReview = null;
+            if (!(await refreshReview())) return;
             rating = 0;
             reviewText = '';
             hasSpoilers = false;
             isEditing = false;
             showDeleteConfirm = false;
-            onReviewChange?.(false);
+            onReviewChange?.();
             onEditingChange?.(false);
             showMessageFn(successMessage, 'success');
         } catch (error) {
@@ -109,6 +112,8 @@
             isDeleting = false;
         }
     }
+
+    const refreshReview = () => refreshPage(['userReview', 'reviews', 'availableRatings', 'game', 'metaTags']);
 </script>
 
 {#if !isAuthenticated}

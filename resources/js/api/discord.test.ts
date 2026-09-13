@@ -91,6 +91,66 @@ describe('discord API module', () => {
         expect(http.post).toHaveBeenCalledWith('/browser-api.discord.servers.test-notification', {});
     });
 
+    test('saves each servers config in order and snapshots nested changes before waiting', async () => {
+        let finishFirst!: () => void;
+        http.put.mockImplementationOnce(() => new Promise<void>((resolve) => (finishFirst = resolve)));
+        http.put.mockResolvedValue({ data: {} });
+        const first = updateDiscordServerConfig(3, { include_ratings: true });
+        await vi.waitFor(() => expect(http.put).toHaveBeenCalledTimes(1));
+        const embed = { title: 'Second edit' };
+        const second = updateDiscordServerConfig(3, { new_game_embed: embed });
+        embed.title = 'Third edit';
+        const third = updateDiscordServerConfig(3, { new_game_embed: embed });
+        await updateDiscordServerConfig(4, { is_active: false });
+        expect(http.put).toHaveBeenCalledTimes(2);
+        finishFirst();
+        await Promise.all([first, second, third]);
+        expect(http.put.mock.calls.map((call) => call[1])).toEqual([
+            { include_ratings: true },
+            { is_active: false },
+            { new_game_embed: { title: 'Second edit' } },
+            { new_game_embed: { title: 'Third edit' } },
+        ]);
+    });
+
+    test('reports a failed config save and continues with queued changes', async () => {
+        let failFirst!: (error: Error) => void;
+        http.put.mockImplementationOnce(() => new Promise<void>((_, reject) => (failFirst = reject)));
+        http.put.mockResolvedValue({ data: {} });
+        const first = updateDiscordServerConfig(3, { include_ratings: true });
+        const failure = expect(first).rejects.toThrow('Save failed');
+        const second = updateDiscordServerConfig(3, { include_ratings: false });
+        await vi.waitFor(() => expect(http.put).toHaveBeenCalledTimes(1));
+        failFirst(new Error('Save failed'));
+        await failure;
+        await second;
+        expect(http.put).toHaveBeenLastCalledWith('/browser-api.discord.servers.config', { include_ratings: false });
+    });
+
+    test('queues override changes independently and continues after failure', async () => {
+        let failFirst!: (error: Error) => void;
+        http.put.mockImplementationOnce(() => new Promise<void>((_, reject) => (failFirst = reject)));
+        http.put.mockResolvedValue({ data: { override: { id: 12 } } });
+        const first = updateGameOverride(3, 12, { channel_id: '111' });
+        const failure = expect(first).rejects.toThrow('Save failed');
+        await vi.waitFor(() => expect(http.put).toHaveBeenCalledTimes(1));
+        const change = { channel_id: '222' };
+        const second = updateGameOverride(3, 12, change);
+        change.channel_id = '333';
+        const third = updateGameOverride(3, 12, change);
+        await updateGameOverride(3, 13, { is_ignored: true });
+        expect(http.put).toHaveBeenCalledTimes(2);
+        failFirst(new Error('Save failed'));
+        await failure;
+        await Promise.all([second, third]);
+        expect(http.put.mock.calls.map((call) => call[1])).toEqual([
+            { channel_id: '111' },
+            { is_ignored: true },
+            { channel_id: '222' },
+            { channel_id: '333' },
+        ]);
+    });
+
     test('previews an embed and unwraps data.embed', async () => {
         const embed = { title: 'New game' };
         http.post.mockResolvedValueOnce({ data: { embed } });

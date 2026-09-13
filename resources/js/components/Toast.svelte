@@ -1,59 +1,8 @@
 <script lang="ts" module>
-    interface Toast {
-        id: string;
-        message: string;
-        type: 'success' | 'error' | 'info' | 'warning';
-    }
-
-    // Global notification manager - singleton pattern
-    class NotificationManager {
-        private static instance: NotificationManager;
-        private listeners: Set<(notifications: Toast[]) => void> = new Set();
-        private notifications: Toast[] = [];
-
-        static getInstance(): NotificationManager {
-            if (!NotificationManager.instance) {
-                NotificationManager.instance = new NotificationManager();
-            }
-            return NotificationManager.instance;
-        }
-
-        subscribe(listener: (notifications: Toast[]) => void): () => void {
-            this.listeners.add(listener);
-            listener(this.notifications);
-            return () => {
-                this.listeners.delete(listener);
-            };
-        }
-
-        show(message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') {
-            const id = Math.random().toString(36).substr(2, 9);
-            const newNotification: Toast = { id, message, type };
-            this.notifications.push(newNotification);
-            this.notifyListeners();
-            setTimeout(() => {
-                this.remove(id);
-            }, 5000);
-        }
-
-        remove(id: string) {
-            this.notifications = this.notifications.filter((n) => n.id !== id);
-            this.notifyListeners();
-        }
-
-        private notifyListeners() {
-            this.listeners.forEach((listener) => listener([...this.notifications]));
-        }
-    }
-
-    const notificationManager = NotificationManager.getInstance();
+    import { toastStore } from '@/utils/toast';
 
     export function notify(message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') {
-        notificationManager.show(message, type);
-    }
-
-    export function useNotifications() {
-        return notificationManager;
+        toastStore.add(message, type);
     }
 </script>
 
@@ -64,14 +13,6 @@
     import WarningTriangleIcon from '@/components/icons/WarningTriangle.svelte';
     import XMarkSolidIcon from '@/components/icons/XMarkSolid.svelte';
     import { Button } from '@/components/ui';
-
-    let notifications = $state<Toast[]>([]);
-
-    $effect(() => {
-        return notificationManager.subscribe((n) => {
-            notifications = n;
-        });
-    });
 
     const getNotificationClasses = (type: 'success' | 'error' | 'info' | 'warning') => {
         switch (type) {
@@ -102,9 +43,9 @@
 </script>
 
 <div class="fixed right-4 bottom-4 z-50 space-y-2">
-    {#each notifications as notification (notification.id)}
+    {#each $toastStore as notification (notification.id)}
         <div
-            class="ring-opacity-5 ring-opacity-5 pointer-events-auto w-96 max-w-sm overflow-hidden rounded-lg shadow-lg ring-1 ring-black {getNotificationClasses(
+            class="ring-opacity-5 pointer-events-auto w-96 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg shadow-lg ring-1 ring-black {getNotificationClasses(
                 notification.type,
             )}"
             role="alert"
@@ -134,7 +75,7 @@
                             variant="ghost"
                             tone="neutral"
                             size="icon-sm"
-                            onclick={() => notificationManager.remove(notification.id)}
+                            onclick={() => toastStore.dismiss(notification.id)}
                             class="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none dark:bg-gray-800"
                             ariaLabel="Close {notification.type} notification"
                         >

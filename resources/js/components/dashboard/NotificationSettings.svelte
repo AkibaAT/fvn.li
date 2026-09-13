@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { untrack } from 'svelte';
+    import { refreshPage } from '@/utils/refreshPage';
     import { notify } from '@/components/Toast.svelte';
     import NotificationHealthPanel from '@/components/NotificationHealthPanel.svelte';
     import { Button, Card, Switch } from '@/components/ui';
@@ -7,20 +7,17 @@
     import { subscribeToPush, unsubscribeFromPush } from '@/utils/push';
 
     interface Props {
-        initialPreferences: NotificationPreferences;
+        preferences: NotificationPreferences;
         hasDiscord: boolean;
         vapidPublicKey?: string;
     }
 
-    let { initialPreferences, hasDiscord, vapidPublicKey }: Props = $props();
-    let preferences = $state(untrack(() => initialPreferences));
+    let { preferences, hasDiscord, vapidPublicKey }: Props = $props();
     let saving = $state(false);
-    let healthRefresh = $state(0);
 
-    async function save(next: NotificationPreferences): Promise<void> {
+    async function save(next: NotificationPreferences): Promise<boolean> {
         await updateNotificationPreferences(next);
-        preferences = next;
-        healthRefresh++;
+        return refreshPage(['notificationPreferences']);
     }
 
     async function toggleBrowser(): Promise<void> {
@@ -32,7 +29,7 @@
                 await subscribeToPush(vapidPublicKey);
             }
 
-            await save({ ...preferences, browser_notifications_enabled: enable });
+            if (!(await save({ ...preferences, browser_notifications_enabled: enable }))) return;
             if (!enable) await unsubscribeFromPush();
             notify(
                 enable ? 'Browser notifications enabled for this device.' : 'Browser notifications disabled and this device was unsubscribed.',
@@ -49,7 +46,7 @@
         const enable = !preferences.discord_notifications_enabled;
         saving = true;
         try {
-            await save({ ...preferences, discord_notifications_enabled: enable });
+            if (!(await save({ ...preferences, discord_notifications_enabled: enable }))) return;
             notify(enable ? 'Discord DMs enabled. Authorize the app and send a test DM to verify delivery.' : 'Discord DMs disabled.', 'success');
         } catch (error) {
             notify(error instanceof Error ? error.message : 'Could not update Discord notifications', 'error');
@@ -62,7 +59,7 @@
         if (value === preferences.notification_digest) return;
         saving = true;
         try {
-            await save({ ...preferences, notification_digest: value });
+            if (!(await save({ ...preferences, notification_digest: value }))) return;
             notify('Notification frequency updated.', 'success');
         } catch (error) {
             notify(error instanceof Error ? error.message : 'Could not update notification frequency', 'error');
@@ -130,6 +127,9 @@
             </div>
         </div>
 
-        <NotificationHealthPanel {vapidPublicKey} refreshToken={healthRefresh} />
+        <NotificationHealthPanel
+            {vapidPublicKey}
+            refreshToken={`${hasDiscord}:${preferences.browser_notifications_enabled}:${preferences.discord_notifications_enabled}:${preferences.notification_digest}`}
+        />
     </div>
 </Card>

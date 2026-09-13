@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { refreshPage } from '@/utils/refreshPage';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import CheckIcon from '@/components/icons/Check.svelte';
     import PlusIcon from '@/components/icons/Plus.svelte';
@@ -9,8 +10,7 @@
     import { Button, Card } from '@/components/ui';
     import { updateMyGameLinks } from '@/api/my-games';
     import { httpValidationErrors } from '@/utils/http';
-    import { formatLocalDateTime } from '@/utils/date-formatting';
-    import { untrack } from 'svelte';
+    import { formatLocalDateTime, toLocalDateTimeInput } from '@/utils/date-formatting';
 
     interface GameLink {
         id?: string;
@@ -73,20 +73,11 @@
 
     let { game, platforms, clickStats, dailyStats, metaTags }: Props = $props();
 
-    let links = $state<GameLink[]>(
-        untrack(() =>
-            (Array.isArray(game.additional_links) ? [...game.additional_links] : []).map((link) => {
-                if (!link.release_at) return link;
-                const utcDate = new Date(link.release_at);
-                const year = utcDate.getFullYear();
-                const month = String(utcDate.getMonth() + 1).padStart(2, '0');
-                const day = String(utcDate.getDate()).padStart(2, '0');
-                const hours = String(utcDate.getHours()).padStart(2, '0');
-                const minutes = String(utcDate.getMinutes()).padStart(2, '0');
-                return { ...link, release_at: `${year}-${month}-${day}T${hours}:${minutes}` };
-            }),
-        ),
-    );
+    function editableLinks(links: GameLink[]): GameLink[] {
+        return links.map((link) => ({ ...link, release_at: toLocalDateTimeInput(link.release_at) }));
+    }
+
+    let links = $derived(editableLinks(game.additional_links ?? []));
 
     let saving = $state(false);
     let formErrors = $state<Record<string, string>>({});
@@ -106,11 +97,12 @@
     }
 
     async function save() {
+        if (saving) return;
         formErrors = {};
         saving = true;
         try {
-            const timezoneOffset = -new Date().getTimezoneOffset() / 60;
-            await updateMyGameLinks(game.slug, sortedLinks, timezoneOffset);
+            await updateMyGameLinks(game.slug, sortedLinks);
+            if (!(await refreshPage(['game']))) return;
             notify('Changes saved successfully', 'success');
         } catch (e: unknown) {
             const validationErrors = httpValidationErrors(e);

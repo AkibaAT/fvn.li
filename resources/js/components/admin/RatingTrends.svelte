@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { formatCalendarDate } from '@/utils/date-formatting';
     import { onMount } from 'svelte';
     import type { Plugin, TooltipItem } from 'chart.js';
     import type { MonthlyTrendData } from '@/types/system';
@@ -68,11 +69,7 @@
             return { labels: [] as string[], datasets: [] };
         }
         const labels = ratingStats.monthly_trend.map((d) => {
-            const date = new Date(d.month);
-            return date.toLocaleDateString('en-US', {
-                month: 'short',
-                year: 'numeric',
-            });
+            return formatCalendarDate(d.month, { month: 'short', year: 'numeric', day: undefined });
         });
         const data = ratingStats.monthly_trend.map((d) => d.count);
         return {
@@ -97,11 +94,7 @@
             return { labels: [] as string[], datasets: [] };
         }
         const labels = ratingStats.visible_games_monthly_trend.map((d) => {
-            const date = new Date(d.month);
-            return date.toLocaleDateString('en-US', {
-                month: 'short',
-                year: 'numeric',
-            });
+            return formatCalendarDate(d.month, { month: 'short', year: 'numeric', day: undefined });
         });
         const data = ratingStats.visible_games_monthly_trend.map((d) => d.count);
         return {

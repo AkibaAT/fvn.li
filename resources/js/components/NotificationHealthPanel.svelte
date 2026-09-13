@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { fetchNotificationHealth, testNotificationChannel, type NotificationHealth } from '@/api/notifications';
     import { notify } from '@/components/Toast.svelte';
     import { Badge, Button } from '@/components/ui';
@@ -9,7 +8,7 @@
 
     interface Props {
         vapidPublicKey?: string;
-        refreshToken?: number;
+        refreshToken?: string | number;
     }
 
     let { vapidPublicKey, refreshToken = 0 }: Props = $props();
@@ -17,31 +16,35 @@
     let loading = $state(true);
     let testing = $state<'browser' | 'discord' | null>(null);
     let browserSubscribed = $state(false);
-    let seenRefreshToken = $state(0);
+    let refreshRequest = 0;
 
     async function refresh(): Promise<NotificationHealth> {
+        const request = ++refreshRequest;
         const [nextHealth, subscription] = await Promise.all([
             fetchNotificationHealth(),
             vapidPublicKey ? localPushSubscription() : Promise.resolve(null),
         ]);
-        health = nextHealth;
-        browserSubscribed = !!subscription;
-        loading = false;
+        if (request === refreshRequest) {
+            health = nextHealth;
+            browserSubscribed = !!subscription;
+            loading = false;
+        }
 
         return nextHealth;
     }
 
-    onMount(() => {
+    $effect(() => {
+        void refreshToken;
+        let active = true;
         refresh().catch((error) => {
+            if (!active) return;
             loading = false;
             notify(error instanceof Error ? error.message : 'Failed to load notification health', 'error');
         });
-    });
-
-    $effect(() => {
-        if (refreshToken === seenRefreshToken) return;
-        seenRefreshToken = refreshToken;
-        refresh().catch(() => {});
+        return () => {
+            active = false;
+            refreshRequest++;
+        };
     });
 
     function label(status: ChannelStatus): string {

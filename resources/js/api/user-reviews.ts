@@ -16,10 +16,7 @@ export interface UserReviewPayload {
 }
 
 export async function submitUserReview(gameId: number, payload: UserReviewPayload): Promise<{ message: string; review: UserReview }> {
-    const { data } = await http.post<{ message: string; review: UserReview }>(
-        route('browser-api.user-reviews.store', { game: gameId }),
-        payload,
-    );
+    const { data } = await http.post<{ message: string; review: UserReview }>(route('browser-api.user-reviews.store', { game: gameId }), payload);
     return data;
 }
 

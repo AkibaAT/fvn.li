@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { refreshPage } from '@/utils/refreshPage';
     import { onMount, untrack } from 'svelte';
     import { Button } from '@/components/ui';
     import { updateGameName } from '@/api/game-content';
@@ -27,14 +28,9 @@
 
     let isEditing = $state(false);
     let editName = $state(untrack(() => name));
-    let displayName = $state(untrack(() => name));
+    let displayName = $derived(name);
     let isSaving = $state(false);
     let saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
-
-    $effect(() => {
-        displayName = name;
-        editName = name;
-    });
 
     // Listen for name revert events
     onMount(() => {
@@ -68,7 +64,7 @@
     }
 
     async function handleSave() {
-        if (!canEdit) return;
+        if (!canEdit || isSaving) return;
 
         const trimmedName = editName.trim();
         if (!trimmedName) {
@@ -81,6 +77,7 @@
 
         try {
             const data = await updateGameName(gameId, trimmedName);
+            if (!(await refreshPage(['game', 'metaTags']))) return;
 
             isEditing = false;
             saveStatus = 'saved';

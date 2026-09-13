@@ -81,11 +81,7 @@
     }
 
     function versionOptionLabel(version: GameVersion): string {
-        return `${version.version} (${new Date(version.published_at).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-        })})`;
+        return `${version.version} (${formatLocalDate(version.published_at) ?? '—'})`;
     }
 </script>
 
