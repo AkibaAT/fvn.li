@@ -59,8 +59,8 @@ class DiscordServerConfig extends Model
         $replacements = [
             '{game_name}' => $game->name,
             '{game_url}' => $game->getPrimaryUrl() ?? '',
-            '{game_description}' => $this->include_game_description ? substr($game->description, 0, 200) : '',
-            '{game_rating}' => $this->include_ratings ? round($game->rating_score, 1) : '',
+            '{game_description}' => $this->include_game_description ? mb_substr($game->effective_description ?? $game->description ?? '', 0, 200) : '',
+            '{game_rating}' => $this->include_ratings ? round($game->rating_score ?? 0, 1) : '',
             '{notification_type}' => $notificationType,
             '{timestamp}' => now()->format('Y-m-d H:i:s'),
         ];

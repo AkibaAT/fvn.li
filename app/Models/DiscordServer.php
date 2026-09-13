@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Validation\Rule;
 
 class DiscordServer extends Model
 {
@@ -19,6 +20,7 @@ class DiscordServer extends Model
         'discord_server_name',
         'owner_user_id',
         'is_active',
+        'bot_present',
         'bot_joined_at',
         'available_channels',
         'channels_synced_at',
@@ -26,6 +28,7 @@ class DiscordServer extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'bot_present' => 'boolean',
         'bot_joined_at' => 'datetime',
         'available_channels' => 'array',
         'channels_synced_at' => 'datetime',
@@ -34,6 +37,16 @@ class DiscordServer extends Model
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_user_id');
+    }
+
+    public function channelIds(): array
+    {
+        return collect($this->available_channels ?? [])->pluck('id')->map(fn ($id) => (string) $id)->all();
+    }
+
+    public function channelValidationRules(): array
+    {
+        return ['nullable', 'string', Rule::in($this->channelIds())];
     }
 
     public function config(): HasOne

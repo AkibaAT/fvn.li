@@ -25,6 +25,7 @@ class MultiServerNotificationService
     {
         $servers = $game->discordServers()
             ->where('discord_servers.is_active', true)
+            ->where('discord_servers.bot_present', true)
             ->wherePivot('is_active', true)
             ->get();
 
@@ -64,6 +65,9 @@ class MultiServerNotificationService
         string $description = '',
         ?GameVersion $gameVersion = null,
     ): void {
+        if (! $server->is_active || ! $server->bot_present) {
+            return;
+        }
         $config = $server->config;
         $result = app(DiscordRoutingService::class)->evaluateRoutes($server, $game, $type, $gameVersion);
         if ($result->shouldSkip) {
@@ -81,13 +85,7 @@ class MultiServerNotificationService
 
         $renderer = app(DiscordEmbedRendererService::class);
         foreach ($targetChannels as $target) {
-            $template = $target['embed_override']
-                ?? ($type === 'new_game' ? $config?->new_game_embed : $config?->update_embed)
-                ?? ($type === 'new_game' ? $renderer->getDefaultNewGameEmbed() : $renderer->getDefaultUpdateEmbed());
-            $payload = ['embeds' => [$renderer->renderEmbed($template, $game, $type, $gameVersion, $server)]];
-            if ($config?->ping_role_id) {
-                $payload['content'] = "<@&{$config->ping_role_id}>";
-            }
+            $payload = $renderer->renderPayload($server, $game, $type, $gameVersion, $target['embed_override'] ?? null);
 
             DiscordNotificationHistory::firstOrCreate([
                 'discord_server_id' => $server->id,
@@ -124,7 +122,7 @@ class MultiServerNotificationService
                 $query->whereIn('tag_name', $gameTags)
                     ->where('is_subscribed', true);
             })
-                ->where('is_active', true)
+                ->where('is_active', true)->where('bot_present', true)
                 ->get();
 
             foreach ($servers as $server) {

@@ -63,6 +63,10 @@ class DiscordNotificationsController extends Controller
                     }
 
                     $notification->update(['status' => 'processing', 'batch_key' => $batchKey]);
+                    if (! $notification->isDeliveryEnabled()) {
+                        $notification->cancelDelivery();
+                        $notification->refresh();
+                    }
                 }
 
                 return $notifications->filter(fn (NotificationQueue $notification): bool => $notification->status === 'processing')->values();
@@ -167,6 +171,7 @@ class DiscordNotificationsController extends Controller
                 $notification = NotificationQueue::query()
                     ->whereKey($result['notification_id'])
                     ->where('batch_key', $request->input('batch_key'))
+                    ->where('status', 'processing')
                     ->lockForUpdate()
                     ->first();
 
@@ -413,6 +418,7 @@ class DiscordNotificationsController extends Controller
                 ->where('status', AdditionRequest::STATUS_PENDING)
                 ->whereNull('discord_notified_at')
                 ->where('discord_notify_attempts', '<', 3)
+                ->where(fn ($query) => $query->where('discord_notify_attempts', 0)->orWhere('updated_at', '<=', now()->subMinutes(15)))
                 ->where(function ($query): void {
                     $query->whereNull('discord_claimed_at')
                         ->orWhere('discord_claimed_at', '<', now()->subMinutes(15));
@@ -432,17 +438,18 @@ class DiscordNotificationsController extends Controller
                 ]);
             }
 
+            $claimedAt = now()->startOfSecond();
             AdditionRequest::whereIn('id', $requests->pluck('id'))
                 ->update([
-                    'discord_claimed_at' => now(),
-                    'discord_notify_attempts' => DB::raw('discord_notify_attempts + 1'),
+                    'discord_claimed_at' => $claimedAt,
                 ]);
 
             DB::commit();
 
-            $notifications = $requests->map(function ($request) {
+            $notifications = $requests->map(function ($request) use ($claimedAt) {
                 return [
                     'id' => $request->id,
+                    'claim_token' => $claimedAt->toDateTimeString(),
                     'url' => $request->game_url,
                     'platform' => $request->platform,
                     'created_at' => $request->created_at->toISOString(),
@@ -483,6 +490,7 @@ class DiscordNotificationsController extends Controller
                 ->where('status', 'pending')
                 ->whereNull('discord_notified_at')
                 ->where('discord_notify_attempts', '<', 3)
+                ->where(fn ($query) => $query->where('discord_notify_attempts', 0)->orWhere('updated_at', '<=', now()->subMinutes(15)))
                 ->where(function ($query): void {
                     $query->whereNull('discord_claimed_at')
                         ->orWhere('discord_claimed_at', '<', now()->subMinutes(15));
@@ -501,19 +509,20 @@ class DiscordNotificationsController extends Controller
                 ]);
             }
 
+            $claimedAt = now()->startOfSecond();
             ReviewReport::whereIn('id', $reports->pluck('id'))
                 ->update([
-                    'discord_claimed_at' => now(),
-                    'discord_notify_attempts' => DB::raw('discord_notify_attempts + 1'),
+                    'discord_claimed_at' => $claimedAt,
                 ]);
 
             DB::commit();
 
-            $notifications = $reports->map(function ($report) {
+            $notifications = $reports->map(function ($report) use ($claimedAt) {
                 $reviewAuthor = $report->rating?->user?->name ?? $report->rating?->rater?->name ?? 'Unknown';
 
                 return [
                     'id' => $report->id,
+                    'claim_token' => $claimedAt->toDateTimeString(),
                     'reason' => ReviewReport::REASONS[$report->reason] ?? $report->reason,
                     'details' => $report->details,
                     'reporter' => $report->reporter?->name ?? 'Unknown',
@@ -545,18 +554,12 @@ class DiscordNotificationsController extends Controller
 
     public function acknowledgeAdditionRequests(Request $request): JsonResponse
     {
-        $ids = $request->validate(['ids' => 'required|array', 'ids.*' => 'integer|exists:addition_requests,id'])['ids'];
-        AdditionRequest::whereIn('id', $ids)->update(['discord_notified_at' => now(), 'discord_claimed_at' => null]);
-
-        return response()->json(['success' => true]);
+        return $this->acknowledgeAdminNotifications($request, AdditionRequest::class);
     }
 
     public function acknowledgeReviewReports(Request $request): JsonResponse
     {
-        $ids = $request->validate(['ids' => 'required|array', 'ids.*' => 'integer|exists:review_reports,id'])['ids'];
-        ReviewReport::whereIn('id', $ids)->update(['discord_notified_at' => now(), 'discord_claimed_at' => null]);
-
-        return response()->json(['success' => true]);
+        return $this->acknowledgeAdminNotifications($request, ReviewReport::class);
     }
 
     public function verifyDm(Request $request): JsonResponse
@@ -565,6 +568,7 @@ class DiscordNotificationsController extends Controller
             'discord_user_id' => 'required|string|max:20',
             'success' => 'required|boolean',
             'error_code' => 'nullable',
+            'retryable' => 'sometimes|boolean',
         ]);
         $account = SocialAccount::query()
             ->where('provider_name', 'discord')
@@ -577,7 +581,7 @@ class DiscordNotificationsController extends Controller
 
         if ($data['success']) {
             $account->user->notificationPreferences->markDiscordDeliverable();
-        } else {
+        } elseif (! ($data['retryable'] ?? false) && in_array((string) ($data['error_code'] ?? ''), ['10013', '50007', '50278'], true)) {
             $code = isset($data['error_code']) ? (string) $data['error_code'] : null;
             $reason = $code === '10013' ? 'account_missing' : (in_array($code, ['50007', '50278'], true) ? 'cannot_dm' : 'unknown');
             $account->user->notificationPreferences->markDiscordUndeliverable($reason);
@@ -595,6 +599,37 @@ class DiscordNotificationsController extends Controller
         Cache::put('discord-bot:status', [...$data, 'received_at' => now()->toISOString()], 600);
 
         return response()->json(['success' => true]);
+    }
+
+    private function acknowledgeAdminNotifications(Request $request, string $model): JsonResponse
+    {
+        $table = (new $model)->getTable();
+        $data = $request->validate([
+            'ids' => 'present|array|max:50',
+            'ids.*' => "integer|exists:{$table},id",
+            'failures' => 'sometimes|array|max:50',
+            'failures.*.id' => "required|integer|exists:{$table},id",
+            'failures.*.retryable' => 'required|boolean',
+            'failures.*.claim_token' => 'required|date_format:Y-m-d H:i:s',
+        ]);
+
+        return DB::transaction(function () use ($model, $data) {
+            $model::whereIn('id', $data['ids'])->whereNull('discord_notified_at')
+                ->update(['discord_notified_at' => now(), 'discord_claimed_at' => null]);
+
+            foreach ($data['failures'] ?? [] as $failure) {
+                $notification = $model::whereKey($failure['id'])->whereNull('discord_notified_at')
+                    ->where('discord_claimed_at', $failure['claim_token'])->lockForUpdate()->first();
+                if ($notification) {
+                    $notification->forceFill([
+                        'discord_notify_attempts' => $failure['retryable'] ? min(3, $notification->discord_notify_attempts + 1) : 3,
+                        'discord_claimed_at' => null,
+                    ])->save();
+                }
+            }
+
+            return response()->json(['success' => true]);
+        });
     }
 
     private function isValidDiscordSnowflake(string $value): bool

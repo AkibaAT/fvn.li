@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\PushSubscription;
 use App\Support\SafeRedirectUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,6 +29,11 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         $redirectTo = SafeRedirectUrl::intended(url()->previous(), $request);
+
+        $endpoint = $request->input('push_endpoint', $request->session()->get('push_subscription_endpoint'));
+        if (is_string($endpoint)) {
+            PushSubscription::where('user_id', Auth::id())->where('endpoint', $endpoint)->delete();
+        }
 
         Auth::logout();
         $request->session()->invalidate();

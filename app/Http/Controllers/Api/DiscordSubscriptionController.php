@@ -9,6 +9,7 @@ use App\Models\DiscordServer;
 use App\Models\DiscordServerTag;
 use App\Models\Game;
 use App\Models\GameDiscordSubscription;
+use App\Services\Discord\DiscordCatalogMessageSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -222,7 +223,7 @@ class DiscordSubscriptionController extends Controller
         ])->firstOrFail();
 
         $validated = $request->validate([
-            'discord_channel_id' => 'nullable|string',
+            'discord_channel_id' => $server->channelValidationRules(),
             'discord_message_id' => 'nullable|string',
             'discord_likes' => 'nullable|array',
             'discord_dislikes' => 'nullable|array',
@@ -259,6 +260,14 @@ class DiscordSubscriptionController extends Controller
                     ['discord_server_id', 'game_id'],
                     array_keys($metadataUpdates)
                 );
+                if (isset($updates['discord_channel_id']) || isset($updates['discord_message_id'])) {
+                    $metadata = $this->getOrCreateServerGameMetadata($server, $game);
+                    if ($metadata->discord_channel_id) {
+                        app(DiscordCatalogMessageSyncService::class)->trackMessage(
+                            $server->id, $game->id, $metadata->discord_channel_id, $metadata->discord_message_id,
+                        );
+                    }
+                }
             }
         }
 

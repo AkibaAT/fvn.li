@@ -1,20 +1,17 @@
-var CACHE_NAME = 'fvn-cache-v2';
+var CACHE_NAME = 'fvn-cache-v3';
 
 self.addEventListener('install', function (event) {
     event.waitUntil(self.skipWaiting());
 });
 
-// Cache game page responses for offline browsing
 self.addEventListener('fetch', function (event) {
-    // Only cache GET requests for game pages and static assets
     if (event.request.method !== 'GET') return;
 
     var url = new URL(event.request.url);
 
-    // Cache game page responses and static assets
-    var shouldCache = url.pathname.startsWith('/games/') ||
-        url.pathname.startsWith('/build/') ||
-        url.pathname === '/';
+    var shouldCache = url.origin === self.location.origin &&
+        url.pathname.startsWith('/build/assets/') &&
+        ['script', 'style', 'font', 'image'].includes(event.request.destination);
 
     if (!shouldCache) return;
 
@@ -22,7 +19,7 @@ self.addEventListener('fetch', function (event) {
         caches.open(CACHE_NAME).then(function (cache) {
             return fetch(event.request).then(function (response) {
                 // Only cache successful responses
-                if (response.status === 200) {
+                if (response.status === 200 && !response.headers.get('Content-Type')?.includes('text/html')) {
                     cache.put(event.request, response.clone());
                 }
                 return response;
@@ -40,7 +37,7 @@ self.addEventListener('activate', function (event) {
         caches.keys().then(function (cacheNames) {
             return Promise.all(
                 cacheNames.filter(function (name) {
-                    return name !== CACHE_NAME;
+                    return name.startsWith('fvn-cache-') && name !== CACHE_NAME;
                 }).map(function (name) {
                     return caches.delete(name);
                 })
@@ -57,8 +54,8 @@ self.addEventListener('push', function (event) {
         self.registration.showNotification(payload.title || 'New Update', {
             body: payload.body || 'A game you follow has been updated.',
             icon: payload.icon || '/icon-192.png',
-            badge: payload.badge || '/badge.png',
-            tag: payload.tag || 'game-update',
+            badge: payload.badge || '/icon-192.png',
+            tag: payload.tag || (payload.data?.game_id ? 'game-update-' + payload.data.game_id + '-' + payload.data.game_version_id : undefined),
             data: payload.data || {},
             actions: payload.actions || [
                 {

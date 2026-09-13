@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\DiscordServer;
 use App\Models\DiscordServerMember;
+use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -15,6 +16,9 @@ beforeEach(function () {
     $this->owner = User::factory()->create();
     $this->admin = User::factory()->create();
     $this->stranger = User::factory()->create();
+    foreach ([$this->owner, $this->admin] as $user) {
+        SocialAccount::factory()->discord()->for($user)->create();
+    }
 
     $this->server = DiscordServer::factory()->create([
         'owner_user_id' => $this->owner->id,
@@ -23,7 +27,7 @@ beforeEach(function () {
     DiscordServerMember::create([
         'discord_server_id' => $this->server->id,
         'user_id' => $this->admin->id,
-        'discord_user_id' => (string) fake()->randomNumber(8),
+        'discord_user_id' => $this->admin->socialAccounts()->where('provider_name', 'discord')->value('provider_id'),
         'discord_username' => $this->admin->name,
         'is_admin' => true,
     ]);
@@ -79,4 +83,12 @@ describe('DiscordServerPolicy', function () {
         expect($regularMember->can('view', $this->server))->toBeFalse()
             ->and($regularMember->can('update', $this->server))->toBeFalse();
     });
+});
+
+test('historical owner and member grants require a currently linked discord account', function () {
+    $this->owner->socialAccounts()->delete();
+    $this->admin->socialAccounts()->delete();
+    expect($this->owner->can('view', $this->server))->toBeFalse()
+        ->and($this->owner->can('delete', $this->server))->toBeFalse()
+        ->and($this->admin->can('update', $this->server))->toBeFalse();
 });

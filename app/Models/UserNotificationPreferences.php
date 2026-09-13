@@ -79,12 +79,12 @@ class UserNotificationPreferences extends Model
     /**
      * Removing the app revokes the only route the bot has to this account.
      */
-    public function markDiscordUninstalled(): void
+    public function markDiscordUninstalled(string $reason = 'not_authorized'): void
     {
         $this->update([
             'discord_user_installed_at' => null,
             'discord_dm_status' => 'undeliverable',
-            'discord_dm_status_reason' => 'not_authorized',
+            'discord_dm_status_reason' => $reason,
             'discord_dm_verified_at' => null,
             'discord_dm_last_failed_at' => now(),
         ]);

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Models\DiscordServer;
+use App\Models\DiscordServerMember;
 use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -126,6 +128,24 @@ describe('Social Account Disconnection', function () {
 
         $response->assertRedirect(route('login'));
     });
+});
+
+test('disconnecting discord revokes derived server access and user install state', function () {
+    $user = User::factory()->create(['is_admin' => true]);
+    $discord = SocialAccount::factory()->discord()->for($user)->create();
+    SocialAccount::factory()->itchio()->for($user)->create();
+    $server = DiscordServer::factory()->create(['owner_user_id' => $user->id]);
+    $member = DiscordServerMember::create([
+        'discord_server_id' => $server->id, 'user_id' => $user->id, 'discord_user_id' => $discord->provider_id,
+        'discord_username' => 'Linked account', 'is_admin' => true,
+    ]);
+    $preferences = $user->notificationPreferences()->create(['discord_user_installed_at' => now()]);
+    $this->actingAs($user)->deleteJson(route('user.disconnect', 'discord'))->assertOk();
+    expect($server->fresh()->owner_user_id)->toBeNull()
+        ->and($member->fresh()->user_id)->toBeNull()
+        ->and($member->fresh()->is_admin)->toBeFalse()
+        ->and($preferences->fresh()->discord_user_installed_at)->toBeNull()
+        ->and($user->can('update', $server->fresh()))->toBeFalse();
 });
 
 test('disconnecting a merged provider cannot remove every sign-in identity', function () {

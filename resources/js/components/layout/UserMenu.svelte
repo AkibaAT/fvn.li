@@ -3,6 +3,7 @@
     import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
     import { Link, router, usePage } from '@inertiajs/svelte';
     import { Button } from '@/components/ui';
+    import { localPushSubscription } from '@/utils/push';
 
     interface User {
         id: number;
@@ -33,9 +34,10 @@
         showUserMenu = false;
     }
 
-    function handleLogout() {
+    async function handleLogout() {
         closeMenu();
-        router.post(route('logout'));
+        const subscription = await localPushSubscription().catch(() => null);
+        router.post(route('logout'), subscription ? { push_endpoint: subscription.endpoint } : {});
     }
 </script>
 

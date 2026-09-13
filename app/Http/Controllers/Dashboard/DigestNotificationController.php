@@ -28,16 +28,35 @@ class DigestNotificationController extends Controller
         }
 
         $notifications = NotificationHistory::where('user_id', $authId)
+            ->with(['game:id,name,custom_name,has_custom_page,view_mode,slug,is_visible', 'gameVersion:id,version'])
             ->whereDate('created_at', $carbonDate)
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->get()
+            ->map(function (NotificationHistory $notification) {
+                $channel = match ($notification->type) {
+                    'browser' => 'browser notification',
+                    'discord' => 'Discord',
+                    'telegram' => 'Telegram',
+                    'email' => 'email',
+                    default => $notification->type,
+                };
+                $version = $notification->gameVersion?->version;
+
+                return [
+                    'id' => $notification->id,
+                    'title' => $notification->game?->effective_name ?? 'Unavailable game',
+                    'message' => ($version ? "Version {$version} · " : '') .
+                        ($notification->success ? 'Sent via ' : 'Delivery failed via ') . $channel,
+                    'url' => $notification->game?->is_visible ? route('games.show', $notification->game->slug) : null,
+                    'created_at' => $notification->created_at->toISOString(),
+                ];
+            });
 
         if ($notifications->isEmpty()) {
             $hasAnyNotifications = NotificationHistory::whereDate('created_at', $carbonDate)->exists();
 
             return Inertia::render('dashboard/digest-notifications', [
                 'date' => $date,
-                'formattedDate' => $carbonDate->format('F j, Y'),
                 'notifications' => [],
                 'hasNotifications' => false,
                 'hasAnyNotifications' => $hasAnyNotifications,
@@ -61,7 +80,6 @@ class DigestNotificationController extends Controller
 
         return Inertia::render('dashboard/digest-notifications', [
             'date' => $date,
-            'formattedDate' => $carbonDate->format('F j, Y'),
             'notifications' => $notifications,
             'hasNotifications' => true,
             'hasAnyNotifications' => true,

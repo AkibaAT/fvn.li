@@ -37,6 +37,15 @@ class SocialAccount extends Model
 
         static::deleted(function (SocialAccount $account) {
             Rater::clearUserFromSocialAccount($account);
+            if ($account->provider_name === 'discord') {
+                DiscordServerMember::where('user_id', $account->user_id)
+                    ->where('discord_user_id', $account->provider_id)
+                    ->update(['user_id' => null, 'is_admin' => false]);
+                if (! self::where('user_id', $account->user_id)->where('provider_name', 'discord')->exists()) {
+                    DiscordServer::where('owner_user_id', $account->user_id)->update(['owner_user_id' => null]);
+                    $account->user?->notificationPreferences?->markDiscordUninstalled('not_linked');
+                }
+            }
         });
     }
 

@@ -7,6 +7,7 @@ export interface GameViewFixture {
     value: string;
   };
   slug: string;
+  versionId: number;
   bugReportId: number;
   additionRequestUrl: string;
   originalName: string;

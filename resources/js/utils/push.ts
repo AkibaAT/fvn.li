@@ -29,8 +29,11 @@ function usesApplicationServerKey(subscription: PushSubscription, publicKey: str
     return current.length === expected.length && current.every((value, index) => value === expected[index]);
 }
 
+let pendingStore: Promise<void> = Promise.resolve();
+
 async function store(subscription: PushSubscription, reactivate = false): Promise<void> {
-    await storePushSubscription(serialized(subscription), reactivate);
+    pendingStore = pendingStore.catch(() => {}).then(() => storePushSubscription(serialized(subscription), reactivate));
+    await pendingStore;
 }
 
 export async function subscribeToPush(publicKey: string): Promise<PushSubscription> {
@@ -63,6 +66,7 @@ export async function unsubscribeFromPush(): Promise<boolean> {
     const subscription = await registration.pushManager.getSubscription();
     if (!subscription) return false;
 
+    await pendingStore.catch(() => {});
     await destroyPushSubscription(serialized(subscription));
 
     return subscription.unsubscribe();
@@ -80,5 +84,8 @@ export async function syncPushSubscription(): Promise<PushSubscription | null> {
 
 export async function localPushSubscription(): Promise<PushSubscription | null> {
     if (!('serviceWorker' in navigator)) return null;
-    return (await navigator.serviceWorker.ready).pushManager.getSubscription();
+    // Logout must detach the endpoint after any in-flight account association.
+    await pendingStore.catch(() => {});
+    const registration = await navigator.serviceWorker.getRegistration();
+    return registration ? registration.pushManager.getSubscription() : null;
 }

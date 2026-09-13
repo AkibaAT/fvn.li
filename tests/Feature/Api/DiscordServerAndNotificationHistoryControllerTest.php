@@ -7,12 +7,14 @@ use App\Models\DiscordServer;
 use App\Models\DiscordServerConfig;
 use App\Models\Game;
 use App\Models\GameDiscordSubscription;
+use App\Models\SocialAccount;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 
 function discordApiOwnerWithServer(array $serverAttributes = []): array
 {
     $user = User::factory()->create(['is_admin' => true]);
+    SocialAccount::factory()->discord()->for($user)->create();
     Sanctum::actingAs($user);
 
     $server = DiscordServer::create($serverAttributes + [
@@ -39,6 +41,7 @@ function discordHistory(DiscordServer $server, Game $game, array $attributes = [
 
 it('registers lists shows updates stats and deletes Discord servers', function () {
     $user = User::factory()->create(['is_admin' => true]);
+    SocialAccount::factory()->discord()->for($user)->create();
     Sanctum::actingAs($user);
 
     $this->postJson('/api/discord-servers/register', [
@@ -49,6 +52,7 @@ it('registers lists shows updates stats and deletes Discord servers', function (
         ->assertJsonPath('server.config.notification_format', 'detailed');
 
     $server = DiscordServer::where('discord_server_id', 'guild-created')->firstOrFail();
+    $server->update(['available_channels' => [['id' => 'channel-2']]]);
     $game = Game::factory()->create();
     GameDiscordSubscription::create([
         'discord_server_id' => $server->id,
