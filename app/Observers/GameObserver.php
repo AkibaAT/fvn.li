@@ -7,8 +7,10 @@ namespace App\Observers;
 use App\Models\Game;
 use App\Services\Discord\DiscordCatalogMessageSyncService;
 use App\Services\GameFilterService;
+use App\Services\GameStatsService;
 use App\Services\HomePageCacheService;
 use App\Services\RatingStatsCacheService;
+use App\Services\VnListCacheService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -134,6 +136,10 @@ class GameObserver
             $this->bumpRecommendationCacheVersion();
         }
 
+        if ($game->wasChanged('source_language_id')) {
+            GameStatsService::clearCache($game->id);
+        }
+
         if ($game->wasChanged('is_stats_extraction_disabled')) {
             if ($game->is_stats_extraction_disabled) {
                 $this->clearExtractedStats($game);
@@ -193,6 +199,7 @@ class GameObserver
 
     public function deleted(Game $game): void
     {
+        app(VnListCacheService::class)->clearPublicListsCache();
         GameFilterService::clearCache();
         HomePageCacheService::clearAll(); // Clear home page cache when game deleted
         $this->bumpRecommendationCacheVersion();
@@ -228,7 +235,11 @@ class GameObserver
         DB::table('version_route_menu_choices')->whereIn('game_version_id', $versionIds)->delete();
         DB::table('version_route_edges')->whereIn('game_version_id', $versionIds)->delete();
         DB::table('version_route_labels')->whereIn('game_version_id', $versionIds)->delete();
-        DB::table('game_versions')->whereIn('id', $versionIds)->update(['route_graph_data' => null]);
+        DB::table('game_versions')->whereIn('id', $versionIds)->update([
+            'route_graph_data' => null, 'route_graph_unreachable_data' => null,
+            'stats_completed_at' => null, 'stats_attempts' => 0, 'stats_retry_at' => null, 'stats_error' => null, 'stats_skipped' => false,
+        ]);
+        GameStatsService::clearCache($game->id);
 
         Log::info('Cleared extracted stats for game with disabled stats extraction', [
             'game_id' => $game->id,

@@ -7,6 +7,7 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\Language;
 use App\Models\LanguageMapping;
+use App\Services\DialogueSearchService;
 use App\Services\GameStatsDialoguePersister;
 use App\Services\GameStatsRouteGraphPersister;
 use App\Services\GameStatsService;
@@ -405,3 +406,60 @@ it('extracts game stats with a configured sdk and reports invalid sdk output', f
         File::deleteDirectory($sdkDir);
     }
 })->throws(RuntimeException::class, 'Invalid stats file format');
+
+it('preserves every previous stats section when a replacement payload fails midway', function () {
+    $game = Game::factory()->create();
+    $version = GameVersion::factory()->for($game)->create();
+    $language = Language::withoutEvents(fn () => Language::firstOrCreate(['id' => 'eng'], [
+        'part2b' => 'eng', 'part2t' => 'eng', 'part1' => 'en', 'scope' => 'I', 'type' => 'L', 'ref_name' => 'English', 'flag_code' => 'gb',
+    ]));
+    $version->languageStats()->create(['iso_code' => $language->id, 'words' => 123, 'blocks' => 10]);
+    $version->supportedLanguages()->create(['iso_code' => 'eng', 'is_available' => false]);
+    $version->forceFill(['route_graph_data' => ['previous' => true]])->saveQuietly();
+    $payload = new class(['languages' => ['default' => ['words' => 456, 'blocks' => 20]]]) extends ArrayStatsPayload
+    {
+        public function section(string $name): iterable
+        {
+            throw new RuntimeException('Truncated replacement payload');
+        }
+    };
+
+    expect(fn () => app(GameStatsService::class)->saveVersionStats($version, $payload, 'eng', $game))
+        ->toThrow(RuntimeException::class, 'Truncated replacement payload');
+
+    $version->recordStatsFailure('Truncated replacement payload');
+    expect($version->languageStats()->sole()->words)->toBe(123)
+        ->and($version->supportedLanguages()->sole()->is_available)->toBeFalse()
+        ->and($version->refresh()->route_graph_data)->toBe(['previous' => true])
+        ->and($version->stats_completed_at)->toBeNull();
+});
+
+it('invalidates dialogue summaries and both comparison caches after replacing or clearing stats', function () {
+    Language::withoutEvents(fn () => Language::firstOrCreate(['id' => 'eng'], [
+        'part2b' => 'eng', 'part2t' => 'eng', 'part1' => 'en', 'scope' => 'I', 'type' => 'L', 'ref_name' => 'English', 'flag_code' => 'gb',
+    ]));
+    $game = Game::factory()->create(['source_language_id' => 'eng', 'is_stats_extraction_disabled' => false]);
+    $from = GameVersion::factory()->for($game)->create(['published_at' => now()->subDay()]);
+    $to = GameVersion::factory()->for($game)->create(['published_at' => now()]);
+    $stats = app(GameStatsService::class);
+    $payload = fn (int $words) => ['languages' => ['default' => [
+        'words' => $words, 'blocks' => 1, 'characters' => ['hero' => ['display_name' => 'Hero', 'words' => $words, 'blocks' => 1]],
+    ]]];
+    $stats->saveVersionStats($from, $payload(100), 'eng', $game);
+    $stats->saveVersionStats($to, $payload(200), 'eng', $game);
+    $url = route('api.games.compare-versions', ['game' => $game->id, 'fromVersionId' => $from->id, 'toVersionId' => $to->id]);
+    $dialogue = app(DialogueSearchService::class);
+    $this->getJson($url)->assertOk()->assertJsonPath('languageTotals.to.eng', 200);
+    expect($dialogue->getVersionStatistics($to)['total_words'])->toBe(200);
+
+    $stats->saveVersionStats($to, $payload(300), 'eng', $game);
+    $this->getJson($url)->assertOk()->assertJsonPath('languageTotals.to.eng', 300);
+    expect($dialogue->getVersionStatistics($to)['total_words'])->toBe(300);
+
+    $to->forceFill(['route_graph_data' => ['old' => true], 'route_graph_unreachable_data' => ['old_private' => true]])->saveQuietly();
+    $game->update(['is_stats_extraction_disabled' => true]);
+    expect($to->refresh()->route_graph_data)->toBeNull()
+        ->and($to->route_graph_unreachable_data)->toBeNull()
+        ->and($dialogue->getVersionStatistics($to)['total_words'])->toBe(0);
+    $this->getJson($url)->assertOk()->assertJsonPath('languages', []);
+});

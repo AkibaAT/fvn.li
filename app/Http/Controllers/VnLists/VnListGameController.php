@@ -76,24 +76,7 @@ class VnListGameController extends Controller
             ], 422);
         }
 
-        // For default lists with list_type, remove from other default lists first
-        if ($request->has('list_type')) {
-            $otherDefaultLists = VnList::where('user_id', Auth::id())
-                ->where('is_default', true)
-                ->where('type', '!=', $request->list_type)
-                ->whereIn('type', ['reading', 'completed', 'plan_to_read', 'on_hold', 'dropped'])
-                ->pluck('id');
-
-            VnListEntry::whereIn('vn_list_id', $otherDefaultLists)
-                ->where('game_id', $game->id)
-                ->delete();
-        }
-
-        $entry = VnListEntry::create([
-            'vn_list_id' => $vnList->id,
-            'game_id' => $game->id,
-            'sort_order' => ($vnList->entries()->max('sort_order') ?? 0) + 10,
-        ]);
+        $entry = $vnList->addGame($game->id);
 
         if ($vnList->is_public) {
             app(VnListCacheService::class)->clearPublicListsCache();
@@ -132,11 +115,7 @@ class VnListGameController extends Controller
             ]);
         }
 
-        $entry = VnListEntry::create([
-            'vn_list_id' => $vnList->id,
-            'game_id' => $game->id,
-            'sort_order' => ($vnList->entries()->max('sort_order') ?? 0) + 10,
-        ]);
+        $entry = $vnList->addGame($game->id);
 
         if ($vnList->is_public) {
             app(VnListCacheService::class)->clearPublicListsCache();
@@ -155,18 +134,10 @@ class VnListGameController extends Controller
 
         $updateData = [
             'game_version_id' => $request->game_version_id ?: null,
-            'personal_notes' => $request->personal_notes ?: null,
+            'personal_notes' => $request->input('personal_notes'),
             'started_at' => $request->started_at ?: null,
             'completed_at' => $request->completed_at ?: null,
         ];
-
-        if ($request->has('hours_played')) {
-            $updateData['hours_played'] = $request->hours_played;
-        }
-
-        if ($request->has('progress')) {
-            $updateData['progress'] = $request->progress;
-        }
 
         $progress = UserGameProgress::updateOrCreate(
             [
@@ -255,7 +226,7 @@ class VnListGameController extends Controller
         $user = User::findOrFail($authId);
 
         $lists = $user->vnLists()
-            ->select('id', 'name', 'type', 'is_default')
+            ->select('id', 'name', 'type', 'is_default', 'is_public')
             ->orderBy('created_at')
             ->get();
 

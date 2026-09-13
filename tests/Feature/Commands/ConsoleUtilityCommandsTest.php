@@ -102,7 +102,7 @@ it('delegates full rating recalculation to the rating service', function () {
         ->assertExitCode(0);
 });
 
-it('generates a sitemap from visible slugged games and paginated listing pages', function () {
+it('generates a sitemap from visible slugged games and the canonical listing page', function () {
     $sitemapPath = public_path('sitemap.xml');
     @unlink($sitemapPath);
 
@@ -123,7 +123,7 @@ it('generates a sitemap from visible slugged games and paginated listing pages',
         $sitemap = file_get_contents($sitemapPath);
 
         expect($sitemap)->toContain(route('games.index'))
-            ->and($sitemap)->toContain(route('games.index', ['page' => 2]))
+            ->and($sitemap)->not->toContain('page=')
             ->and($sitemap)->not->toContain('hidden-game');
     } finally {
         @unlink($sitemapPath);

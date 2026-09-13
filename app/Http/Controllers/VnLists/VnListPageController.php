@@ -139,24 +139,31 @@ class VnListPageController extends Controller
         $this->authorize('view', $vnList);
 
         $listOwnerId = $vnList->user_id;
+        $isOwner = Auth::id() === $listOwnerId;
         $listOwnerRaterIds = Rater::query()->where('user_id', $listOwnerId)->pluck('id');
         $vnList->load([
-            'entries' => function ($query) use ($listOwnerId, $listOwnerRaterIds) {
+            'entries' => function ($query) use ($listOwnerId, $listOwnerRaterIds, $isOwner) {
+                $query->select(['id', 'vn_list_id', 'game_id', 'sort_order']);
+                if ($isOwner) {
+                    $query->addSelect('private_notes');
+                }
                 $query->with([
-                    'game' => function ($q) use ($listOwnerId, $listOwnerRaterIds) {
+                    'game' => function ($q) use ($listOwnerId, $listOwnerRaterIds, $isOwner) {
                         $q->select([
                             'id', 'name', 'custom_name', 'has_custom_page', 'view_mode', 'thumb_url', 'is_nsfw', 'slug',
                             'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price',
                         ]);
                         $q->with(['latestVersion', 'gameVersions']);
-                        if (Auth::check()) {
-                            $q->with([
-                                'userProgress' => function ($upQuery) {
-                                    $upQuery->where('user_id', Auth::id())
-                                        ->with('gameVersion');
-                                },
-                            ]);
-                        }
+                        $q->with([
+                            'userProgress' => function ($upQuery) use ($listOwnerId, $isOwner) {
+                                $upQuery->where('user_id', $listOwnerId)
+                                    ->select(['id', 'game_id', 'game_version_id', 'personal_notes', 'started_at', 'completed_at'])
+                                    ->with('gameVersion');
+                                if ($isOwner) {
+                                    $upQuery->addSelect(['user_id', 'receive_updates']);
+                                }
+                            },
+                        ]);
                         $q->with([
                             'ratings' => function ($rQuery) use ($listOwnerId, $listOwnerRaterIds) {
                                 $rQuery->where('is_visible', true)
@@ -174,7 +181,7 @@ class VnListPageController extends Controller
                     },
                 ]);
                 $query->orderBy('sort_order');
-            }, 'user',
+            }, 'user:id,name',
         ]);
 
         $allVersionIds = $vnList->entries->flatMap(function ($entry) {
@@ -194,8 +201,6 @@ class VnListPageController extends Controller
                 $versionHasCharacterStats[$vid] = in_array($vid, $statsVersionIds);
             }
         }
-
-        $isOwner = Auth::check() && Auth::id() === $vnList->user_id;
 
         $availableLists = [];
         if ($isOwner) {

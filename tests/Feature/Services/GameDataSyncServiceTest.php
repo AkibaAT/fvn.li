@@ -16,6 +16,7 @@ use App\Services\GameStatsService;
 use App\Services\GameVersionArchiveRepositoryService;
 use App\Services\ItchGameMetadataRefresher;
 use App\Services\ItchHttpClientService;
+use App\Support\Stats\ArrayStatsPayload;
 use App\Support\Stats\StatsPayload;
 use Dom\HTMLDocument;
 use GuzzleHttp\Psr7\Response;
@@ -431,6 +432,7 @@ it('force reprocesses existing versions from the stored archive repository witho
         ->once()
         ->with($storedArchivePath)
         ->andReturn(null);
+    $archiveService->shouldReceive('wasLastProcessingUnsupported')->andReturn(false);
     $archiveService->shouldReceive('getLastProcessingError')
         ->once()
         ->andReturn(null);
@@ -685,4 +687,126 @@ it('does not persist overlong itch upload user versions', function () {
 
     expect($version->version)->toBe('2024.03.04')
         ->and(strlen($version->version))->toBeLessThanOrEqual(20);
+});
+
+it('recovers missing stats from a known upload after backoff without creating another version', function (bool $changedUpload) {
+    ensureSyncLanguage('eng', 'English');
+    $game = Game::factory()->create([
+        'platform' => 'itch_io', 'itch_id' => 9988, 'game_engine' => "Ren'Py",
+        'source_language_id' => 'eng', 'is_paid' => false, 'is_stats_extraction_disabled' => false,
+        'url' => ['itch_io' => 'https://creator.itch.io/stats-retry'],
+    ]);
+    $upload = [
+        'id' => 12, 'filename' => 'StatsRetry-1.2-pc.zip', 'display_name' => 'StatsRetry 1.2',
+        'md5_hash' => 'first', 'updated_at' => '2024-03-04T05:06:07Z',
+        'build' => ['user_version' => '1.2'], 'traits' => ['p_windows'], 'type' => 'default',
+    ];
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('get')->with('https://api.itch.io/games/9988/uploads')
+        ->andReturnUsing(function () use (&$upload) {
+            return new Response(200, [], json_encode(['uploads' => [$upload]]));
+        });
+    $client->shouldReceive('get')->with('https://creator.itch.io/stats-retry', [], true)
+        ->andReturn(new Response(200, [], '<html></html>'));
+    app()->instance(ItchHttpClientService::class, $client);
+    $archive = Mockery::mock(GameArchiveService::class);
+    $attempts = 0;
+    $archive->shouldReceive('downloadAndProcessToTemp')->twice()->andReturnUsing(function () use (&$attempts) {
+        if (++$attempts === 1) {
+            throw new RuntimeException('Temporary analyzer outage');
+        }
+
+        return ['stats' => new ArrayStatsPayload([
+            'languages' => ['default' => ['words' => 42, 'blocks' => 3]],
+        ])];
+    });
+    app()->instance(GameArchiveService::class, $archive);
+    $service = app(GameDataSyncService::class);
+    $service->refreshVersion($game);
+    $game->save();
+    $version = $game->gameVersions()->sole();
+    expect($version->is_latest)->toBeTrue()
+        ->and($version->stats_error)->toBe('Temporary analyzer outage')
+        ->and($version->stats_attempts)->toBe(1)
+        ->and($version->languageStats()->count())->toBe(0);
+
+    $service->refreshVersion($game->refresh());
+    expect($attempts)->toBe(1);
+
+    $this->travel(16)->minutes();
+    if ($changedUpload) {
+        $upload['md5_hash'] = 'replaced';
+        $upload['updated_at'] = '2024-03-05T05:06:07Z';
+    }
+    $service->refreshVersion($game->refresh());
+    $game->save();
+    expect($game->gameVersions()->count())->toBe(1)
+        ->and($version->refresh()->languageStats()->sole()->words)->toBe(42)
+        ->and($version->stats_completed_at)->not->toBeNull()
+        ->and($version->stats_error)->toBeNull()
+        ->and($version->stats_attempts)->toBe(0);
+})->with([false, true]);
+
+it('stops automatic stats retries after five failures and skips ineligible games', function () {
+    $version = GameVersion::factory()->create();
+    for ($attempt = 1; $attempt <= 5; $attempt++) {
+        $version->recordStatsFailure('Analyzer unavailable');
+        $this->travel(2)->days();
+        expect($version->newQuery()->whereKey($version->id)->dueForStatsExtraction()->exists())->toBe($attempt < 5);
+    }
+    expect($version->refresh()->stats_attempts)->toBe(5)
+        ->and($version->stats_retry_at)->toBeNull()
+        ->and($version->stats_error)->toBe('Analyzer unavailable');
+
+    $service = app(GameDataSyncService::class);
+    foreach ([['is_paid' => true], ['is_stats_extraction_disabled' => true], ['game_engine' => 'Unity']] as $attributes) {
+        $game = new Game(array_merge(['is_paid' => false, 'is_stats_extraction_disabled' => false, 'game_engine' => "Ren'Py"], $attributes));
+        expect(invokeGameDataSyncMethod($service, 'isStatsExtractionAllowed', [$game]))->toBeFalse();
+    }
+});
+
+it('remembers unsupported unknown-engine uploads and rechecks only after the upload changes', function () {
+    ensureSyncLanguage('eng', 'English');
+    $game = Game::factory()->create([
+        'platform' => 'itch_io', 'itch_id' => 9989, 'game_engine' => 'unknown',
+        'source_language_id' => 'eng', 'is_paid' => false, 'is_stats_extraction_disabled' => false,
+        'url' => ['itch_io' => 'https://creator.itch.io/unsupported-retry'],
+    ]);
+    $upload = [
+        'id' => 13, 'filename' => 'Unknown-1.2-pc.zip', 'display_name' => 'Unknown 1.2',
+        'md5_hash' => 'first', 'updated_at' => '2024-03-04T05:06:07Z',
+        'build' => ['user_version' => '1.2'], 'traits' => ['p_windows'], 'type' => 'default',
+    ];
+    $client = Mockery::mock(ItchHttpClientService::class);
+    $client->shouldReceive('get')->with('https://api.itch.io/games/9989/uploads')
+        ->andReturnUsing(function () use (&$upload) {
+            return new Response(200, [], json_encode(['uploads' => [$upload]]));
+        });
+    $client->shouldReceive('get')->with('https://creator.itch.io/unsupported-retry', [], true)
+        ->andReturn(new Response(200, [], '<html></html>'));
+    app()->instance(ItchHttpClientService::class, $client);
+    $archive = Mockery::mock(GameArchiveService::class);
+    $archive->shouldReceive('downloadAndProcessToTemp')->twice()->andReturn(['stats' => null]);
+    $archive->shouldReceive('getLastProcessingError')->twice()->andReturn('No supported game directory');
+    $archive->shouldReceive('wasLastProcessingUnsupported')->twice()->andReturn(true);
+    app()->instance(GameArchiveService::class, $archive);
+    $service = app(GameDataSyncService::class);
+    $service->refreshVersion($game);
+    $game->save();
+    $version = $game->gameVersions()->sole();
+    expect($version->stats_skipped)->toBeTrue()
+        ->and($version->stats_attempts)->toBe(1)
+        ->and($version->stats_retry_at)->toBeNull()
+        ->and($version->newQuery()->whereKey($version->id)->dueForStatsExtraction()->exists())->toBeFalse();
+    $this->travel(30)->days();
+    $service->refreshVersion($game->refresh());
+    $service->refreshVersion($game->refresh());
+    expect($version->refresh()->stats_attempts)->toBe(1);
+
+    $upload['md5_hash'] = 'changed';
+    $service->refreshVersion($game->refresh());
+    $game->save();
+    expect($game->gameVersions()->count())->toBe(1)
+        ->and($version->refresh()->stats_skipped)->toBeTrue()
+        ->and($version->stats_attempts)->toBe(1);
 });

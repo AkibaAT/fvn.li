@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Game;
 use App\Models\User;
 use App\Models\VnList;
+use App\Services\VnListCacheService;
 use App\Support\Seo\MetaTags;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -61,7 +62,7 @@ class PublicVnListController extends Controller
 
         $searchKey = $search ? md5($search) : '';
         $gameKey = $gameId ?: '';
-        $cacheKey = "public_lists:{$type}:{$perPage}:{$page}:{$sort}:{$searchKey}:{$gameKey}";
+        $cacheKey = app(VnListCacheService::class)->key("public_lists:{$type}:{$perPage}:{$page}:{$sort}:{$searchKey}:{$gameKey}");
 
         if (empty($search) && empty($gameId)) {
             $cachedData = Cache::get($cacheKey);
@@ -378,7 +379,7 @@ class PublicVnListController extends Controller
 
         return Inertia::render('lists/user-public', [
             'lists' => $lists,
-            'user' => $user,
+            'user' => $user->only(['id', 'name']),
             'metaTags' => $metaTags->toArray(),
         ]);
     }

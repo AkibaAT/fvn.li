@@ -8,6 +8,11 @@ use Illuminate\Support\Facades\Storage;
 
 trait HasGameMedia
 {
+    public static function screenshotId(array $screenshot): string
+    {
+        return hash('sha256', (string) ($screenshot['url'] ?? $screenshot['optimized']['large']['path'] ?? ''));
+    }
+
     public function hasThumbnail(): bool
     {
         return ! empty($this->thumb_url) || ! empty($this->screenshots);
@@ -31,7 +36,9 @@ trait HasGameMedia
             }
 
             $this->optimized_thumbnails = null;
-            $this->save();
+            if ($this->exists) {
+                $this->save();
+            }
         }
     }
 
@@ -63,7 +70,9 @@ trait HasGameMedia
 
         if ($hasOptimized) {
             $this->screenshots = $updatedScreenshots;
-            $this->save();
+            if ($this->exists) {
+                $this->save();
+            }
         }
     }
 
@@ -120,6 +129,7 @@ trait HasGameMedia
             }
 
             return [
+                'id' => self::screenshotId($screenshot),
                 'url' => $displayUrl,
                 'thumbnail_url' => $thumbnailUrl,
                 'original_url' => $displayUrl,

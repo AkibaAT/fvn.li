@@ -123,6 +123,7 @@ class MyGamesController extends Controller
     public function myGamesUpdate(Request $request, Game $game): JsonResponse
     {
         $request->validate([
+            'timezone_offset' => 'nullable|numeric|between:-14,14',
             'links' => 'nullable|array|max:15',
             'links.*.name' => 'required|string|max:100',
             'links.*.url' => [
@@ -193,8 +194,6 @@ class MyGamesController extends Controller
 
         $links = $request->input('links', []);
 
-        // Debug: Log the incoming links data
-
         $processedLinks = [];
         $existingLinks = $game->getAllAdditionalLinks();
         $existingLinksById = collect($existingLinks)->keyBy('id');
@@ -211,22 +210,16 @@ class MyGamesController extends Controller
             $releaseAt = null;
             if (! empty($link['release_at'])) {
                 try {
-                    // The user submits their local time (e.g., "2025-10-10T12:54")
-                    // We need to convert this to UTC for storage
-
                     $inputTime = Carbon::parse($link['release_at']);
 
-                    // Since the user meant this as their local time, we need to subtract their timezone offset to get UTC
-                    $timezoneOffset = (int) ($request->input('timezone_offset', 0));
+                    // Optional offset is in hours east of UTC.
+                    $timezoneOffset = (float) ($request->input('timezone_offset', 0));
 
-                    // Subtract the offset to convert local time to UTC
-                    $utcTime = $inputTime->copy()->subHours($timezoneOffset);
+                    $utcTime = $inputTime->copy()->subMinutes((int) round($timezoneOffset * 60));
 
                     $releaseAt = $utcTime->toISOString();
 
                 } catch (Exception $e) {
-                    // If parsing fails during processing (after validation),
-                    // this shouldn't happen but we'll handle it gracefully
                     $releaseAt = null;
                     Log::error('Failed to parse release_at', [
                         'input' => $link['release_at'],
@@ -356,12 +349,13 @@ class MyGamesController extends Controller
 
         $request->validate([
             'index' => 'required|integer|min:0',
+            'screenshot_id' => 'sometimes|string|size:64',
         ]);
 
         $index = $request->input('index');
 
         try {
-            $result = app(GameMediaEditorService::class)->deleteScreenshot($game, $user, (int) $index);
+            $result = app(GameMediaEditorService::class)->deleteScreenshot($game, $user, (int) $index, $request->input('screenshot_id'));
 
             return $result
                 ? response()->json($result)
@@ -398,6 +392,8 @@ class MyGamesController extends Controller
                 $user,
                 $request->input('ordered_indices')
             ));
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (Exception $e) {
             report($e);
 

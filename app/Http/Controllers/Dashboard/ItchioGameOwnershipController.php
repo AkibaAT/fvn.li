@@ -16,24 +16,24 @@ class ItchioGameOwnershipController extends Controller
 {
     public function sync(Request $request, ItchioGameOwnershipSyncService $syncService): JsonResponse
     {
-        $account = $request->user()->socialAccounts()
+        $accounts = $request->user()->socialAccounts()
             ->where('provider_name', 'itchio')
-            ->first();
+            ->get();
 
-        if (! $account) {
+        if ($accounts->isEmpty()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Connect your itch.io account before syncing games.',
             ], 422);
         }
 
-        $previousGameIds = collect($account->itchio_game_ids ?? [])
+        $previousGameIds = $accounts->flatMap(fn ($account) => $account->itchio_game_ids ?? [])
             ->map(fn ($id) => (int) $id)
             ->unique()
             ->values();
 
         try {
-            $gameIds = $syncService->sync($account);
+            $gameIds = $accounts->flatMap(fn ($account) => $syncService->sync($account))->unique()->values()->all();
         } catch (Throwable $exception) {
             Log::warning('Failed to sync itch.io game ownership from the dashboard', [
                 'user_id' => $request->user()->id,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class RatingStatsCacheService
 {
@@ -37,6 +38,12 @@ class RatingStatsCacheService
         Cache::increment(self::VERSION_KEY);
 
         Cache::forget(self::GLOBAL_STATS_KEY);
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit(function (): void {
+                Cache::increment(self::VERSION_KEY);
+                Cache::forget(self::GLOBAL_STATS_KEY);
+            });
+        }
     }
 
     private static function version(): int

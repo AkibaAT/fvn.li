@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\Game;
 use App\Models\SocialAccount;
 use App\Models\User;
+use App\Services\AccountMergeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -249,4 +250,23 @@ describe('getOwnedGames method', function () {
 
         expect($ownedGames)->toBeEmpty();
     });
+});
+
+test('merged itch.io identities retain ownership through API and URL data', function () {
+    $source = User::factory()->create();
+    $first = Game::factory()->create(['itch_id' => 901, 'is_visible' => true]);
+    $second = Game::factory()->create(['itch_id' => 902, 'is_visible' => true]);
+    $legacy = Game::factory()->create(['url' => ['itch_io' => 'https://merged-owner.itch.io/legacy'], 'is_visible' => true]);
+    $foreign = Game::factory()->create(['is_visible' => true]);
+    SocialAccount::factory()->for($this->user)->itchio()->create(['itchio_game_ids' => [901]]);
+    SocialAccount::factory()->for($source)->itchio()->create(['itchio_game_ids' => [902]]);
+    SocialAccount::factory()->for($source)->itchio()->create(['itchio_game_ids' => null, 'provider_data' => ['url' => 'https://merged-owner.itch.io']]);
+
+    app(AccountMergeService::class)->mergeAccounts($this->user, $source);
+
+    expect($this->user->getOwnedGames()->modelKeys())->toEqualCanonicalizing([$first->id, $second->id, $legacy->id]);
+    foreach ([$first, $second, $legacy] as $game) {
+        expect($game->canUserEdit($this->user))->toBeTrue();
+    }
+    expect($foreign->canUserEdit($this->user))->toBeFalse();
 });

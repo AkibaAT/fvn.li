@@ -26,25 +26,12 @@ class GenerateSitemap extends Command
                 ->setLastModificationDate(now())
         );
 
-        $gamesPerPage = 9; // Default games per page from GameList component
-        $totalGames = Game::where('is_visible', true)->count();
-        $totalPages = ceil($totalGames / $gamesPerPage);
-
         $sitemap->add(
             Url::create(route('games.index'))
                 ->setPriority(0.9)
                 ->setChangeFrequency(Url::CHANGE_FREQUENCY_DAILY)
                 ->setLastModificationDate(now())
         );
-
-        for ($page = 2; $page <= $totalPages; $page++) {
-            $sitemap->add(
-                Url::create(route('games.index', ['page' => $page]))
-                    ->setPriority(0.8)
-                    ->setChangeFrequency(Url::CHANGE_FREQUENCY_DAILY)
-                    ->setLastModificationDate(now())
-            );
-        }
 
         $games = Game::where('is_visible', true)
             ->whereNotNull('slug')

@@ -3,14 +3,17 @@
 declare(strict_types=1);
 
 use App\Models\Game;
+use App\Models\GameVersion;
 use App\Models\Rater;
 use App\Models\Rating;
 use App\Models\User;
 use App\Models\UserGameProgress;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use App\Services\VnListCacheService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 
 function makeListWithEntry(User $user, array $listAttributes = [], array $gameAttributes = []): array
 {
@@ -534,4 +537,120 @@ it('rejects notification toggles for paid games', function () {
         ->assertJsonPath('message', 'Notifications are not available for paid games.');
 
     expect(UserGameProgress::where('user_id', $user->id)->where('game_id', $game->id)->exists())->toBeFalse();
+});
+
+it('exposes only public list data and the owners progress to each viewer', function (string $viewer) {
+    $owner = User::factory()->create(['email' => 'private-owner@example.test']);
+    [$list, $game, $entry] = makeListWithEntry($owner);
+    $entry->update(['private_notes' => 'Owner-only secret']);
+    $version = GameVersion::factory()->for($game)->create();
+    UserGameProgress::factory()->for($owner)->for($game)->create([
+        'game_version_id' => $version->id,
+        'personal_notes' => 'Owners public note',
+        'started_at' => '2026-01-02',
+        'receive_updates' => true,
+    ]);
+    if ($viewer !== 'guest') {
+        $user = $viewer === 'owner' ? $owner : User::factory()->create();
+        if ($viewer === 'visitor') {
+            UserGameProgress::factory()->for($user)->for($game)->create(['personal_notes' => 'Visitors note']);
+        }
+        $this->actingAs($user);
+    }
+    $response = $this->get(route('lists.show', $list))->assertOk();
+    $data = $response->viewData('page')['props']['vnList'];
+    expect($data['user'])->not->toHaveKey('email');
+    $entryData = $data['entries'][0];
+    $progress = $entryData['game']['user_progress'][0];
+    expect($progress['personal_notes'])->toBe('Owners public note')
+        ->and($progress['game_version']['id'])->toBe($version->id);
+    if ($viewer === 'owner') {
+        expect($entryData['private_notes'])->toBe('Owner-only secret')
+            ->and($progress['receive_updates'])->toBeTrue();
+    } else {
+        expect($entryData)->not->toHaveKey('private_notes');
+        expect($progress)->not->toHaveKey('receive_updates');
+    }
+    $publicProfile = $this->get(route('lists.user-public', $owner))->assertOk();
+    expect($publicProfile->viewData('page')['props']['user'])->not->toHaveKey('email');
+})->with(['guest', 'visitor', 'owner']);
+
+it('keeps one default status when moving a custom entry and retains its notes', function () {
+    $user = User::factory()->create();
+    [$custom, $game, $entry] = makeListWithEntry($user, ['is_default' => false]);
+    $reading = $user->vnLists()->where('type', 'reading')->firstOrFail();
+    $completed = $user->vnLists()->where('type', 'completed')->firstOrFail();
+    $reading->entries()->create(['game_id' => $game->id]);
+    $entry->update(['private_notes' => 'Keep me']);
+    $this->actingAs($user)->postJson(route('api.list-entries.move', $entry), [
+        'target_list_id' => $completed->id,
+    ])->assertOk();
+    expect($entry->fresh()->vn_list_id)->toBe($completed->id)
+        ->and($entry->fresh()->private_notes)->toBe('Keep me')
+        ->and($reading->entries()->where('game_id', $game->id)->exists())->toBeFalse();
+});
+
+it('rejects a foreign game version on both list progress endpoints without changing notes', function (string $endpoint) {
+    $user = User::factory()->create();
+    [$list, $game, $entry] = makeListWithEntry($user);
+    $version = GameVersion::factory()->create();
+    $progress = UserGameProgress::factory()->for($user)->for($game)->create(['personal_notes' => 'Keep me']);
+    $url = $endpoint === 'entry' ? route('api.list-entries.update', $entry) : route('api.user-progress.update', $game);
+    $this->actingAs($user)->putJson($url, ['game_version_id' => $version->id, 'personal_notes' => 'Overwrite'])
+        ->assertUnprocessable()->assertJsonValidationErrors('game_version_id');
+    expect($progress->fresh()->personal_notes)->toBe('Keep me');
+    $version = GameVersion::factory()->for($game)->create();
+    $this->putJson($url, ['game_version_id' => $version->id])->assertOk();
+    expect($progress->fresh()->game_version_id)->toBe($version->id);
+    $this->putJson($url, ['game_version_id' => null])->assertOk();
+    expect($progress->fresh()->game_version_id)->toBeNull();
+})->with(['entry', 'progress']);
+
+it('validates completion dates for reading lists and preserves zero notes on both progress endpoints', function () {
+    $user = User::factory()->create();
+    [$list, $game, $entry] = makeListWithEntry($user, ['type' => 'reading', 'is_default' => true]);
+    $this->actingAs($user)->putJson(route('api.list-entries.update', $entry), ['completed_at' => 'not-a-date'])
+        ->assertUnprocessable()->assertJsonValidationErrors('completed_at');
+    foreach ([route('api.list-entries.update', $entry), route('api.user-progress.update', $game)] as $url) {
+        $this->putJson($url, ['personal_notes' => '0'])->assertOk()->assertJsonPath('progress.personal_notes', '0');
+        expect(UserGameProgress::where('user_id', $user->id)->where('game_id', $game->id)->sole()->personal_notes)->toBe('0');
+    }
+    $this->putJson(route('api.user-progress.update', $game), ['progress' => 10, 'hours_played' => 3])
+        ->assertUnprocessable()->assertJsonValidationErrors(['progress', 'hours_played']);
+    $response = $this->getJson(route('browser-api.user.lists'))->assertOk();
+    expect(collect($response->json('lists'))->firstWhere('id', $list->id)['is_public'])->toBeTrue();
+});
+
+it('invalidates all public list pages on privacy changes without flushing unrelated cache', function () {
+    $user = User::factory()->create();
+    [$list] = makeListWithEntry($user, ['is_public' => true]);
+    $this->get(route('lists.public'))->assertOk()->assertInertia(fn ($page) => $page->has('lists.data', 1));
+    Cache::put('unrelated-cache-entry', 'keep', 3600);
+    $list->update(['is_public' => false]);
+    $this->get(route('lists.public'))->assertOk()->assertInertia(fn ($page) => $page->has('lists.data', 0));
+    expect(Cache::get('unrelated-cache-entry'))->toBe('keep');
+});
+
+it('invalidates public list generations through the configured Redis cache connection', function () {
+    $previous = config('cache.default');
+    $prefix = 'audit-lists-' . Str::uuid() . ':';
+    config(['cache.stores.audit_lists' => ['driver' => 'redis', 'connection' => 'cache', 'prefix' => $prefix], 'cache.default' => 'audit_lists']);
+    $keys = [];
+    try {
+        $cache = Cache::store('audit_lists');
+        $first = app(VnListCacheService::class)->key('public_lists_fixture');
+        $keys[] = $first;
+        $cache->put($first, ['private owner data'], 60);
+        $cache->put('unrelated', 'keep', 60);
+        app(VnListCacheService::class)->clearPublicListsCache();
+        $second = app(VnListCacheService::class)->key('public_lists_fixture');
+        $keys[] = $second;
+        expect($second)->not->toBe($first)->and($cache->get($second))->toBeNull()->and($cache->get('unrelated'))->toBe('keep');
+    } finally {
+        foreach ([...$keys, 'public_lists.version', 'unrelated'] as $key) {
+            $cache->forget($key);
+        }
+        config(['cache.default' => $previous]);
+        Cache::purge('audit_lists');
+    }
 });

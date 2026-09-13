@@ -228,7 +228,7 @@ test('developer cannot switch visitor mode before custom page exists', function 
         ->assertJsonPath('message', 'Custom page must be enabled before changing view mode.');
 });
 
-test('developer partially reverts content name screenshots and cleans custom screenshot files', function () {
+test('developer reverts selected name and screenshots while preserving custom description', function () {
     Storage::fake('public');
     $user = User::factory()->create(['is_admin' => true]);
     $customScreenshotDirectory = uniqid();
@@ -263,9 +263,9 @@ test('developer partially reverts content name screenshots and cleans custom scr
         ]);
 
     $response->assertOk()
-        ->assertJsonPath('message', 'Content and screenshots reverted to itch.io version successfully.')
+        ->assertJsonPath('message', 'Selected content reverted to itch.io version successfully.')
         ->assertJsonPath('data.name', 'Original itch.io Name')
-        ->assertJsonPath('data.content', '<p>Original itch.io text</p>')
+        ->assertJsonPath('data.content', '<p>Custom text <img /></p>')
         ->assertJsonPath('data.has_custom_page', true)
         ->assertJsonCount(0, 'data.screenshots');
 
@@ -274,11 +274,11 @@ test('developer partially reverts content name screenshots and cleans custom scr
 
     $game->refresh();
     expect($game->custom_name)->toBeNull()
-        ->and($game->custom_description)->toBe('<p>Original itch.io text</p>')
+        ->and($game->custom_description)->toBe('<p>Custom text <img src="/storage/editor/unused.png"></p>')
         ->and($game->custom_screenshots[0]['url'])->toBe('https://itch.example/original.jpg');
 });
 
-test('developer fully reverts custom content and thumbnail through sync service adapter', function () {
+test('developer fully reverts custom content and thumbnail through sync service adapter', function ($optimizedThumbnails) {
     Storage::fake('public');
     $user = User::factory()->create(['is_admin' => true]);
     $game = Game::factory()->create([
@@ -289,9 +289,7 @@ test('developer fully reverts custom content and thumbnail through sync service 
         'custom_name' => 'Custom Name',
         'custom_description' => '<p>Custom text</p>',
         'thumb_url' => 'https://custom.example/thumb.jpg',
-        'optimized_thumbnails' => [
-            'default' => ['path' => 'games/thumbs/default.webp'],
-        ],
+        'optimized_thumbnails' => $optimizedThumbnails,
         'screenshots' => [
             ['url' => 'https://itch.example/original.jpg'],
         ],
@@ -305,7 +303,7 @@ test('developer fully reverts custom content and thumbnail through sync service 
         ->shouldReceive('refreshBaseInfo')
         ->once()
         ->with(Mockery::on(function (Game $refreshedGame) use ($game) {
-            $refreshedGame->update(['thumb_url' => 'https://itch.example/original-thumb.jpg']);
+            $refreshedGame->thumb_url = 'https://itch.example/original-thumb.jpg';
 
             return $refreshedGame->is($game);
         }));
@@ -331,4 +329,20 @@ test('developer fully reverts custom content and thumbnail through sync service 
         ->and($game->custom_description)->toBeNull()
         ->and($game->custom_screenshots)->toBeNull()
         ->and($game->thumb_url)->toBe('https://itch.example/original-thumb.jpg');
+})->with([null, [['default' => ['path' => 'games/thumbs/default.webp']]]]);
+
+test('reverting only the name preserves description images and screenshots', function () {
+    Storage::fake('public');
+    $user = User::factory()->create(['is_admin' => true]);
+    $game = Game::factory()->create(['has_custom_page' => true, 'custom_name' => 'Custom', 'view_mode' => 'custom']);
+    $path = "editor/{$game->id}/keep.png";
+    $content = '<p>Keep this<img src="/storage/' . $path . '"></p>';
+    $game->update(['custom_description' => $content, 'custom_screenshots' => [['url' => '/keep.png']]]);
+    Storage::disk('public')->put($path, 'image');
+    $this->actingAs($user)->postJson(route('browser-api.games.content.revert', $game), ['revert_name' => true])
+        ->assertOk()->assertJsonPath('data.content', '<p>Keep this<img /></p>');
+    expect($game->refresh()->custom_name)->toBeNull()
+        ->and($game->custom_description)->toBe($content)
+        ->and($game->custom_screenshots)->toBe([['url' => '/keep.png']]);
+    Storage::disk('public')->assertExists($path);
 });

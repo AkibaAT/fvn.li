@@ -64,7 +64,6 @@ class UserReviewController extends Controller
                 'rating' => $request->input('rating'),
                 'review' => $reviewText,
                 'has_spoilers' => $request->boolean('has_spoilers', false),
-                'is_visible' => true,
                 'is_reviewed' => $hasReviewText,
                 'source_platform' => 'fvn_li',
                 'published_at' => now(),

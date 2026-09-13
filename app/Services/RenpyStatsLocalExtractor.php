@@ -18,9 +18,12 @@ class RenpyStatsLocalExtractor
 {
     private ?string $lastError = null;
 
+    private bool $lastExtractionUnsupported = false;
+
     public function extract(string $archivePath): ?StatsPayload
     {
         $this->lastError = null;
+        $this->lastExtractionUnsupported = false;
         Log::info('GameStats: Starting extraction', [
             'archive_path' => basename($archivePath),
         ]);
@@ -38,6 +41,7 @@ class RenpyStatsLocalExtractor
             Log::info('GameStats: Finding game directory');
             $gameDir = $this->findGameDirectory($extractPath);
             if (! $gameDir) {
+                $this->lastExtractionUnsupported = true;
                 $this->lastError = 'Could not find valid game directory';
                 Log::warning('Could not find valid game directory', [
                     'archive_path' => $archivePath,
@@ -85,6 +89,11 @@ class RenpyStatsLocalExtractor
                 File::deleteDirectory($extractPath);
             }
         }
+    }
+
+    public function wasLastExtractionUnsupported(): bool
+    {
+        return $this->lastExtractionUnsupported;
     }
 
     public function getLastError(): ?string

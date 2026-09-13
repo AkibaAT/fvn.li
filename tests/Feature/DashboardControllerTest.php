@@ -453,7 +453,8 @@ it('disconnects a linked provider only when another login provider remains', fun
     SocialAccount::factory()->for($user)->itchio()->create();
 
     $this->actingAs($user)->deleteJson(route('user.disconnect', 'itchio'))
-        ->assertRedirect(route('dashboard'));
+        ->assertUnprocessable()
+        ->assertJsonPath('success', false);
 
     expect($user->socialAccounts()->where('provider_name', 'itchio')->exists())->toBeTrue();
 
@@ -595,4 +596,20 @@ it('renders digest notifications for dates with and without user notifications',
     $filledPage = $filledResponse->viewData('page');
     expect($filledPage['props']['hasNotifications'])->toBeTrue()
         ->and($filledPage['props']['notifications'])->toHaveCount(1);
+});
+
+it('syncs games for every linked itch.io identity', function () {
+    $user = User::factory()->create();
+    $first = SocialAccount::factory()->for($user)->itchio()->create(['token' => 'first-token', 'itchio_game_ids' => [111]]);
+    $second = SocialAccount::factory()->for($user)->itchio()->create(['token' => 'second-token', 'itchio_game_ids' => [222]]);
+    $client = new Client(['handler' => HandlerStack::create(new MockHandler([
+        new GuzzleResponse(200, [], json_encode(['games' => [['id' => 111], ['id' => 333]]])),
+        new GuzzleResponse(200, [], json_encode(['games' => [['id' => 444]]])),
+    ]))]);
+    app()->instance(ItchioGameOwnershipSyncService::class, new ItchioGameOwnershipSyncService($client));
+
+    $this->actingAs($user)->postJson(route('user.itchio-games.sync'))->assertOk()
+        ->assertJsonPath('game_count', 3)->assertJsonPath('added_count', 2)->assertJsonPath('removed_count', 1);
+    expect($first->refresh()->itchio_game_ids)->toBe([111, 333])
+        ->and($second->refresh()->itchio_game_ids)->toBe([444]);
 });

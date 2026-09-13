@@ -86,6 +86,8 @@ class RouteMapController extends Controller
 
     public function getRouteGraph(Game $game, GameVersion $version, Request $request): JsonResponse
     {
+        abort_unless((int) $version->game_id === (int) $game->id, 404);
+
         $includeUnreachable = $game->canUserEdit($request->user()) && $request->boolean('include_unreachable');
 
         $graph = $this->routeGraphService->storedGraph($version, $includeUnreachable);
@@ -99,6 +101,8 @@ class RouteMapController extends Controller
 
     public function parseSaveFile(Game $game, GameVersion $version, Request $request): JsonResponse
     {
+        abort_unless((int) $version->game_id === (int) $game->id, 404);
+
         $request->validate([
             'file' => ['required', 'file', 'max:' . RenpySaveParser::MAX_UPLOAD_KIB],
         ]);

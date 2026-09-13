@@ -80,6 +80,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('sitemap:generate')->daily()->withoutOverlapping();
         $schedule->command('ratings:import')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('feed:process')->everyFifteenMinutes()->withoutOverlapping();
+        $schedule->command('games:retry-stats')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('games:refresh',
             ['--all', '--update-metadata', '--update-info'])->dailyAt('20:00')->withoutOverlapping();
         $schedule->command('games:refresh-feedless', ['--all'])->dailyAt('06:00')->withoutOverlapping();

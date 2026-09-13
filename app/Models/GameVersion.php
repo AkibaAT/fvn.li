@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -31,10 +32,15 @@ class GameVersion extends Model
     protected $hidden = [
         'route_graph_data',
         'route_graph_unreachable_data',
+        'stats_error',
     ];
 
     protected $casts = [
         'published_at' => 'datetime',
+        'stats_completed_at' => 'datetime',
+        'stats_retry_at' => 'datetime',
+        'stats_attempts' => 'integer',
+        'stats_skipped' => 'boolean',
         'is_windows' => 'boolean',
         'is_linux' => 'boolean',
         'is_mac' => 'boolean',
@@ -73,6 +79,26 @@ class GameVersion extends Model
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
+    }
+
+    public function scopeDueForStatsExtraction(Builder $query): Builder
+    {
+        return $query->where('stats_skipped', false)->where('stats_attempts', '<', 5)
+            ->where(fn (Builder $query) => $query->whereNull('stats_retry_at')->orWhere('stats_retry_at', '<=', now()))
+            ->where(fn (Builder $query) => $query->whereNotNull('stats_error')
+                ->orWhere(fn (Builder $query) => $query->whereNull('stats_completed_at')->whereDoesntHave('languageStats')));
+    }
+
+    public function recordStatsFailure(string $error, bool $unsupported = false, bool $resetAttempts = false): void
+    {
+        $attempts = $resetAttempts || $this->stats_skipped ? 1 : min(5, $this->stats_attempts + 1);
+        $delayMinutes = [15, 60, 360, 1440];
+        $this->forceFill([
+            'stats_attempts' => $attempts,
+            'stats_retry_at' => ! $unsupported && isset($delayMinutes[$attempts - 1]) ? now()->addMinutes($delayMinutes[$attempts - 1]) : null,
+            'stats_error' => $error,
+            'stats_skipped' => $unsupported,
+        ])->saveQuietly();
     }
 
     public function characterStatsWithoutPlaceholders(): HasMany

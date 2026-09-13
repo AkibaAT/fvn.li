@@ -5,8 +5,10 @@ use App\Models\GameVersion;
 use App\Models\SocialAccount;
 use App\Models\User;
 use App\Services\DenKitStashPersistenceService;
+use App\Services\GameMediaEditorService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Tests\Support\GameEditingScenario;
 
 function myGamesInertiaHeaders(): array
@@ -540,7 +542,7 @@ test('can reorder gallery screenshots and discards invalid indices', function ()
     $response = $this
         ->actingAs($user)
         ->postJson(route('browser-api.my-games.screenshots.reorder', $game), [
-            'ordered_indices' => [2, 0, 99],
+            'ordered_indices' => [2, 0, 1],
         ]);
 
     $response->assertOk()
@@ -548,7 +550,7 @@ test('can reorder gallery screenshots and discards invalid indices', function ()
         ->assertJsonCount(0, 'screenshots');
 
     $game->refresh();
-    expect($game->custom_screenshots)->toHaveCount(2)
+    expect($game->custom_screenshots)->toHaveCount(3)
         ->and($game->custom_screenshots[0]['url'])->toBe('https://example.com/third.jpg')
         ->and($game->custom_page_updated_by)->toBe($user->id);
 });
@@ -667,4 +669,61 @@ test('archive download is not found when no build has been persisted', function 
     $this->actingAs($scenario->developer)
         ->get(route('my-games.optimized-download', [$scenario->game, $version]))
         ->assertNotFound();
+});
+
+test('preserves UTC release instants and fractional offsets', function ($release, $offset, $expected) {
+    $user = User::factory()->create(['is_admin' => true]);
+    $game = Game::factory()->create();
+    $this->actingAs($user)->putJson(route('browser-api.my-games.update', $game), [
+        'timezone_offset' => $offset,
+        'links' => [['name' => 'Download', 'url' => 'https://example.com/game.zip', 'release_at' => $release]],
+    ])->assertOk()->assertJsonPath('links.0.release_at', $expected);
+})->with([
+    ['2026-09-05T12:00', 5.5, '2026-09-05T06:30:00.000000Z'],
+    ['2026-09-05T12:00', 5.75, '2026-09-05T06:15:00.000000Z'],
+    ['2026-09-05T12:00', -3.5, '2026-09-05T15:30:00.000000Z'],
+    ['2026-12-05T11:00:00.000Z', 0, '2026-12-05T11:00:00.000000Z'],
+]);
+
+test('media mutations reload stale models and delete the identified screenshot', function () {
+    Storage::fake('public');
+    $user = User::factory()->create(['is_admin' => true]);
+    $screenshots = array_map(fn ($name) => [
+        'url' => "https://example.com/{$name}.jpg",
+        'optimized' => ['default' => ['path' => "{$name}.webp"], 'large' => ['path' => "{$name}-large.webp"]],
+    ], ['a', 'b', 'c']);
+    $game = Game::factory()->create(['screenshots' => $screenshots, 'custom_screenshots' => null, 'has_custom_page' => false, 'view_mode' => 'custom']);
+    $staleGame = $game->fresh();
+    $service = app(GameMediaEditorService::class);
+    $service->deleteScreenshot($game, $user, 0, Game::screenshotId($screenshots[0]));
+    $result = $service->deleteScreenshot($staleGame, $user, 1, Game::screenshotId($screenshots[1]));
+    expect($game->fresh()->custom_screenshots)->toEqual([$screenshots[2]])
+        ->and($game->fresh()->has_custom_page)->toBeTrue()
+        ->and($result['screenshots'][0]['id'])->toBe(Game::screenshotId($screenshots[2]));
+    $service->deleteScreenshot($staleGame, $user, 2, Game::screenshotId($screenshots[2]));
+    expect($game->fresh()->getEffectiveScreenshots())->toBe([])
+        ->and($game->fresh()->screenshots)->toEqual($screenshots);
+});
+
+test('uploading after another media mutation preserves the latest screenshot set', function () {
+    Storage::fake('public');
+    $user = User::factory()->create(['is_admin' => true]);
+    $game = Game::factory()->create(['custom_screenshots' => [], 'view_mode' => 'custom']);
+    $stale = $game->fresh();
+    $service = app(GameMediaEditorService::class);
+    $first = $service->uploadScreenshots($game, $user, [UploadedFile::fake()->image('a.jpg')]);
+    $second = $service->uploadScreenshots($stale, $user, [UploadedFile::fake()->image('b.jpg')]);
+    expect($second['screenshots'])->toHaveCount(2)
+        ->and($second['screenshots'][0]['id'])->toBe($first['screenshots'][0]['id'])
+        ->and($second['screenshots'][1]['id'])->not->toBe($first['screenshots'][0]['id']);
+});
+
+test('reordering enables custom screenshots and rejects lossy ordering', function () {
+    $user = User::factory()->create(['is_admin' => true]);
+    $game = Game::factory()->create(['screenshots' => [['url' => 'a'], ['url' => 'b']], 'custom_screenshots' => null, 'has_custom_page' => false]);
+    $service = app(GameMediaEditorService::class);
+    $service->reorderScreenshots($game, $user, [1, 0]);
+    expect($game->fresh()->custom_screenshots)->toBe([['url' => 'b'], ['url' => 'a']])
+        ->and($game->fresh()->has_custom_page)->toBeTrue();
+    expect(fn () => $service->reorderScreenshots($game, $user, [0]))->toThrow(ValidationException::class);
 });

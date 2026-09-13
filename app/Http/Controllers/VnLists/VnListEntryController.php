@@ -29,7 +29,7 @@ class VnListEntryController extends Controller
             ],
             [
                 'game_version_id' => $request->game_version_id ?: null,
-                'personal_notes' => $request->personal_notes ?: null,
+                'personal_notes' => $request->input('personal_notes'),
                 'started_at' => $request->started_at ?: null,
                 'completed_at' => $request->completed_at ?: null,
             ]
@@ -72,7 +72,7 @@ class VnListEntryController extends Controller
         $sourceIsPublic = $entry->list->is_public;
         $targetIsPublic = $targetList->is_public;
 
-        $entry->update(['vn_list_id' => $targetList->id]);
+        $targetList->addGame($entry->game_id, $entry);
 
         if ($sourceIsPublic || $targetIsPublic) {
             app(VnListCacheService::class)->clearPublicListsCache();

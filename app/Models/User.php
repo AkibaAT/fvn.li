@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -73,43 +74,7 @@ class User extends Authenticatable
 
     public function ownsGame(Game $game): bool
     {
-        $itchioAccount = $this->socialAccounts()
-            ->where('provider_name', 'itchio')
-            ->first();
-
-        if (! $itchioAccount) {
-            return false;
-        }
-
-        if (! empty($itchioAccount->itchio_game_ids) && is_array($itchioAccount->itchio_game_ids)) {
-            return in_array($game->itch_id, $itchioAccount->itchio_game_ids, true);
-        }
-
-        // Fallback to URL-based check if API data is not available
-        // This handles cases where the user logged in before the API integration
-        $itchioUrl = $itchioAccount->provider_data['url'] ?? null;
-
-        if (! $itchioUrl) {
-            return false;
-        }
-
-        $userUrl = parse_url($itchioUrl);
-        if (! $userUrl || ! isset($userUrl['host'])) {
-            return false;
-        }
-
-        $gameUrlString = $game->getUrlForPlatform('itch_io');
-        if (! $gameUrlString) {
-            return false;
-        }
-
-        $gameUrl = parse_url($gameUrlString);
-        if (! $gameUrl || ! isset($gameUrl['host'])) {
-            return false;
-        }
-
-        // Compare the hosts (case-insensitive since domain names are case-insensitive)
-        return strtolower($gameUrl['host']) === strtolower($userUrl['host']);
+        return $this->ownedGamesQuery()->whereKey($game->id)->exists();
     }
 
     public function getItchioUrl(): ?string
@@ -127,43 +92,7 @@ class User extends Authenticatable
 
     public function getOwnedGames()
     {
-        $itchioAccount = $this->socialAccounts()
-            ->where('provider_name', 'itchio')
-            ->first();
-
-        if (! $itchioAccount) {
-            return collect();
-        }
-
-        if (! empty($itchioAccount->itchio_game_ids) && is_array($itchioAccount->itchio_game_ids)) {
-            return Game::whereIn('itch_id', $itchioAccount->itchio_game_ids)
-                ->fromItchio()
-                ->where('is_visible', true)
-                ->orderBy('name')
-                ->get();
-        }
-
-        // Fallback to URL-based check if API data is not available
-        $itchioUrl = $itchioAccount->provider_data['url'] ?? null;
-
-        if (! $itchioUrl) {
-            return collect();
-        }
-
-        $userUrl = parse_url($itchioUrl);
-        if (! $userUrl || ! isset($userUrl['host'])) {
-            return collect();
-        }
-
-        $expectedDomain = strtolower($userUrl['host']);
-
-        return Game::where(function ($query) use ($expectedDomain) {
-            $query->whereRaw("LOWER(url->>'itch_io') LIKE ?", ["https://{$expectedDomain}/%"])
-                ->orWhereRaw("LOWER(url->>'itch_io') LIKE ?", ["http://{$expectedDomain}/%"]);
-        })
-            ->where('is_visible', true)
-            ->orderBy('name')
-            ->get();
+        return $this->ownedGamesQuery()->where('is_visible', true)->orderBy('name')->get();
     }
 
     public function preferences(): HasOne
@@ -235,5 +164,28 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Game::class, 'user_ignored_games', 'user_id', 'game_id')
             ->withTimestamps();
+    }
+
+    private function ownedGamesQuery(): Builder
+    {
+        $accounts = $this->socialAccounts()->where('provider_name', 'itchio')->get();
+
+        return Game::query()->fromItchio()->where(function (Builder $query) use ($accounts): void {
+            $query->whereRaw('1 = 0');
+            foreach ($accounts as $account) {
+                if (! empty($account->itchio_game_ids) && is_array($account->itchio_game_ids)) {
+                    $query->orWhereIn('itch_id', $account->itchio_game_ids);
+
+                    continue;
+                }
+
+                $host = parse_url($account->provider_data['url'] ?? '', PHP_URL_HOST);
+                if (is_string($host) && $host !== '') {
+                    $domain = addcslashes(strtolower($host), '%_\\');
+                    $query->orWhereRaw("LOWER(url->>'itch_io') LIKE ?", ["https://{$domain}/%"])
+                        ->orWhereRaw("LOWER(url->>'itch_io') LIKE ?", ["http://{$domain}/%"]);
+                }
+            }
+        });
     }
 }

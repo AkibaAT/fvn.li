@@ -6,6 +6,7 @@ namespace App\Filament\Resources\ReviewReports\Pages;
 
 use App\Filament\Resources\ReviewReports\ReviewReportResource;
 use App\Models\Rating;
+use App\Services\RatingStatsCacheService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Textarea;
@@ -104,6 +105,7 @@ class ViewReviewReport extends ViewRecord
                             ->update(['is_visible' => false, 'is_moderation_hidden' => true]);
                     }
 
+                    RatingStatsCacheService::clear();
                     Notification::make()
                         ->title("Hidden {$count} review(s) by this author")
                         ->success()
@@ -126,6 +128,7 @@ class ViewReviewReport extends ViewRecord
                         ->where('is_visible', true)
                         ->update(['is_visible' => false, 'is_moderation_hidden' => true]);
 
+                    RatingStatsCacheService::clear();
                     if ($this->record->status === 'pending') {
                         $this->record->update([
                             'status' => 'actioned',
@@ -159,6 +162,7 @@ class ViewReviewReport extends ViewRecord
                         ->where('is_visible', true)
                         ->update(['is_visible' => false, 'is_moderation_hidden' => true]);
 
+                    RatingStatsCacheService::clear();
                     if ($this->record->status === 'pending') {
                         $this->record->update([
                             'status' => 'actioned',

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\BugReport;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\NotificationHistory;
@@ -103,7 +104,6 @@ test('export stream writes complete JSON and CSV files into a valid ZIP', functi
         'game_id' => $game->id,
         'game_version_id' => $version->id,
         'status' => 'completed',
-        'progress' => 100,
         'personal_notes' => 'Finished it',
         'started_at' => now()->subDays(2),
         'completed_at' => now(),
@@ -120,8 +120,7 @@ test('export stream writes complete JSON and CSV files into a valid ZIP', functi
         'game_id' => $game->id,
         'game_version_id' => $version->id,
         'type' => 'discord',
-        'message' => 'Version released',
-        'data' => ['version' => '1.2.3'],
+        'meta_data' => ['version' => '1.2.3'],
         'success' => true,
     ]);
     SocialAccount::factory()->for($this->user)->itchio()->create([
@@ -133,6 +132,7 @@ test('export stream writes complete JSON and CSV files into a valid ZIP', functi
         'user_id' => $this->user->id,
         'rating' => 5,
         'review' => 'Native site review.',
+        'external_metadata' => ['merged_reviews' => [['review' => 'Previous account review']]],
         'is_visible' => true,
         'is_reviewed' => true,
         'source_platform' => 'fvn_li',
@@ -175,6 +175,12 @@ test('export stream writes complete JSON and CSV files into a valid ZIP', functi
         $ratings = json_decode($zip->getFromName('ratings.json'), true);
         $ratingPlatforms = collect($ratings)->pluck('source_platform')->all();
         $ratingContents = collect($ratings)->pluck('content')->all();
+        $history = json_decode($zip->getFromName('notification_history.json'), true);
+        expect($history[0]['game_id'])->toBe($game->id)
+            ->and($history[0]['game_version_id'])->toBe($version->id)
+            ->and($history[0]['success'])->toBeTrue()
+            ->and($history[0]['meta_data'])->toBe(['version' => '1.2.3'])
+            ->and(collect($ratings)->firstWhere('source_platform', 'fvn_li')['merged_reviews'][0]['review'])->toBe('Previous account review');
 
         expect($profile['email'])->toBe('test@example.com')
             ->and($lists[0]['entries'][0]['private_notes'])->toBe('Keep this private')
@@ -195,6 +201,37 @@ test('export stream writes complete JSON and CSV files into a valid ZIP', functi
             ->and($zip->getFromName('ignored_games.csv'))->toContain('exported-game')
             ->and($zip->getFromName('ratings.csv'))->toContain('Native site review.')
             ->and($zip->getFromName('ratings.csv'))->toContain('Imported itch review.');
+    } finally {
+        $zip->close();
+        @unlink($zipPath);
+    }
+});
+
+test('exports search preferences and owned bug conversations while neutralizing CSV formulas', function () {
+    $this->user->update(['name' => '=1+1']);
+    $this->user->preferences()->create(['preferred_languages' => ['eng'], 'excluded_tags' => ['tag']]);
+    $bug = BugReport::create([
+        'user_id' => $this->user->id, 'page_url' => '/games', 'description' => '@SUM(1,1)', 'admin_notes' => 'Internal only',
+    ]);
+    $bug->comments()->create(['user_id' => $this->user->id, 'message' => '+1+1']);
+    $outsider = User::factory()->create();
+    BugReport::create(['user_id' => $outsider->id, 'page_url' => '/private', 'description' => 'Other user report']);
+    $response = $this->actingAs($this->user)->get(route('browser-api.user.export'))->assertOk();
+    $zipPath = tempnam(sys_get_temp_dir(), 'fvn-export-zip-');
+    file_put_contents($zipPath, $response->streamedContent());
+    $zip = new ZipArchive;
+    try {
+        expect($zip->open($zipPath))->toBeTrue();
+        $bugs = json_decode($zip->getFromName('bug_reports.json'), true);
+        expect($bugs)->toHaveCount(1)
+            ->and($bugs[0]['description'])->toBe('@SUM(1,1)')
+            ->and($bugs[0])->not->toHaveKey('admin_notes')
+            ->and(json_decode($zip->getFromName('search_preferences.json'), true)[0]['preferred_languages'])->toBe(['eng'])
+            ->and(json_decode($zip->getFromName('bug_report_comments.json'), true)[0]['message'])->toBe('+1+1')
+            ->and(json_decode($zip->getFromName('profile.json'), true)['name'])->toBe('=1+1')
+            ->and($zip->getFromName('profile.csv'))->toContain("'=1+1")
+            ->and($zip->getFromName('bug_reports.csv'))->toContain("'@SUM(1,1)")
+            ->and($zip->getFromName('bug_report_comments.csv'))->toContain("'+1+1");
     } finally {
         $zip->close();
         @unlink($zipPath);

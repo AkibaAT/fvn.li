@@ -64,7 +64,7 @@ class ReviewReportController extends Controller
         }
 
         // Cannot report own reviews
-        if ($rating->user_id === $user->id) {
+        if ($rating->authorUser()?->is($user)) {
             return response()->json([
                 'success' => false,
                 'message' => 'You cannot report your own review.',

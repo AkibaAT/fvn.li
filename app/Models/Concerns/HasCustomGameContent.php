@@ -56,7 +56,7 @@ trait HasCustomGameContent
             return $this->getScreenshots();
         }
 
-        return $this->has_custom_page && $this->custom_screenshots
+        return $this->has_custom_page && $this->custom_screenshots !== null
             ? $this->resolveScreenshots($this->custom_screenshots)
             : $this->getScreenshots();
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\GameStatsService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -38,6 +39,17 @@ class VersionSupportedLanguage extends Model
                 $targetLanguage->save();
             }
         }
+    }
+
+    protected static function booted(): void
+    {
+        $clearCache = function (self $language): void {
+            if ($version = $language->gameVersion) {
+                GameStatsService::clearCache($version->game_id);
+            }
+        };
+        static::saved($clearCache);
+        static::deleted($clearCache);
     }
 
     public function gameVersion(): BelongsTo

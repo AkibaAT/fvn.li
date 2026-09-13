@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\DenKitStashPersistenceService;
+use App\Services\GameStatsService;
 use App\Services\RouteGraphService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -36,7 +37,7 @@ class GamesVersionController extends Controller
         $toVersionId = $request->toVersionId;
 
         // Cache key versioned to avoid serving stale payloads when response shape changes
-        $cacheKey = "version_comparison_v3_{$game->id}_{$fromVersionId}_{$toVersionId}";
+        $cacheKey = GameStatsService::cacheKey($game->id, "version_comparison_v3_{$game->id}_{$fromVersionId}_{$toVersionId}");
         $cachedResult = cache()->remember($cacheKey, 3600, function () use ($game, $fromVersionId, $toVersionId) {
             return $this->generateVersionComparison($game, $fromVersionId, $toVersionId);
         });
@@ -54,7 +55,7 @@ class GamesVersionController extends Controller
                 'languageStats.language',
             ])
             ->orderBy('published_at', 'desc')
-            ->paginate($request->integer('perPage', 10));
+            ->paginate(max(1, min(50, $request->integer('perPage', 10))));
 
         $versionIds = $versions->getCollection()->pluck('id')->all();
         $versionHasFileStats = [];
@@ -269,8 +270,8 @@ class GamesVersionController extends Controller
         }
 
         $displayLanguageCode = $game->source_language_id ?? 'eng';
-        $fromData = $this->loadVersionComparisonStats($fromVersion->id, $displayLanguageCode);
-        $toData = $this->loadVersionComparisonStats($toVersion->id, $displayLanguageCode);
+        $fromData = $this->loadVersionComparisonStats($fromVersion, $displayLanguageCode);
+        $toData = $this->loadVersionComparisonStats($toVersion, $displayLanguageCode);
 
         $languages = $this->mergeComparisonLanguages($fromData['languages'], $toData['languages']);
         $sortedCharacters = $this->mergeCharacterNames(
@@ -312,9 +313,10 @@ class GamesVersionController extends Controller
         ];
     }
 
-    private function loadVersionComparisonStats(int $versionId, string $displayLanguageCode): array
+    private function loadVersionComparisonStats(GameVersion $version, string $displayLanguageCode): array
     {
-        $cacheKey = "version_comparison_stats_v1_{$versionId}_{$displayLanguageCode}";
+        $versionId = $version->id;
+        $cacheKey = GameStatsService::cacheKey($version->game_id, "version_comparison_stats_v1_{$versionId}_{$displayLanguageCode}");
 
         return cache()->remember($cacheKey, 3600, function () use ($versionId, $displayLanguageCode) {
             $rows = DB::table('version_character_stats as vcs')

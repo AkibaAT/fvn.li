@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\BugReport;
+use App\Models\BugReportComment;
 use App\Models\Game;
 use App\Models\NotificationHistory;
 use App\Models\Rating;
+use App\Models\ReviewReport;
 use App\Models\User;
 use App\Models\UserGameProgress;
 use App\Models\VnList;
@@ -95,7 +98,7 @@ class UserDataExportController extends Controller
             ->orderBy('published_at', 'desc')
             ->get([
                 'id', 'game_id', 'rating', 'is_reviewed', 'source_platform',
-                'published_at', 'created_at', 'updated_at', 'review',
+                'published_at', 'created_at', 'updated_at', 'review', 'external_metadata',
             ])
             ->map(function ($r) {
                 return [
@@ -110,6 +113,7 @@ class UserDataExportController extends Controller
                     'is_reviewed' => (bool) $r->is_reviewed,
                     'source_platform' => $r->source_platform,
                     'content' => $r->review,
+                    'merged_reviews' => $r->external_metadata['merged_reviews'] ?? [],
                     'published_at' => $r->published_at?->toISOString(),
                     'created_at' => $r->created_at?->toISOString(),
                     'updated_at' => $r->updated_at?->toISOString(),
@@ -132,7 +136,6 @@ class UserDataExportController extends Controller
                     'game_id' => $progress->game_id,
                     'game_version_id' => $progress->game_version_id,
                     'status' => $progress->status,
-                    'progress' => $progress->progress,
                     'personal_notes' => $progress->personal_notes,
                     'started_at' => $progress->started_at?->toISOString(),
                     'completed_at' => $progress->completed_at?->toISOString(),
@@ -174,8 +177,10 @@ class UserDataExportController extends Controller
                 return [
                     'id' => $notification->id,
                     'type' => $notification->type,
-                    'message' => $notification->message,
-                    'data' => $notification->data,
+                    'game_id' => $notification->game_id,
+                    'game_version_id' => $notification->game_version_id,
+                    'success' => $notification->success,
+                    'meta_data' => $notification->meta_data,
                     'created_at' => $notification->created_at?->toISOString(),
                 ];
             })->values();
@@ -194,6 +199,23 @@ class UserDataExportController extends Controller
                 ];
             })->values();
 
+        $additionalData = [
+            'search_preferences' => $user->preferences()->get(['preferred_languages', 'excluded_tags'])->toArray(),
+            'bug_reports' => BugReport::where('user_id', $user->id)->get([
+                'id', 'page_url', 'page_title', 'description', 'request_parameters', 'user_agent',
+                'status', 'is_closed', 'resolved_at', 'created_at', 'updated_at',
+            ])->toArray(),
+            'bug_report_comments' => BugReportComment::where('user_id', $user->id)
+                ->orWhereHas('bugReport', fn ($query) => $query->where('user_id', $user->id))
+                ->get(['id', 'bug_report_id', 'user_id', 'message', 'is_from_admin', 'created_at', 'updated_at'])->toArray(),
+            'addition_requests' => $user->additionRequests()->get()->map(fn ($request) => $request->only([
+                'id', 'game_url', 'status', 'rejection_reason', 'game_id', 'created_at', 'updated_at',
+            ]))->all(),
+            'review_reports' => ReviewReport::where('reporter_id', $user->id)->get([
+                'id', 'rating_id', 'reason', 'details', 'status', 'created_at', 'updated_at',
+            ])->toArray(),
+        ];
+
         $filename = 'user-data-' . ($user->name ? preg_replace('/[^a-z0-9\-]+/i', '-',
             strtolower($user->name)) : 'export') . '-' . now()->format('Ymd-His') . '.zip';
 
@@ -205,7 +227,8 @@ class UserDataExportController extends Controller
             $gameProgress,
             $notificationPreferences,
             $notificationHistory,
-            $ignoredGames
+            $ignoredGames,
+            $additionalData
         ) {
             $tmp = fopen('php://temp', 'w+');
             $zip = new ZipArchive;
@@ -226,7 +249,8 @@ class UserDataExportController extends Controller
                     $gameProgress,
                     $notificationPreferences,
                     $notificationHistory,
-                    $ignoredGames
+                    $ignoredGames,
+                    $additionalData
                 );
                 $zip->close();
 
@@ -247,7 +271,8 @@ class UserDataExportController extends Controller
                 $gameProgress,
                 $notificationPreferences,
                 $notificationHistory,
-                $ignoredGames
+                $ignoredGames,
+                $additionalData
             );
             $zip->close();
             rewind($tmp);
@@ -270,7 +295,8 @@ class UserDataExportController extends Controller
         Collection $gameProgress,
         Collection $notificationPreferences,
         Collection $notificationHistory,
-        Collection $ignoredGames
+        Collection $ignoredGames,
+        array $additionalData
     ): void {
         $zip->addFromString('profile.json', json_encode($profile, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $zip->addFromString('social_accounts.json',
@@ -285,24 +311,24 @@ class UserDataExportController extends Controller
             json_encode($notificationHistory, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         $profileCsv = fopen('php://temp', 'w+');
-        fputcsv($profileCsv, ['id', 'name', 'email', 'created_at', 'providers'], ',', '"', '\\');
-        fputcsv($profileCsv, [
+        $this->writeCsv($profileCsv, ['id', 'name', 'email', 'created_at', 'providers']);
+        $this->writeCsv($profileCsv, [
             $profile['id'],
             $profile['name'],
             $profile['email'],
             $profile['created_at'],
             implode('|', $profile['providers']->toArray()),
-        ], ',', '"', '\\');
+        ]);
         rewind($profileCsv);
         $zip->addFromString('profile.csv', stream_get_contents($profileCsv));
         fclose($profileCsv);
 
         $listsCsv = fopen('php://temp', 'w+');
-        fputcsv($listsCsv,
+        $this->writeCsv($listsCsv,
             ['id', 'name', 'description', 'type', 'is_public', 'is_default', 'created_at', 'updated_at', 'entry_count'],
-            ',', '"', '\\');
+        );
         foreach ($lists as $l) {
-            fputcsv($listsCsv, [
+            $this->writeCsv($listsCsv, [
                 $l['id'],
                 $l['name'],
                 $l['description'],
@@ -312,20 +338,20 @@ class UserDataExportController extends Controller
                 $l['created_at'],
                 $l['updated_at'],
                 is_countable($l['entries']) ? count($l['entries']) : 0,
-            ], ',', '"', '\\');
+            ]);
         }
         rewind($listsCsv);
         $zip->addFromString('lists.csv', stream_get_contents($listsCsv));
         fclose($listsCsv);
 
         $entriesCsv = fopen('php://temp', 'w+');
-        fputcsv($entriesCsv, [
+        $this->writeCsv($entriesCsv, [
             'list_id', 'entry_id', 'game_id', 'game_name', 'game_slug', 'sort_order', 'private_notes', 'created_at',
             'updated_at',
-        ], ',', '"', '\\');
+        ]);
         foreach ($lists as $l) {
             foreach ($l['entries'] as $e) {
-                fputcsv($entriesCsv, [
+                $this->writeCsv($entriesCsv, [
                     $l['id'],
                     $e['id'],
                     $e['game_id'],
@@ -335,7 +361,7 @@ class UserDataExportController extends Controller
                     $e['private_notes'],
                     $e['created_at'],
                     $e['updated_at'],
-                ], ',', '"', '\\');
+                ]);
             }
         }
         rewind($entriesCsv);
@@ -343,12 +369,12 @@ class UserDataExportController extends Controller
         fclose($entriesCsv);
 
         $ratingsCsv = fopen('php://temp', 'w+');
-        fputcsv($ratingsCsv, [
+        $this->writeCsv($ratingsCsv, [
             'id', 'game_id', 'game_name', 'game_slug', 'rating', 'is_reviewed', 'source_platform', 'content',
-            'published_at', 'created_at', 'updated_at',
-        ], ',', '"', '\\');
+            'published_at', 'created_at', 'updated_at', 'merged_reviews',
+        ]);
         foreach ($ratings as $r) {
-            fputcsv($ratingsCsv, [
+            $this->writeCsv($ratingsCsv, [
                 $r['id'],
                 $r['game_id'],
                 $r['game']['name'] ?? null,
@@ -360,7 +386,8 @@ class UserDataExportController extends Controller
                 $r['published_at'],
                 $r['created_at'],
                 $r['updated_at'],
-            ], ',', '"', '\\');
+                json_encode($r['merged_reviews'], JSON_UNESCAPED_SLASHES),
+            ]);
         }
         rewind($ratingsCsv);
         $zip->addFromString('ratings.csv', stream_get_contents($ratingsCsv));
@@ -368,15 +395,15 @@ class UserDataExportController extends Controller
 
         // Social accounts CSV
         $socialAccountsCsv = fopen('php://temp', 'w+');
-        fputcsv($socialAccountsCsv, ['id', 'provider_name', 'provider_id', 'created_at', 'updated_at'], ',', '"', '\\');
+        $this->writeCsv($socialAccountsCsv, ['id', 'provider_name', 'provider_id', 'created_at', 'updated_at']);
         foreach ($socialAccounts as $sa) {
-            fputcsv($socialAccountsCsv, [
+            $this->writeCsv($socialAccountsCsv, [
                 $sa['id'],
                 $sa['provider_name'],
                 $sa['provider_id'],
                 $sa['created_at'],
                 $sa['updated_at'],
-            ], ',', '"', '\\');
+            ]);
         }
         rewind($socialAccountsCsv);
         $zip->addFromString('social_accounts.csv', stream_get_contents($socialAccountsCsv));
@@ -384,26 +411,25 @@ class UserDataExportController extends Controller
 
         // Game progress CSV
         $gameProgressCsv = fopen('php://temp', 'w+');
-        fputcsv($gameProgressCsv, [
-            'id', 'game_id', 'game_name', 'game_version_id', 'version', 'status', 'progress', 'personal_notes',
+        $this->writeCsv($gameProgressCsv, [
+            'id', 'game_id', 'game_name', 'game_version_id', 'version', 'status', 'personal_notes',
             'started_at', 'completed_at', 'receive_updates', 'created_at', 'updated_at',
-        ], ',', '"', '\\');
+        ]);
         foreach ($gameProgress as $gp) {
-            fputcsv($gameProgressCsv, [
+            $this->writeCsv($gameProgressCsv, [
                 $gp['id'],
                 $gp['game_id'],
                 $gp['game']['name'] ?? null,
                 $gp['game_version_id'],
                 $gp['game_version']['version'] ?? null,
                 $gp['status'],
-                $gp['progress'],
                 $gp['personal_notes'],
                 $gp['started_at'],
                 $gp['completed_at'],
                 $gp['receive_updates'] ? 1 : 0,
                 $gp['created_at'],
                 $gp['updated_at'],
-            ], ',', '"', '\\');
+            ]);
         }
         rewind($gameProgressCsv);
         $zip->addFromString('game_progress.csv', stream_get_contents($gameProgressCsv));
@@ -411,19 +437,19 @@ class UserDataExportController extends Controller
 
         // Notification preferences CSV
         $notificationPreferencesCsv = fopen('php://temp', 'w+');
-        fputcsv($notificationPreferencesCsv, [
+        $this->writeCsv($notificationPreferencesCsv, [
             'id', 'browser_notifications_enabled', 'discord_notifications_enabled', 'notification_digest', 'created_at',
             'updated_at',
-        ], ',', '"', '\\');
+        ]);
         foreach ($notificationPreferences as $np) {
-            fputcsv($notificationPreferencesCsv, [
+            $this->writeCsv($notificationPreferencesCsv, [
                 $np['id'],
                 $np['browser_notifications_enabled'] ? 1 : 0,
                 $np['discord_notifications_enabled'] ? 1 : 0,
                 $np['notification_digest'],
                 $np['created_at'],
                 $np['updated_at'],
-            ], ',', '"', '\\');
+            ]);
         }
         rewind($notificationPreferencesCsv);
         $zip->addFromString('notification_preferences.csv', stream_get_contents($notificationPreferencesCsv));
@@ -431,14 +457,17 @@ class UserDataExportController extends Controller
 
         // Notification history CSV
         $notificationHistoryCsv = fopen('php://temp', 'w+');
-        fputcsv($notificationHistoryCsv, ['id', 'type', 'message', 'created_at'], ',', '"', '\\');
+        $this->writeCsv($notificationHistoryCsv, ['id', 'type', 'game_id', 'game_version_id', 'success', 'meta_data', 'created_at']);
         foreach ($notificationHistory as $nh) {
-            fputcsv($notificationHistoryCsv, [
+            $this->writeCsv($notificationHistoryCsv, [
                 $nh['id'],
                 $nh['type'],
-                $nh['message'],
+                $nh['game_id'],
+                $nh['game_version_id'],
+                $nh['success'] ? 1 : 0,
+                json_encode($nh['meta_data'], JSON_UNESCAPED_SLASHES),
                 $nh['created_at'],
-            ], ',', '"', '\\');
+            ]);
         }
         rewind($notificationHistoryCsv);
         $zip->addFromString('notification_history.csv', stream_get_contents($notificationHistoryCsv));
@@ -449,18 +478,39 @@ class UserDataExportController extends Controller
             json_encode($ignoredGames, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         $ignoredGamesCsv = fopen('php://temp', 'w+');
-        fputcsv($ignoredGamesCsv, ['id', 'name', 'slug', 'platform', 'ignored_at'], ',', '"', '\\');
+        $this->writeCsv($ignoredGamesCsv, ['id', 'name', 'slug', 'platform', 'ignored_at']);
         foreach ($ignoredGames as $ig) {
-            fputcsv($ignoredGamesCsv, [
+            $this->writeCsv($ignoredGamesCsv, [
                 $ig['id'],
                 $ig['name'],
                 $ig['slug'],
                 $ig['platform'],
                 $ig['ignored_at'],
-            ], ',', '"', '\\');
+            ]);
         }
         rewind($ignoredGamesCsv);
         $zip->addFromString('ignored_games.csv', stream_get_contents($ignoredGamesCsv));
         fclose($ignoredGamesCsv);
+
+        foreach ($additionalData as $name => $rows) {
+            $zip->addFromString("{$name}.json", json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $csv = fopen('php://temp', 'w+');
+            if ($rows !== []) {
+                $this->writeCsv($csv, array_keys($rows[0]));
+                foreach ($rows as $row) {
+                    $this->writeCsv($csv, array_map(fn ($value) => is_array($value) ? json_encode($value, JSON_UNESCAPED_SLASHES) : $value, $row));
+                }
+            }
+            rewind($csv);
+            $zip->addFromString("{$name}.csv", stream_get_contents($csv));
+            fclose($csv);
+        }
+    }
+
+    private function writeCsv($stream, array $row): void
+    {
+        $row = array_map(fn ($value) => is_string($value) && preg_match('/^(?:[\t\r\n]|\s*[=+@-])/u', $value)
+            ? "'" . $value : $value, $row);
+        fputcsv($stream, $row, ',', '"', '');
     }
 }

@@ -230,3 +230,19 @@ it('does not edit or delete linked imported ratings', function () {
         ->and($imported->fresh()->source_platform)->toBe('itch_io')
         ->and(Rating::where('user_id', $user->id)->where('game_id', $game->id)->where('source_platform', 'fvn_li')->exists())->toBeTrue();
 });
+
+it('keeps an author edited review hidden until moderation restores it', function () {
+    $user = User::factory()->create();
+    $game = userReviewGame();
+    $rating = Rating::create([
+        'user_id' => $user->id, 'game_id' => $game->id, 'rating' => 2,
+        'review' => 'Moderated text', 'source_platform' => 'fvn_li',
+        'is_visible' => false, 'is_moderation_hidden' => true, 'published_at' => now(),
+    ]);
+    $this->actingAs($user)->postJson(route('browser-api.user-reviews.store', $game->id), [
+        'rating' => 4, 'review' => 'Edited text',
+    ])->assertOk();
+    expect($rating->refresh()->is_visible)->toBeFalse()
+        ->and($rating->is_moderation_hidden)->toBeTrue()
+        ->and($rating->rating)->toBe(4.0);
+});

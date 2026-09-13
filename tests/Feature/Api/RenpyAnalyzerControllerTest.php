@@ -70,7 +70,7 @@ it('runs the docker analyzer only for archives under the shared analyzer path', 
     }
 });
 
-it('does not expose the analyzer extraction diagnostic in api responses', function () {
+it('returns an extraction classification without exposing analyzer diagnostics', function (bool $unsupported) {
     $sharedPath = storage_path('framework/testing/renpy-analyzer-controller-' . uniqid());
     File::makeDirectory($sharedPath, 0755, true);
     $archivePath = "{$sharedPath}/game.zip";
@@ -86,6 +86,7 @@ it('does not expose the analyzer extraction diagnostic in api responses', functi
     $runner->shouldReceive('analyze')
         ->once()
         ->andReturn(false);
+    $runner->shouldReceive('wasLastExtractionUnsupported')->once()->andReturn($unsupported);
     $runner->shouldReceive('getLastError')
         ->never();
     $this->app->instance(RenpyAnalyzerDockerRunner::class, $runner);
@@ -96,8 +97,9 @@ it('does not expose the analyzer extraction diagnostic in api responses', functi
                 'archive_path' => $archivePath,
             ])
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'No stats could be extracted');
+            ->assertJsonPath('message', 'No stats could be extracted')
+            ->assertJsonPath('code', $unsupported ? 'unsupported_archive' : 'extraction_failed');
     } finally {
         File::deleteDirectory($sharedPath);
     }
-});
+})->with([false, true]);

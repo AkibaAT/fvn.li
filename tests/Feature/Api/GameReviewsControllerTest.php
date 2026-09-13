@@ -258,3 +258,18 @@ it('returns paginated reviews with rating and review-only filters', function () 
         ->assertJsonPath('reviews.1.id', $olderRatingOnly->id)
         ->assertJsonPath('filters.show_all_ratings', true);
 });
+
+it('refreshes cached review responses after edits moderation and deletion', function () {
+    [$game, , $review] = createGameReviewApiFixture();
+    $url = '/api/game-reviews?game_id=' . $game->id;
+    $this->getJson($url)->assertOk()->assertJsonPath('review_data.recent_reviews.0.id', $review->id);
+    $review->update(['review' => 'Updated review content']);
+    $this->getJson($url)->assertOk()->assertJsonPath('review_data.recent_reviews.0.review', 'Updated review content');
+    $review->update(['is_visible' => false, 'is_moderation_hidden' => true]);
+    $this->getJson($url)->assertOk()->assertJsonPath('review_data.total_reviews', 1)
+        ->assertJsonMissing(['id' => $review->id, 'review' => 'Updated review content']);
+    $review->update(['is_visible' => true, 'is_moderation_hidden' => false]);
+    $this->getJson($url)->assertJsonPath('review_data.total_reviews', 2);
+    $review->delete();
+    $this->getJson($url)->assertJsonPath('review_data.total_reviews', 1);
+});

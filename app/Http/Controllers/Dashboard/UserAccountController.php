@@ -141,14 +141,14 @@ class UserAccountController extends Controller
     {
         $user = Auth::user();
 
-        // Count total connected providers
-        $connectedProvidersCount = $user->socialAccounts()->count();
+        if ($user->socialAccounts()->where('provider_name', '!=', $provider)->doesntExist()) {
+            $message = 'Cannot disconnect your last social account. Delete your account instead if you wish to completely disconnect.';
 
-        // Don't allow disconnecting the last provider
-        if ($connectedProvidersCount <= 1) {
-            return redirect()->route('dashboard')
-                ->with('error',
-                    'Cannot disconnect your last social account. Delete your account instead if you wish to completely disconnect.');
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+
+            return redirect()->route('dashboard')->with('error', $message);
         }
 
         $user->socialAccounts()

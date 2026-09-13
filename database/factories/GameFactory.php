@@ -20,7 +20,7 @@ class GameFactory extends Factory
     public function definition(): array
     {
         return [
-            'itch_id' => fake()->unique()->randomNumber(6),
+            'itch_id' => fake()->unique()->numberBetween(1, 9007199254740991),
             'name' => fake()->words(3, true),
             'status' => fake()->randomElement(['Released', 'In Development', 'Abandoned', 'Canceled']),
             'is_visible' => true,

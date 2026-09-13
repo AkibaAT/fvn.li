@@ -12,6 +12,7 @@ use App\Models\Rating;
 use App\Models\VnList;
 use App\Services\DenKitStashPersistenceService;
 use App\Services\GameSocialMetaBuilder;
+use App\Services\GamesSearchResultHydrator;
 use App\Services\HtmlSanitizerService;
 use App\Services\RouteGraphService;
 use App\Services\SimilarGamesService;
@@ -160,16 +161,8 @@ class GamesDisplayController extends Controller
             }
         }
 
-        $userProgress = null;
         if (Auth::check()) {
-            $userProgress = DB::table('user_game_progress')
-                ->where('user_id', Auth::id())
-                ->where('game_id', $game->id)
-                ->select('game_id', 'receive_updates')
-                ->first();
-
-            // Attach user data to game object (wrap in array to match Eloquent relationship format)
-            $game->user_progress = $userProgress ? [$userProgress] : [];
+            app(GamesSearchResultHydrator::class)->attachUserData(collect([$game]), Auth::id());
         }
 
         $metaTags = app(GameSocialMetaBuilder::class)->build($game, $reviews, $englishStats);

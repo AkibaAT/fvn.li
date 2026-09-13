@@ -81,13 +81,18 @@ class DialogueSearchService
         $highlightedTexts = collect($hits)->mapWithKeys(function ($hit) {
             return [$hit['text_id'] => $hit['_formatted']['text_content'] ?? $hit['text_content']];
         });
-        $firstSeenVersions = collect($hits)->mapWithKeys(function ($hit) {
+        $versions = GameVersion::whereIn('id', collect($hits)->pluck('first_seen_version_id')->filter()->unique())
+            ->get(['id', 'version', 'published_at'])
+            ->keyBy('id');
+        $firstSeenVersions = collect($hits)->mapWithKeys(function ($hit) use ($versions) {
+            $version = $versions->get($hit['first_seen_version_id'] ?? null);
+
             return [
-                $hit['text_id'] => [
-                    'id' => $hit['first_seen_version_id'] ?? null,
-                    'version' => $hit['first_seen_version'] ?? null,
-                    'published_at' => $hit['first_seen_published_at'] ?? null,
-                ],
+                $hit['text_id'] => $version ? [
+                    'id' => $version->id,
+                    'version' => $version->version,
+                    'published_at' => $version->published_at?->toISOString(),
+                ] : null,
             ];
         });
 
@@ -255,7 +260,7 @@ class DialogueSearchService
     public function getVersionStatistics(GameVersion $version): array
     {
         // Cache version statistics for 1 hour since game versions rarely change
-        return Cache::remember("dialogue.version_stats.{$version->id}", 3600, function () use ($version) {
+        return Cache::remember(GameStatsService::cacheKey($version->game_id, "dialogue.version_stats.{$version->id}"), 3600, function () use ($version) {
             $totalLines = $version->dialogueLines()->count();
 
             $totalWords = DB::table('version_character_stats')

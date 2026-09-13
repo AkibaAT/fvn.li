@@ -171,6 +171,7 @@ class GameContentController extends Controller
         $revertScreenshots = $request->boolean('revert_screenshots', false);
         $revertThumbnail = $request->boolean('revert_thumbnail', false);
         $revertAll = $revertName && $revertScreenshots && $revertThumbnail;
+        $revertDescription = ! $revertName && ! $revertScreenshots && ! $revertThumbnail;
 
         // If reverting everything, fully disable custom page
         if ($revertAll) {
@@ -205,16 +206,15 @@ class GameContentController extends Controller
             $game->enableCustomPage($user);
         }
 
-        $updateData = [
-            'description' => $game->full_description,
-        ];
-
-        // Clean up unused images before reverting (since we're replacing content)
-        $this->cleanupUnusedImages($game, $game->full_description ?? '');
+        $updateData = [];
+        if ($revertDescription) {
+            $updateData['description'] = $game->full_description ?? '';
+            $this->cleanupUnusedImages($game, $game->full_description ?? '');
+        }
 
         // Revert screenshots if requested
-        if ($revertScreenshots && $game->screenshots) {
-            $updateData['screenshots'] = $game->screenshots;
+        if ($revertScreenshots) {
+            $updateData['screenshots'] = $game->screenshots ?? [];
 
             // Clean up custom screenshot files
             $this->cleanupCustomScreenshots($game);
@@ -238,13 +238,11 @@ class GameContentController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => $revertScreenshots
-                ? 'Content and screenshots reverted to itch.io version successfully.'
-                : 'Content reverted to itch.io version successfully.',
+            'message' => 'Selected content reverted to itch.io version successfully.',
             'data' => [
                 'name' => $revertName ? $game->name : null,
                 'effective_name' => $revertName ? $game->effective_name : null,
-                'content' => $sanitizer->sanitizeDescription($game->full_description),
+                'content' => $sanitizer->sanitizeDescription($game->custom_description ?? $game->full_description),
                 'screenshots' => $revertScreenshots ? $game->getScreenshots() : null,
                 'thumbnail_url' => $thumbnailUrl,
                 'has_custom_page' => true,
@@ -404,12 +402,14 @@ class GameContentController extends Controller
                 }
             }
 
-            // Clean up optimized thumbnails for custom screenshots
+            $originalPaths = collect($originalScreenshots)->flatMap(fn ($screenshot) => collect($screenshot['optimized'] ?? [])->pluck('path'))->filter()->all();
+
+            // Original variants can also be referenced by the custom screenshot list.
             if ($game->custom_screenshots) {
                 foreach ($game->custom_screenshots as $screenshot) {
                     if (isset($screenshot['optimized'])) {
                         foreach ($screenshot['optimized'] as $variant) {
-                            if (isset($variant['path'])) {
+                            if (isset($variant['path']) && ! in_array($variant['path'], $originalPaths, true)) {
                                 $storage->delete($variant['path']);
                             }
                         }
@@ -436,6 +436,7 @@ class GameContentController extends Controller
             // Refresh base info from itch.io to get the original thumbnail
             $syncService = app(GameDataSyncService::class);
             $syncService->refreshBaseInfo($game);
+            $game->save();
 
             $game->clearOptimizedThumbnails();
 

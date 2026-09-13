@@ -215,7 +215,7 @@ it('falls back to database search when meilisearch fails', function () {
     ]);
 
     $this->mock(MeilisearchService::class, function (MockInterface $mock) {
-        $mock->shouldReceive('searchGames')
+        $mock->makePartial()->shouldReceive('searchGames')
             ->andThrow(new RuntimeException('search unavailable'));
     });
 
@@ -342,4 +342,29 @@ it('returns 404 for random game when no visible games exist', function () {
     $this->getJson(route('games.random'))
         ->assertNotFound()
         ->assertJsonPath('error', 'No games found');
+});
+
+it('retains safety, language, platform, reading time, and sort filters during an outage', function () {
+    $tag = Tag::create(['name' => 'Excluded content']);
+    $base = ['name' => 'Fallback', 'platform' => 'steam', 'is_nsfw' => false, 'is_paid' => false];
+    $first = makeSearchGame($base + ['trending_score' => 90]);
+    $second = makeSearchGame($base + ['trending_score' => 10]);
+    makeSearchGame(array_replace($base, ['is_nsfw' => true]));
+    makeSearchGame(array_replace($base, ['is_paid' => true]));
+    makeSearchGame(array_replace($base, ['platform' => 'itch_io']));
+    $excluded = makeSearchGame($base);
+    $excluded->tags()->attach($tag);
+    $wrongLanguage = makeSearchGame($base);
+    $wrongLanguage->latestVersion->supportedLanguages()->update(['is_available' => false]);
+    $tooShort = makeSearchGame($base);
+    $tooShort->latestVersion->languageStats()->update(['words' => 5]);
+    $wrongPlatform = makeSearchGame($base);
+    $wrongPlatform->latestVersion->update(['is_windows' => false]);
+    $this->partialMock(MeilisearchService::class, fn ($mock) => $mock->shouldReceive('searchGames')->andThrow(new RuntimeException('offline')));
+    $response = $this->get(route('games.index', [
+        'sfw' => true, 'showFree' => true, 'selectedLanguages' => ['eng'],
+        'selectedStorePlatforms' => ['steam'], 'selectedPlatforms' => ['windows'],
+        'excludedTags' => [$tag->id], 'readingTime' => 'medium', 'sort' => 'trending_score',
+    ]))->assertOk();
+    expect(array_column($response->viewData('page')['props']['games']['data'], 'id'))->toBe([$first->id, $second->id]);
 });

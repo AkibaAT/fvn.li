@@ -59,6 +59,20 @@ describe('Social Account Disconnection', function () {
             ->and($user->socialAccounts()->where('provider_name', 'discord')->exists())->toBeTrue();
     });
 
+    test('explains why the last social account cannot be disconnected over JSON', function () {
+        $user = User::factory()->create();
+        $account = SocialAccount::factory()->create(['user_id' => $user->id, 'provider_name' => 'discord']);
+
+        $this->actingAs($user)->deleteJson(route('user.disconnect', ['provider' => 'discord']))
+            ->assertUnprocessable()
+            ->assertJson([
+                'success' => false,
+                'message' => 'Cannot disconnect your last social account. Delete your account instead if you wish to completely disconnect.',
+            ]);
+
+        expect($account->fresh())->not->toBeNull();
+    });
+
     test('returns JSON response for AJAX requests', function () {
         $user = User::factory()->create();
 
@@ -112,4 +126,11 @@ describe('Social Account Disconnection', function () {
 
         $response->assertRedirect(route('login'));
     });
+});
+
+test('disconnecting a merged provider cannot remove every sign-in identity', function () {
+    $user = User::factory()->create();
+    SocialAccount::factory()->itchio()->for($user)->count(2)->create();
+    $this->actingAs($user)->deleteJson(route('user.disconnect', 'itchio'))->assertStatus(422);
+    expect($user->socialAccounts()->count())->toBe(2);
 });

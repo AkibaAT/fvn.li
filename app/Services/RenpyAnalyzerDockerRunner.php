@@ -15,6 +15,8 @@ class RenpyAnalyzerDockerRunner
 {
     private ?string $lastError = null;
 
+    private bool $lastExtractionUnsupported = false;
+
     /**
      * Analyze an archive and place the resulting stats document at
      * $destinationPath.
@@ -26,6 +28,7 @@ class RenpyAnalyzerDockerRunner
     public function analyze(string $archivePath, string $destinationPath): bool
     {
         $this->lastError = null;
+        $this->lastExtractionUnsupported = false;
 
         if (! File::exists($archivePath)) {
             throw new RuntimeException("Archive file not found: {$archivePath}");
@@ -71,6 +74,8 @@ class RenpyAnalyzerDockerRunner
             }
 
             if (! $process->isSuccessful()) {
+                // Exit 3 means extraction succeeded but no supported game layout was found.
+                $this->lastExtractionUnsupported = $process->getExitCode() === 3;
                 $diagnostic = trim($process->getErrorOutput()) ?: trim($process->getOutput());
                 $this->lastError = 'Analyzer container failed';
                 if ($diagnostic !== '') {
@@ -108,6 +113,11 @@ class RenpyAnalyzerDockerRunner
         } finally {
             File::deleteDirectory($containerJobDir);
         }
+    }
+
+    public function wasLastExtractionUnsupported(): bool
+    {
+        return $this->lastExtractionUnsupported;
     }
 
     public function getLastError(): ?string

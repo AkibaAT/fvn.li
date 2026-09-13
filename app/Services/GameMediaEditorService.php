@@ -7,8 +7,10 @@ namespace App\Services;
 use App\Models\Game;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class GameMediaEditorService
 {
@@ -18,48 +20,56 @@ class GameMediaEditorService
 
     public function updateThumbnail(Game $game, User $user, UploadedFile $file): array
     {
-        Log::info('Thumbnail upload attempt', [
-            'game_id' => $game->id,
-            'file_size' => $file->getSize(),
-            'mime_type' => $file->getMimeType(),
-            'original_name' => $file->getClientOriginalName(),
-        ]);
+        return DB::transaction(function () use ($game, $user, $file): array {
+            $game = Game::whereKey($game->id)->lockForUpdate()->firstOrFail();
+            Log::info('Thumbnail upload attempt', [
+                'game_id' => $game->id,
+                'file_size' => $file->getSize(),
+                'mime_type' => $file->getMimeType(),
+                'original_name' => $file->getClientOriginalName(),
+            ]);
 
-        $path = $file->store("games/{$game->id}/thumbnails", 'public');
-        $optimizedThumbnails = $this->optimizationService->optimizedThumbnails($file, $game->id);
+            $path = $file->store("games/{$game->id}/thumbnails", 'public');
+            $optimizedThumbnails = $this->optimizationService->optimizedThumbnails($file, $game->id);
 
-        $this->deleteOptimizedVariants($game->optimized_thumbnails ?? []);
+            $oldVariants = $game->optimized_thumbnails ?? [];
+            DB::afterCommit(fn () => $this->deleteOptimizedVariants($oldVariants));
 
-        $game->update([
-            'thumb_url' => asset('storage/' . $path),
-            'optimized_thumbnails' => $optimizedThumbnails,
-            'custom_page_updated_at' => now(),
-            'custom_page_updated_by' => $user->id,
-        ]);
+            $game->update([
+                'thumb_url' => asset('storage/' . $path),
+                'optimized_thumbnails' => $optimizedThumbnails,
+                'custom_page_updated_at' => now(),
+                'custom_page_updated_by' => $user->id,
+            ]);
 
-        return [
-            'success' => true,
-            'message' => 'Thumbnail updated successfully.',
-            'thumbnail_url' => $game->thumb_url,
-            'optimized_thumbnails' => $optimizedThumbnails,
-        ];
+            return [
+                'success' => true,
+                'message' => 'Thumbnail updated successfully.',
+                'thumbnail_url' => $game->thumb_url,
+                'optimized_thumbnails' => $optimizedThumbnails,
+            ];
+        });
     }
 
     public function deleteThumbnail(Game $game, User $user): array
     {
-        $this->deleteOptimizedVariants($game->optimized_thumbnails ?? []);
+        return DB::transaction(function () use ($game, $user): array {
+            $game = Game::whereKey($game->id)->lockForUpdate()->firstOrFail();
+            $oldVariants = $game->optimized_thumbnails ?? [];
+            DB::afterCommit(fn () => $this->deleteOptimizedVariants($oldVariants));
 
-        $game->update([
-            'thumb_url' => null,
-            'optimized_thumbnails' => null,
-            'custom_page_updated_at' => now(),
-            'custom_page_updated_by' => $user->id,
-        ]);
+            $game->update([
+                'thumb_url' => null,
+                'optimized_thumbnails' => null,
+                'custom_page_updated_at' => now(),
+                'custom_page_updated_by' => $user->id,
+            ]);
 
-        return [
-            'success' => true,
-            'message' => 'Thumbnail deleted successfully.',
-        ];
+            return [
+                'success' => true,
+                'message' => 'Thumbnail deleted successfully.',
+            ];
+        });
     }
 
     /**
@@ -67,64 +77,78 @@ class GameMediaEditorService
      */
     public function uploadScreenshots(Game $game, User $user, array $files): array
     {
-        $screenshots = $game->custom_screenshots ?? $game->screenshots ?? [];
-        $newScreenshots = [];
+        return DB::transaction(function () use ($game, $user, $files): array {
+            $game = Game::whereKey($game->id)->lockForUpdate()->firstOrFail();
+            $screenshots = $game->custom_screenshots ?? $game->screenshots ?? [];
+            $newScreenshots = [];
 
-        foreach ($files as $index => $file) {
-            $path = $file->store("games/{$game->id}/screenshots", 'public');
-            $optimized = $this->optimizationService->optimizedScreenshots(
-                $file,
-                $game->id,
-                count($screenshots) + $index
-            );
+            foreach ($files as $index => $file) {
+                $path = $file->store("games/{$game->id}/screenshots", 'public');
+                $optimized = $this->optimizationService->optimizedScreenshots(
+                    $file,
+                    $game->id,
+                    count($screenshots) + $index
+                );
 
-            $newScreenshots[] = [
-                'url' => asset('storage/' . $path),
-                'thumbnail_url' => asset('storage/' . $path),
-                'optimized' => $optimized,
-                'uploaded_at' => now()->toISOString(),
+                $newScreenshots[] = [
+                    'url' => asset('storage/' . $path),
+                    'thumbnail_url' => asset('storage/' . $path),
+                    'optimized' => $optimized,
+                    'uploaded_at' => now()->toISOString(),
+                ];
+            }
+
+            $allScreenshots = array_merge($screenshots, $newScreenshots);
+
+            $game->update([
+                'custom_screenshots' => $allScreenshots,
+                'has_custom_page' => true,
+                'custom_page_updated_at' => now(),
+                'custom_page_updated_by' => $user->id,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Screenshots uploaded successfully.',
+                'screenshots' => $game->resolveScreenshots($allScreenshots),
+                'new_screenshots' => $game->resolveScreenshots($newScreenshots),
             ];
-        }
-
-        $allScreenshots = array_merge($screenshots, $newScreenshots);
-
-        $game->update([
-            'custom_screenshots' => $allScreenshots,
-            'has_custom_page' => true,
-            'custom_page_updated_at' => now(),
-            'custom_page_updated_by' => $user->id,
-        ]);
-
-        return [
-            'success' => true,
-            'message' => 'Screenshots uploaded successfully.',
-            'screenshots' => $game->resolveScreenshots($allScreenshots),
-            'new_screenshots' => $game->resolveScreenshots($newScreenshots),
-        ];
+        });
     }
 
-    public function deleteScreenshot(Game $game, User $user, int $index): ?array
+    public function deleteScreenshot(Game $game, User $user, int $index, ?string $screenshotId = null): ?array
     {
-        $screenshots = $game->custom_screenshots ?? $game->screenshots ?? [];
+        return DB::transaction(function () use ($game, $user, $index, $screenshotId): ?array {
+            $game = Game::whereKey($game->id)->lockForUpdate()->firstOrFail();
+            $screenshots = $game->custom_screenshots ?? $game->screenshots ?? [];
 
-        if (! isset($screenshots[$index])) {
-            return null;
-        }
+            if ($screenshotId !== null) {
+                $index = array_find_key($screenshots, fn (array $screenshot): bool => Game::screenshotId($screenshot) === $screenshotId);
+            }
 
-        $this->deleteScreenshotFiles($screenshots[$index]);
-        array_splice($screenshots, $index, 1);
+            if ($index === null || ! isset($screenshots[$index])) {
+                return null;
+            }
 
-        $game->update([
-            'custom_screenshots' => $screenshots,
-            'custom_page_updated_at' => now(),
-            'custom_page_updated_by' => $user->id,
-        ]);
+            $deletedScreenshot = $screenshots[$index];
+            if (! in_array($deletedScreenshot, $game->screenshots ?? [], true)) {
+                DB::afterCommit(fn () => $this->deleteScreenshotFiles($deletedScreenshot));
+            }
+            array_splice($screenshots, $index, 1);
 
-        return [
-            'success' => true,
-            'message' => 'Screenshot deleted successfully.',
-            'screenshots' => $game->resolveScreenshots($screenshots),
-        ];
+            $game->update([
+                'custom_screenshots' => $screenshots,
+                'has_custom_page' => true,
+                'custom_page_updated_at' => now(),
+                'custom_page_updated_by' => $user->id,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Screenshot deleted successfully.',
+                'screenshots' => $game->resolveScreenshots($screenshots),
+            ];
+        });
     }
 
     /**
@@ -132,26 +156,35 @@ class GameMediaEditorService
      */
     public function reorderScreenshots(Game $game, User $user, array $orderedIndices): array
     {
-        $screenshots = $game->custom_screenshots ?? $game->screenshots ?? [];
-        $reorderedScreenshots = [];
-
-        foreach ($orderedIndices as $index) {
-            if (isset($screenshots[$index])) {
-                $reorderedScreenshots[] = $screenshots[$index];
+        return DB::transaction(function () use ($game, $user, $orderedIndices): array {
+            $game = Game::whereKey($game->id)->lockForUpdate()->firstOrFail();
+            $screenshots = $game->custom_screenshots ?? $game->screenshots ?? [];
+            $sortedIndices = $orderedIndices;
+            sort($sortedIndices);
+            if ($sortedIndices !== array_keys($screenshots)) {
+                throw ValidationException::withMessages(['ordered_indices' => 'Screenshots changed. Refresh and try again with every screenshot exactly once.']);
             }
-        }
+            $reorderedScreenshots = [];
 
-        $game->update([
-            'custom_screenshots' => $reorderedScreenshots,
-            'custom_page_updated_at' => now(),
-            'custom_page_updated_by' => $user->id,
-        ]);
+            foreach ($orderedIndices as $index) {
+                if (isset($screenshots[$index])) {
+                    $reorderedScreenshots[] = $screenshots[$index];
+                }
+            }
 
-        return [
-            'success' => true,
-            'message' => 'Screenshots reordered successfully.',
-            'screenshots' => $game->resolveScreenshots($reorderedScreenshots),
-        ];
+            $game->update([
+                'custom_screenshots' => $reorderedScreenshots,
+                'has_custom_page' => true,
+                'custom_page_updated_at' => now(),
+                'custom_page_updated_by' => $user->id,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Screenshots reordered successfully.',
+                'screenshots' => $game->resolveScreenshots($reorderedScreenshots),
+            ];
+        });
     }
 
     private function deleteScreenshotFiles(array $screenshot): void

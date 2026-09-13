@@ -175,6 +175,46 @@ it('bounds expanded dialogue rows to the requested page size', function () {
     expect($results->items())->toHaveCount(1);
 });
 
+it('hydrates first seen versions with complete timestamps even when the search index has old dates', function () {
+    [$game, $version, , $text] = makeDialogueSearchFixture();
+    $version->update(['published_at' => '2026-05-03 00:30:00']);
+
+    bindDialogueMeilisearch([
+        [
+            'text_id' => $text->id,
+            'text_content' => $text->text_content,
+            'first_seen_version_id' => $version->id,
+            'first_seen_version' => 'Outdated version name',
+            'first_seen_published_at' => '2026-05-03',
+        ],
+    ], 1, fn () => null);
+
+    $results = app(DialogueSearchService::class)->search('moonlight', ['game_id' => $game->id]);
+
+    expect($results->items()[0]->first_seen_version)->toBe([
+        'id' => $version->id,
+        'version' => $version->version,
+        'published_at' => '2026-05-03T00:30:00.000000Z',
+    ]);
+});
+
+it('omits first seen versions that no longer exist', function () {
+    [$game, , , $text] = makeDialogueSearchFixture();
+    bindDialogueMeilisearch([
+        [
+            'text_id' => $text->id,
+            'text_content' => $text->text_content,
+            'first_seen_version_id' => 2147483647,
+            'first_seen_version' => 'Deleted version',
+            'first_seen_published_at' => '2026-05-03',
+        ],
+    ], 1, fn () => null);
+
+    $results = app(DialogueSearchService::class)->search('moonlight', ['game_id' => $game->id]);
+
+    expect($results->items()[0]->first_seen_version)->toBeNull();
+});
+
 it('reapplies character key filters when expanding meilisearch hits', function () {
     [$game, $version, $character, $text] = makeDialogueSearchFixture();
     $otherCharacter = Character::factory()->for($game)->create([

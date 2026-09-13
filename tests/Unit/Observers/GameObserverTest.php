@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Models\VnListEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Queue\CallQueuedClosure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -265,4 +267,17 @@ describe('GameObserver edge cases', function () {
         expect($slugs)->toHaveCount(5)
             ->and(count(array_unique($slugs)))->toBe(5); // All slugs should be unique
     });
+});
+
+test('deleting a game with optimized media does not recreate it after cascading its list entries', function () {
+    Storage::fake('public');
+    $game = Game::factory()->create(['optimized_thumbnails' => ['default' => ['path' => 'thumbnails/deleted.webp']]]);
+    $entry = VnListEntry::factory()->create(['game_id' => $game->id]);
+    Storage::disk('public')->put('thumbnails/deleted.webp', 'image');
+
+    $game->delete();
+
+    expect(Game::find($game->id))->toBeNull()
+        ->and(VnListEntry::find($entry->id))->toBeNull();
+    Storage::disk('public')->assertMissing('thumbnails/deleted.webp');
 });

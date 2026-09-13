@@ -71,10 +71,7 @@ class GamesSearchController extends Controller
         if (Auth::check()) {
             $allIgnoredGameIds = Auth::user()->ignoredGames()->pluck('games.id')->toArray();
 
-            // Only filter out ignored games if showIgnored is false
             if (! $request->boolean('showIgnored')) {
-                // Count how many ignored games match the current filters
-                // This will be shown in the info bar
                 $ignoredCount = count($allIgnoredGameIds);
                 $ignoredGameIds = $allIgnoredGameIds;
             }
@@ -97,11 +94,9 @@ class GamesSearchController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            // Fallback to basic database search
-            $games = $this->fallbackSearch($search, $perPage, $requestedPage, $ignoredGameIds, $request->boolean('delisted'));
+            $games = $service->searchGamesFromDatabase($searchQuery, $filters, $perPage, $requestedPage, $sortField, $sortDirection, $ignoredGameIds);
         }
 
-        // If requested page exceeds available pages, re-query for page 1
         if ($requestedPage > 1 && $games->lastPage() > 0 && $requestedPage > $games->lastPage()) {
             try {
                 $searchQuery = trim($search ?? '') ?: '*';
@@ -110,7 +105,7 @@ class GamesSearchController extends Controller
                 Log::warning('Meilisearch game lookup failed; using database fallback', [
                     'error' => $e->getMessage(),
                 ]);
-                $games = $this->fallbackSearch($search, $perPage, 1, $ignoredGameIds, $request->boolean('delisted'));
+                $games = $service->searchGamesFromDatabase($searchQuery, $filters, $perPage, 1, $sortField, $sortDirection, $ignoredGameIds);
             }
         }
 
@@ -423,47 +418,5 @@ class GamesSearchController extends Controller
         }
 
         return $filters;
-    }
-
-    /**
-     * Fallback database search when Meilisearch fails
-     */
-    private function fallbackSearch(?string $search, int $perPage, int $page, array $ignoredGameIds = [], bool $delistedOnly = false)
-    {
-        $query = Game::query()
-            ->fromItchio()
-            ->where('is_visible', true);
-
-        if ($delistedOnly) {
-            $query->where('is_delisted', true);
-        }
-
-        $query->with([
-            'tags',
-            'sourceLanguage',
-            'latestVersion.supportedLanguages.language',
-            'latestVersion.languageStats',
-        ])
-            ->withCount('ratings');
-
-        // Exclude ignored games
-        if (! empty($ignoredGameIds)) {
-            $query->whereNotIn('games.id', $ignoredGameIds);
-        }
-
-        if (! empty(trim((string) $search))) {
-            $searchTerm = "%{$search}%";
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('name', 'ilike', $searchTerm)
-                    ->orWhere('authors', 'ilike', $searchTerm)
-                    ->orWhere('custom_tags', 'ilike', $searchTerm);
-            });
-        }
-
-        $games = $query->orderBy('first_visible_at', 'desc')->paginate($perPage, ['*'], 'page', $page);
-
-        app(GamesSearchResultHydrator::class)->hydrate($games);
-
-        return $games;
     }
 }

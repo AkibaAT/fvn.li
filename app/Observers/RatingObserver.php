@@ -32,7 +32,7 @@ class RatingObserver
             $this->clearRaterCache($rating);
         }
 
-        if ($rating->wasChanged(['published_at', 'game_id', 'rating', 'is_reviewed', 'is_visible'])) {
+        if ($rating->wasChanged(['published_at', 'game_id', 'rating', 'is_reviewed', 'is_visible', 'review', 'has_spoilers', 'user_id', 'rater_id', 'source_platform'])) {
             RatingStatsCacheService::clear();
         }
 

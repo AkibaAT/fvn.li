@@ -51,6 +51,7 @@ class RenpyAnalyzerController extends Controller
             // output and must not reach the response.
             return response()->json([
                 'message' => 'No stats could be extracted',
+                'code' => $runner->wasLastExtractionUnsupported() ? 'unsupported_archive' : 'extraction_failed',
             ], 422);
         }
 

@@ -16,9 +16,12 @@ class RenpyStatsSandboxClient
 {
     private ?string $lastError = null;
 
+    private bool $lastExtractionUnsupported = false;
+
     public function extract(string $archivePath): ?StatsPayload
     {
         $this->lastError = null;
+        $this->lastExtractionUnsupported = false;
         $url = config('services.renpy.analyzer_url');
         $token = config('services.renpy.analyzer_token');
 
@@ -48,6 +51,7 @@ class RenpyStatsSandboxClient
             if (! $response->successful()) {
                 $message = $response->json('message');
                 if ($response->status() === 422) {
+                    $this->lastExtractionUnsupported = $response->json('code') === 'unsupported_archive';
                     $this->lastError = is_string($message) && $message !== ''
                         ? $this->sanitizeDiagnosticOutput($message)
                         : 'No stats could be extracted';
@@ -89,6 +93,11 @@ class RenpyStatsSandboxClient
         } finally {
             File::deleteDirectory($requestDir);
         }
+    }
+
+    public function wasLastExtractionUnsupported(): bool
+    {
+        return $this->lastExtractionUnsupported;
     }
 
     public function getLastError(): ?string

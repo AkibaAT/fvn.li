@@ -493,6 +493,11 @@ class GameArchiveService
         return $stats;
     }
 
+    public function wasLastProcessingUnsupported(): bool
+    {
+        return $this->statsService->wasLastExtractionUnsupported();
+    }
+
     public function getLastProcessingError(): ?string
     {
         return $this->lastProcessingError;

@@ -267,3 +267,20 @@ test('parse save rejects uploads above the compressed input cap', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors('file');
 });
+
+test('rejects a foreign version before reading route graphs or parsing saves', function () {
+    $game = Game::factory()->create();
+    $foreignVersion = GameVersion::factory()->create();
+    $this->mock(RouteGraphService::class)->shouldNotReceive('storedGraph');
+    $this->actingAs(User::factory()->create(['is_admin' => true]));
+    $parameters = ['game' => $game->slug, 'version' => $foreignVersion->id, 'include_unreachable' => true];
+    $this->getJson(route('browser-api.games.version.route-graph', $parameters))->assertNotFound();
+    $this->postJson(route('browser-api.games.version.parse-save', $parameters))->assertNotFound();
+});
+
+test('bounds version pagination for negative and excessive page sizes', function (int $requested, int $expected) {
+    $game = Game::factory()->create();
+    GameVersion::factory()->for($game)->count(3)->create();
+    $this->getJson(route('browser-api.games.versions', ['game' => $game->id, 'perPage' => $requested]))
+        ->assertOk()->assertJsonPath('versions.per_page', $expected);
+})->with([[-1, 1], [100000, 50]]);

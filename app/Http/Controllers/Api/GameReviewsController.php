@@ -9,6 +9,7 @@ use App\Models\Game;
 use App\Models\Rating;
 use App\Services\HtmlSanitizerService;
 use App\Services\ItchAuthService;
+use App\Services\RatingStatsCacheService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,7 +54,7 @@ class GameReviewsController extends Controller
                 ], 404);
             }
 
-            $cacheKey = sprintf('game_reviews_v%d_%d', self::REVIEW_CACHE_VERSION, $game->id);
+            $cacheKey = RatingStatsCacheService::key(sprintf('game_reviews_v%d_%d', self::REVIEW_CACHE_VERSION, $game->id));
             $reviewData = Cache::remember($cacheKey, 6 * 60 * 60, function () use ($game) {
                 return $this->buildReviewData($game);
             });

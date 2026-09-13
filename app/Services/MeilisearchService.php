@@ -217,7 +217,7 @@ class MeilisearchService
         ];
     }
 
-    private function searchGamesFromDatabase(
+    public function searchGamesFromDatabase(
         string $query,
         array $filters,
         int $perPage,
@@ -235,7 +235,8 @@ class MeilisearchService
                 $builder
                     ->where('name', 'ilike', $like)
                     ->orWhere('description', 'ilike', $like)
-                    ->orWhere('authors', 'ilike', $like);
+                    ->orWhere('authors', 'ilike', $like)
+                    ->orWhere('custom_tags', 'ilike', $like);
             });
         }
 
@@ -297,7 +298,18 @@ class MeilisearchService
 
         if (! empty($filters['supported_languages'])) {
             $languages = (array) $filters['supported_languages'];
-            $games->whereHas('latestVersion.supportedLanguages', fn (Builder $languageQuery) => $languageQuery->whereIn('iso_code', $languages));
+            $games->whereHas('latestVersion.supportedLanguages', fn (Builder $languageQuery) => $languageQuery->whereIn('iso_code', $languages)->where('is_available', true));
+        }
+
+        if (in_array($filters['reading_time'] ?? null, ['short', 'medium', 'long'], true)) {
+            $games->whereHas('latestVersion.languageStats', function (Builder $stats) use ($filters) {
+                $stats->where('iso_code', 'eng');
+                match ($filters['reading_time']) {
+                    'short' => $stats->where('words', '<', 10000),
+                    'medium' => $stats->whereBetween('words', [10000, 50000]),
+                    'long' => $stats->where('words', '>', 50000),
+                };
+            });
         }
     }
 
@@ -315,7 +327,7 @@ class MeilisearchService
                 $direction
             ),
             'rating_score', 'rating_count', 'name', 'created_at', 'first_visible_at', 'initially_published_at' => $games->orderBy($sortField, $direction),
-            'trending', 'trending_score' => $games->orderBy('rating_score', $direction)->orderBy('rating_count', $direction),
+            'trending', 'trending_score' => $games->orderBy('trending_score', $direction),
             default => $games->orderBy('first_visible_at', 'desc'),
         };
     }

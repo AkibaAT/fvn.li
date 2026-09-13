@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
@@ -59,6 +60,25 @@ class GameStatsService
         $this->localExtractor = $localExtractor ?? app(RenpyStatsLocalExtractor::class);
         $this->routeGraphPersister = $routeGraphPersister ?? app(GameStatsRouteGraphPersister::class);
         $this->dialoguePersister = $dialoguePersister ?? app(GameStatsDialoguePersister::class);
+    }
+
+    public static function cacheKey(int $gameId, string $name): string
+    {
+        $version = Cache::rememberForever("game_stats.{$gameId}.version", fn () => (string) Str::uuid());
+
+        return "{$name}:{$version}";
+    }
+
+    public static function clearCache(int $gameId): void
+    {
+        Cache::forget("game_stats.{$gameId}.version");
+        Cache::forget('dialogue.games_list');
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit(function () use ($gameId): void {
+                Cache::forget("game_stats.{$gameId}.version");
+                Cache::forget('dialogue.games_list');
+            });
+        }
     }
 
     public function storeProcessedFile(string $tempFile, string $filename, int $gameId, int $versionId): void
@@ -122,6 +142,13 @@ class GameStatsService
         return $this->sandboxClient->getLastError() ?? $this->localExtractor->getLastError();
     }
 
+    public function wasLastExtractionUnsupported(): bool
+    {
+        return config('services.renpy.analysis_mode', 'sandbox') === 'sandbox'
+            ? $this->sandboxClient->wasLastExtractionUnsupported()
+            : $this->localExtractor->wasLastExtractionUnsupported();
+    }
+
     /**
      * Save or update language and character statistics for a game version
      *
@@ -137,6 +164,30 @@ class GameStatsService
         StatsPayload|array $stats,
         string $defaultLanguage = 'eng',
         ?Game $game = null
+    ): void {
+        try {
+            DB::transaction(function () use ($version, $stats, $defaultLanguage, $game): void {
+                GameVersion::whereKey($version->id)->lockForUpdate()->firstOrFail();
+                $this->persistVersionStats($version, $stats, $defaultLanguage, $game);
+                $version->forceFill([
+                    'stats_completed_at' => now(),
+                    'stats_attempts' => 0,
+                    'stats_retry_at' => null,
+                    'stats_error' => null,
+                    'stats_skipped' => false,
+                ])->saveQuietly();
+            });
+        } catch (Throwable $exception) {
+            $version->refresh();
+            throw $exception;
+        }
+    }
+
+    private function persistVersionStats(
+        GameVersion $version,
+        StatsPayload|array $stats,
+        string $defaultLanguage,
+        ?Game $game
     ): void {
         $this->progress("    [Stats] Starting saveVersionStats\n");
         $payload = $stats instanceof StatsPayload ? $stats : new ArrayStatsPayload($stats);
@@ -240,7 +291,7 @@ class GameStatsService
             // extraction that produced them.
             try {
                 $this->progress("    [Stats] Pre-computing route graph\n");
-                app(RouteGraphService::class)->computeAndStore($version);
+                DB::transaction(fn () => app(RouteGraphService::class)->computeAndStore($version));
                 $this->progress("    [Stats] Route graph computed and stored\n");
             } catch (Throwable $throwable) {
                 $this->progress("    [Stats] Route graph precompute skipped: {$throwable->getMessage()}\n");
@@ -252,7 +303,7 @@ class GameStatsService
 
             try {
                 $this->progress("    [Stats] Calculating route paths\n");
-                app(RoutePathCalculator::class)->calculateAndStore($version);
+                DB::transaction(fn () => app(RoutePathCalculator::class)->calculateAndStore($version));
                 $this->progress("    [Stats] Route paths calculated and stored\n");
             } catch (Throwable $throwable) {
                 $this->progress("    [Stats] Route path calculation skipped: {$throwable->getMessage()}\n");
@@ -263,7 +314,7 @@ class GameStatsService
             }
         }
 
-        Cache::forget('dialogue.games_list');
+        self::clearCache($version->game_id);
         GameSearchRefreshService::refreshForLatestVersion($version, 'version_stats_saved');
         $this->progress("    [Stats] Version stats processing complete\n");
     }

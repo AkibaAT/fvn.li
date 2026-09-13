@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Models\Character;
+use App\Services\GameStatsService;
 use App\Services\ObserverSearchIndexService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,7 @@ class CharacterObserver
         Log::debug('Character updated', ['character_id' => $character->character_id]);
         // If display names changed, update related dialogue texts in search index
         if ($character->isDirty('display_names') || $character->isDirty('display_name_corrections')) {
+            GameStatsService::clearCache($character->game_id);
             Log::debug('Character display names changed, dispatching re-index job', ['character_id' => $character->character_id]);
 
             // Dispatch re-indexing after the transaction commits to avoid holding locks
@@ -39,6 +41,7 @@ class CharacterObserver
 
     public function deleted(Character $character): void
     {
+        GameStatsService::clearCache($character->game_id);
         $this->updateRelatedDialogueTexts($character);
     }
 

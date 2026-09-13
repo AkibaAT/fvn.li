@@ -196,3 +196,12 @@ it('validates report resolution payloads', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['status', 'admin_notes']);
 });
+
+it('rejects reports of a users own linked imported rating', function () {
+    $user = User::factory()->create();
+    $rater = Rater::factory()->create(['user_id' => $user->id]);
+    $rating = moderationRating(['rater' => $rater]);
+    $this->actingAs($user)->postJson(route('browser-api.review-reports.store', $rating), ['reason' => 'spam'])
+        ->assertUnprocessable()->assertJsonPath('message', 'You cannot report your own review.');
+    expect(ReviewReport::where('rating_id', $rating->id)->exists())->toBeFalse();
+});

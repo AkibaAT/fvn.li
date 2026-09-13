@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\RatingStatsCacheService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -56,6 +57,12 @@ class Rater extends Model
         static::creating(function (Rater $rater) {
             if ($rater->user_id === null) {
                 $rater->user_id = $rater->linkedUserId();
+            }
+        });
+
+        static::updated(function (Rater $rater): void {
+            if ($rater->wasChanged(['name', 'user_id'])) {
+                RatingStatsCacheService::clear();
             }
         });
 

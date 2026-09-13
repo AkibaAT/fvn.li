@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class GamesSearchResultHydrator
@@ -37,7 +38,8 @@ class GamesSearchResultHydrator
             return;
         }
 
-        $gameIds = collect($games->items())->pluck('id')->toArray();
+        $items = $games instanceof Collection ? $games : collect($games->items());
+        $gameIds = $items->pluck('id')->toArray();
 
         if (empty($gameIds)) {
             return;
@@ -54,11 +56,11 @@ class GamesSearchResultHydrator
             ->join('vn_lists', 'vn_list_entries.vn_list_id', '=', 'vn_lists.id')
             ->where('vn_lists.user_id', $userId)
             ->whereIn('vn_list_entries.game_id', $gameIds)
-            ->select('vn_list_entries.game_id', 'vn_lists.id as list_id', 'vn_lists.name', 'vn_lists.type', 'vn_lists.is_default')
+            ->select('vn_list_entries.game_id', 'vn_lists.id as list_id', 'vn_lists.name', 'vn_lists.type', 'vn_lists.is_default', 'vn_lists.is_public')
             ->get()
             ->groupBy('game_id');
 
-        foreach ($games->items() as $game) {
+        foreach ($items as $game) {
             $progress = $userProgress->get($game->id);
             $game->user_progress = $progress ? [$progress] : [];
             $game->user_list_memberships = $userListMemberships->get($game->id, collect())->toArray();
