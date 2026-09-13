@@ -184,7 +184,7 @@ else
     echo "Container is running, performing cache clear and hot reload..."
 
     bootstrap_denkit_stash_db
-    docker compose up -d denkit-stash
+    docker compose up -d --remove-orphans denkit-stash
     bootstrap_denkit_stash_user
     ensure_container_runtime_paths
 

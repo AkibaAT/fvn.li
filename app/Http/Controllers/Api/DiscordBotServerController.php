@@ -9,6 +9,8 @@ use App\Models\DiscordNotificationHistory;
 use App\Models\DiscordServer;
 use App\Models\DiscordServerConfig;
 use App\Models\SocialAccount;
+use App\Services\Discord\DiscordCatalogMessageSyncService;
+use App\Services\Discord\DiscordRoutingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,16 +20,40 @@ class DiscordBotServerController extends Controller
 {
     public function pendingNotifications(Request $request): JsonResponse
     {
-        $limit = min($request->input('limit', 50), 100);
+        $validated = $request->validate([
+            'limit' => 'sometimes|integer|min:1|max:100',
+            'guild_ids' => 'sometimes|array|max:100',
+            'guild_ids.*' => 'required|string',
+        ]);
+        $limit = $validated['limit'] ?? 50;
+        $guildIds = $validated['guild_ids'] ?? null;
 
-        return DB::transaction(function () use ($limit) {
+        return DB::transaction(function () use ($limit, $guildIds) {
             $notifications = DiscordNotificationHistory::query()
                 ->claimable()
-                ->whereHas('discordServer', fn ($q) => $q->where('is_active', true))
+                ->whereHas('discordServer', fn ($q) => $q->where('bot_present', true)
+                    ->when($guildIds !== null, fn ($q) => $q->whereIn('discord_server_id', $guildIds)))
+                ->where(fn ($q) => $q->where('notification_type', 'test')
+                    ->orWhereHas('discordServer', fn ($q) => $q->where('is_active', true)))
                 ->with(['discordServer.config', 'game.latestVersion', 'gameVersion'])
                 ->limit($limit)
                 ->lockForUpdate()
                 ->get();
+
+            $notifications = $notifications->filter(function (DiscordNotificationHistory $notification): bool {
+                $game = $notification->game;
+                $enabled = ! $notification->game_id || ($game && $game->is_visible);
+                $enabled = $enabled && in_array($notification->channel_id, $notification->discordServer->channelIds(), true);
+                if ($enabled && $game && in_array($notification->notification_type, ['new_game', 'update'], true)) {
+                    $routing = app(DiscordRoutingService::class)->evaluateRoutes($notification->discordServer, $game, $notification->notification_type, $notification->gameVersion);
+                    $enabled = ! $routing->shouldSkip && isset($routing->targetChannels[$notification->channel_id]);
+                }
+                if (! $enabled) {
+                    $notification->update(['delivery_status' => 'failed', 'batch_key' => null, 'error_message' => 'notification_no_longer_enabled']);
+                }
+
+                return $enabled;
+            })->values();
 
             $batchKey = bin2hex(random_bytes(16));
             DiscordNotificationHistory::whereIn('id', $notifications->pluck('id'))
@@ -63,37 +89,32 @@ class DiscordBotServerController extends Controller
             'batch_key' => 'required|string',
         ]);
 
-        if ($notification->batch_key !== $validated['batch_key']) {
-            return response()->json(['message' => 'Batch key mismatch'], 409);
-        }
+        return DB::transaction(function () use ($notification, $validated) {
+            $notification = DiscordNotificationHistory::whereKey($notification->id)->lockForUpdate()->firstOrFail();
+            if ($notification->delivery_status === 'sent' && ! empty($validated['message_id']) && $notification->message_id === $validated['message_id']) {
+                return response()->json(['message' => 'Already delivered']);
+            }
+            if ($notification->delivery_status !== 'processing' || $notification->batch_key !== $validated['batch_key']) {
+                return response()->json(['message' => 'Batch key mismatch', 'notification_status' => $notification->delivery_status], 409);
+            }
 
-        $attributes = [
-            'delivery_status' => 'sent',
-            'sent_at' => now(),
-            'error_message' => null,
-            'batch_key' => null,
-        ];
-        if (! empty($validated['message_id'])) {
-            $attributes['message_id'] = $validated['message_id'];
-        }
-        $notification->update($attributes);
-
-        if ($notification->notification_type === 'new_game' && $notification->game_id) {
-            DB::table('discord_server_games')->upsert([[
-                'discord_server_id' => $notification->discord_server_id,
-                'game_id' => $notification->game_id,
-                'discord_channel_id' => $notification->channel_id,
-                'discord_message_id' => $validated['message_id'] ?? $notification->message_id,
-                'discord_payload_hash' => $notification->payload_hash,
-                'discord_updated_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]], ['discord_server_id', 'game_id'], [
-                'discord_channel_id', 'discord_message_id', 'discord_payload_hash', 'discord_updated_at', 'updated_at',
+            $notification->update([
+                'delivery_status' => 'sent',
+                'sent_at' => now(),
+                'error_message' => null,
+                'batch_key' => null,
+                'retry_at' => null,
+                'message_id' => $validated['message_id'] ?? $notification->message_id,
             ]);
-        }
+            if ($notification->notification_type === 'new_game' && $notification->game_id) {
+                app(DiscordCatalogMessageSyncService::class)->trackMessage(
+                    $notification->discord_server_id, $notification->game_id, $notification->channel_id,
+                    $notification->message_id, $notification->payload_hash,
+                );
+            }
 
-        return response()->json(['message' => 'Marked as delivered']);
+            return response()->json(['message' => 'Marked as delivered']);
+        });
     }
 
     public function markFailed(DiscordNotificationHistory $notification, Request $request): JsonResponse
@@ -104,21 +125,24 @@ class DiscordBotServerController extends Controller
             'retryable' => 'boolean|nullable',
         ]);
 
-        if ($notification->batch_key !== $validated['batch_key']) {
-            return response()->json(['message' => 'Batch key mismatch'], 409);
-        }
+        return DB::transaction(function () use ($notification, $validated) {
+            $notification = DiscordNotificationHistory::whereKey($notification->id)->lockForUpdate()->firstOrFail();
+            if ($notification->delivery_status !== 'processing' || $notification->batch_key !== $validated['batch_key']) {
+                return response()->json(['message' => 'Batch key mismatch', 'notification_status' => $notification->delivery_status], 409);
+            }
+            $attempts = $notification->attempts + 1;
+            $retry = ($validated['retryable'] ?? false) && $attempts < DiscordNotificationHistory::MAX_ATTEMPTS;
+            $notification->update([
+                'delivery_status' => $retry ? 'pending' : 'failed',
+                'error_message' => $validated['error_message'] ?? 'Unknown error',
+                'attempts' => $attempts,
+                'retry_at' => $retry ? now()->addMinutes(DiscordNotificationHistory::BACKOFF_MINUTES[$attempts - 1]) : null,
+                'batch_key' => null,
+                'sent_at' => null,
+            ]);
 
-        $attempts = $notification->attempts + 1;
-        $retry = ($validated['retryable'] ?? false) && $attempts < DiscordNotificationHistory::MAX_ATTEMPTS;
-        $notification->update([
-            'delivery_status' => $retry ? 'pending' : 'failed',
-            'error_message' => $validated['error_message'] ?? 'Unknown error',
-            'attempts' => $attempts,
-            'batch_key' => null,
-            'sent_at' => null,
-        ]);
-
-        return response()->json(['message' => 'Marked as failed']);
+            return response()->json(['message' => 'Marked as failed']);
+        });
     }
 
     public function syncChannels(Request $request): JsonResponse
@@ -162,10 +186,10 @@ class DiscordBotServerController extends Controller
             ['discord_server_id' => $validated['discord_server_id']],
             [
                 'discord_server_name' => $validated['discord_server_name'],
-                'is_active' => true,
+                'bot_present' => true,
                 'bot_joined_at' => now(),
                 'available_channels' => $validated['channels'] ?? null,
-                'channels_synced_at' => $validated['channels'] ? now() : null,
+                'channels_synced_at' => ! empty($validated['channels']) ? now() : null,
             ],
         );
 
@@ -219,16 +243,16 @@ class DiscordBotServerController extends Controller
                 ->pluck('discord_server_id')
                 ->all();
 
-            DiscordServer::where('is_active', true)
+            DiscordServer::where('bot_present', true)
                 ->when($activeGuildIds !== [], fn ($query) => $query->whereNotIn('discord_server_id', $activeGuildIds))
-                ->update(['is_active' => false]);
+                ->update(['bot_present' => false]);
 
             foreach ($validated['guilds'] as $guild) {
                 $server = DiscordServer::updateOrCreate(
                     ['discord_server_id' => $guild['discord_server_id']],
                     [
                         'discord_server_name' => $guild['discord_server_name'],
-                        'is_active' => true,
+                        'bot_present' => true,
                         'bot_joined_at' => now(),
                         'available_channels' => $guild['channels'] ?? null,
                         'channels_synced_at' => ! empty($guild['channels']) ? now() : null,
@@ -267,7 +291,7 @@ class DiscordBotServerController extends Controller
         $discordServer = DiscordServer::where('discord_server_id', $server)->first();
 
         if ($discordServer) {
-            $discordServer->update(['is_active' => false]);
+            $discordServer->update(['bot_present' => false]);
 
             Log::info('Discord bot left server', [
                 'server_id' => $discordServer->id,

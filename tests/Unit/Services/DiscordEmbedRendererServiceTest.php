@@ -7,6 +7,7 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\Discord\DiscordEmbedRendererService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
 
@@ -152,7 +153,7 @@ describe('DiscordEmbedRendererService', function () {
 
         expect($result)->not->toHaveKey('url')
             ->and($result)->not->toHaveKey('image')
-            ->and($result['footer']['icon_url'])->toBe('https://example.com/icon.png');
+            ->and($result)->not->toHaveKey('footer');
     });
 
     test('preserves numeric values like color', function () {
@@ -293,4 +294,31 @@ describe('DiscordEmbedRendererService', function () {
 
         expect(collect($result['fields'])->pluck('name')->all())->not->toContain('Devlog');
     });
+});
+
+test('rejects malformed nested template values before rendering', function (array $template) {
+    expect(fn () => $this->service->renderEmbed($template, $this->game, 'update'))->toThrow(ValidationException::class);
+})->with([[['title' => ['wrong']]], [['footer' => 'wrong']], [['fields' => [['name' => ['wrong'], 'value' => 'value']]]], [['color' => '123']], [['fields' => [['name' => 'Flag', 'value' => 'Value', 'inline' => '0']]]]]);
+
+test('word count difference uses the immediately previous version and keeps its sign', function () {
+    $previous = GameVersion::factory()->create(['game_id' => $this->game->id, 'published_at' => now()->subDays(2)]);
+    $this->version->update(['published_at' => now()]);
+    $previous->languageStats()->create(['iso_code' => 'eng', 'words' => 12000]);
+    $this->version->languageStats()->create(['iso_code' => 'eng', 'words' => 10500]);
+    expect($this->service->buildVariables($this->game, 'update', $this->version)['{version.word_count_diff}'])->toBe('-1,500');
+    $this->version->languageStats()->update(['words' => 12500]);
+    expect($this->service->buildVariables($this->game, 'update', $this->version)['{version.word_count_diff}'])->toBe('+500');
+});
+
+test('generated payloads honor saved defaults and custom text while explicit embeds own their layout', function () {
+    $this->server->config()->create(['notification_format' => 'detailed', 'include_game_description' => true, 'include_thumbnail' => false, 'include_ratings' => true]);
+    $payload = $this->service->renderPayload($this->server->fresh(), $this->game, 'new_game');
+    expect($payload['embeds'][0]['description'])->toBe('A test visual novel description.')
+        ->and($payload['embeds'][0])->not->toHaveKey('thumbnail')
+        ->and(collect($payload['embeds'][0]['fields'])->pluck('name'))->toContain('Rating');
+    $this->server->config->update(['notification_format' => 'custom', 'custom_template' => '{game_name}: {version.name}']);
+    $payload = $this->service->renderPayload($this->server->fresh(), $this->game, 'update', $this->version);
+    expect($payload)->toBe(['content' => 'Test VN: 1.0.0']);
+    $payload = $this->service->renderPayload($this->server->fresh(), $this->game, 'update', $this->version, ['title' => 'Explicit layout']);
+    expect($payload['embeds'][0]['title'])->toBe('Explicit layout');
 });

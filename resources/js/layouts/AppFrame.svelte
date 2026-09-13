@@ -19,6 +19,8 @@
     const FULL_WIDTH_PAGES = new Set(['games/route-map']);
     let isFullWidth = $derived(FULL_WIDTH_PAGES.has((page as any).component as string));
     const flash = $derived(((page.props as any)?.flash ?? {}) as { message?: string; error?: string });
+    const userId = $derived((page.props as any)?.auth?.user?.id ?? null);
+    let pushReady = $state(false);
 
     useRouteAccessibility();
 
@@ -34,12 +36,14 @@
             .then((reg) => {
                 return reg ?? navigator.serviceWorker.register('/service-worker.js');
             })
-            .then(async () => {
-                if (!(page.props as any)?.auth?.user || sessionStorage.getItem('fvn:push-synced')) return;
-                await syncPushSubscription();
-                sessionStorage.setItem('fvn:push-synced', '1');
+            .then(() => {
+                pushReady = true;
             })
             .catch(() => {});
+    });
+
+    $effect(() => {
+        if (pushReady && userId) void syncPushSubscription().catch(() => {});
     });
 
     onMount(() => {

@@ -137,3 +137,15 @@ it('only reactivates a rejected subscription after an explicit setup action', fu
     expect($subscription->fresh()->delivery_status)->toBe(PushSubscription::STATUS_UNKNOWN)
         ->and($subscription->fresh()->delivery_last_error)->toBeNull();
 });
+
+it('detaches only this browsers subscription at logout and allows a new account to sync', function () {
+    $first = User::factory()->create();
+    $second = User::factory()->create();
+    $this->actingAs($first)->postJson(route('browser-api.push-subscriptions.store'), pushSubscriptionPayload('https://93.184.216.34/other-browser'))->assertOk();
+    $this->postJson(route('browser-api.push-subscriptions.store'), pushSubscriptionPayload())->assertOk();
+    $this->post(route('logout'))->assertRedirect();
+    expect(PushSubscription::where('endpoint', 'https://93.184.216.34/subscription')->exists())->toBeFalse()
+        ->and(PushSubscription::where('user_id', $first->id)->count())->toBe(1);
+    $this->actingAs($second)->postJson(route('browser-api.push-subscriptions.store'), pushSubscriptionPayload())->assertOk();
+    expect(PushSubscription::where('endpoint', 'https://93.184.216.34/subscription')->value('user_id'))->toBe($second->id);
+});

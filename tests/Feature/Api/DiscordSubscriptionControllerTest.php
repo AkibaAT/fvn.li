@@ -6,6 +6,7 @@ use App\Models\DiscordServer;
 use App\Models\DiscordServerTag;
 use App\Models\Game;
 use App\Models\GameDiscordSubscription;
+use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
@@ -13,6 +14,7 @@ use Laravel\Sanctum\Sanctum;
 function discordSubscriptionOwner(): array
 {
     $user = User::factory()->create(['is_admin' => true]);
+    SocialAccount::factory()->discord()->for($user)->create();
     Sanctum::actingAs($user);
 
     $server = DiscordServer::create([
@@ -98,6 +100,7 @@ it('manages Discord server tag subscriptions', function () {
 
 it('stores per-server Discord game metadata and rating arrays in the metadata table', function () {
     [, $server] = discordSubscriptionOwner();
+    $server->update(['available_channels' => [['id' => 'channel-1']]]);
     $game = Game::factory()->create([
         'name' => 'Metadata Game',
         'content_type' => 'visual_novel',

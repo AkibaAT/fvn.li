@@ -11,6 +11,11 @@ class DiscordServerPolicy
 {
     public function view(User $user, DiscordServer $server): bool
     {
+        $discordIds = $user->socialAccounts()->where('provider_name', 'discord')->pluck('provider_id');
+        if ($discordIds->isEmpty()) {
+            return false;
+        }
+
         if ($server->owner_user_id === $user->id) {
             return true;
         }
@@ -18,12 +23,14 @@ class DiscordServerPolicy
         if ($server->relationLoaded('members')) {
             return $server->members
                 ->where('user_id', $user->id)
+                ->whereIn('discord_user_id', $discordIds)
                 ->where('is_admin', true)
                 ->isNotEmpty();
         }
 
         return $server->members()
             ->where('user_id', $user->id)
+            ->whereIn('discord_user_id', $discordIds)
             ->where('is_admin', true)
             ->exists();
     }
@@ -35,6 +42,7 @@ class DiscordServerPolicy
 
     public function delete(User $user, DiscordServer $server): bool
     {
-        return $server->owner_user_id === $user->id;
+        return $server->owner_user_id === $user->id
+            && $user->socialAccounts()->where('provider_name', 'discord')->exists();
     }
 }

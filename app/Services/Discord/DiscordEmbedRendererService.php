@@ -8,10 +8,75 @@ use App\Models\DiscordServer;
 use App\Models\Game;
 use App\Models\GameVersion;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Validator;
 
 class DiscordEmbedRendererService
 {
     private const PRESERVED_DISCORD_TOKEN_PREFIX = '__discord_token_';
+
+    public static function validationRules(string $key, string $presence = 'nullable'): array
+    {
+        $rules = [$key => "{$presence}|array:title,type,description,url,color,timestamp,fields,footer,author,thumbnail,image,video,provider"];
+        foreach (['title', 'description', 'url', 'timestamp', 'footer.text', 'footer.icon_url', 'author.name', 'author.url', 'author.icon_url', 'thumbnail.url', 'image.url'] as $field) {
+            $rules["{$key}.{$field}"] = 'sometimes|nullable|string';
+        }
+        $rules["{$key}.color"] = 'sometimes|integer:strict|between:0,16777215';
+        foreach (['footer', 'author', 'thumbnail', 'image'] as $field) {
+            $rules["{$key}.{$field}"] = 'sometimes|nullable|array';
+        }
+        $rules["{$key}.fields"] = 'sometimes|array';
+        $rules["{$key}.fields.*"] = 'required|array';
+        $rules["{$key}.fields.*.name"] = 'present|nullable|string';
+        $rules["{$key}.fields.*.value"] = 'present|nullable|string';
+        $rules["{$key}.fields.*.inline"] = 'sometimes|boolean:strict';
+
+        return $rules;
+    }
+
+    public function renderPayload(DiscordServer $server, Game $game, string $type, ?GameVersion $version = null, ?array $template = null): array
+    {
+        $config = $server->config;
+        $template ??= $type === 'new_game' ? $config?->new_game_embed : $config?->update_embed;
+        if ($template === []) {
+            $template = null;
+        }
+        $payload = [];
+        if ($config?->notification_format === 'custom') {
+            $payload['content'] = $this->renderText($config->formatNotification($game, $type), $game, $type, $version, $server);
+        }
+        if ($template === null && $config?->notification_format !== 'custom') {
+            $template = $type === 'new_game' ? $this->getDefaultNewGameEmbed() : $this->getDefaultUpdateEmbed();
+            if ($config && ! $config->include_thumbnail) {
+                unset($template['thumbnail']);
+            }
+            if ($type === 'new_game' && $config && ! $config->include_game_description) {
+                unset($template['description']);
+            } elseif ($type === 'update' && $config?->include_game_description) {
+                $template['description'] .= "\n\n{game.description}";
+            }
+            if ($config?->notification_format === 'detailed') {
+                $template['fields'][] = ['name' => 'Engine', 'value' => '{game.engine}', 'inline' => true];
+                $template['fields'][] = ['name' => 'Tags', 'value' => '{game.tags}', 'inline' => false];
+            }
+            if ($config?->include_ratings) {
+                $template['fields'][] = ['name' => 'Rating', 'value' => '{game.rating} ({game.rating_count} ratings)', 'inline' => true];
+            }
+        }
+        if ($template !== null) {
+            $payload['embeds'] = [$this->renderEmbed($template, $game, $type, $version, $server)];
+        }
+        if ($config?->ping_role_id) {
+            $payload['content'] = "<@&{$config->ping_role_id}>\n" . ($payload['content'] ?? '');
+        }
+        if (isset($payload['content'])) {
+            $payload['content'] = mb_strimwidth(trim($payload['content']), 0, 2000, '…');
+        }
+        if (empty($payload['content']) && empty($payload['embeds'])) {
+            $payload['content'] = $this->renderText('{game.name}: {game.url}', $game, $type, $version, $server);
+        }
+
+        return $payload;
+    }
 
     public function renderEmbed(
         array $template,
@@ -20,6 +85,7 @@ class DiscordEmbedRendererService
         ?GameVersion $gameVersion = null,
         ?DiscordServer $server = null,
     ): array {
+        Validator::make(['embed' => $template], self::validationRules('embed'))->validate();
         $variables = $this->buildVariables($game, $notificationType, $gameVersion, $server);
 
         $embed = $this->substituteRecursive($template, $variables);
@@ -133,7 +199,12 @@ class DiscordEmbedRendererService
         if ($gameVersion) {
             $publishedAt = $gameVersion->published_at;
             $engStats = $gameVersion->languageStats()->where('iso_code', 'eng')->first();
-            $wordDiff = $engStats ? number_format($engStats->words) : null;
+            $previous = $game->gameVersions()->where('id', '!=', $gameVersion->id)
+                ->where(fn ($query) => $query->where('published_at', '<', $publishedAt)
+                    ->orWhere(fn ($query) => $query->where('published_at', $publishedAt)->where('id', '<', $gameVersion->id)))
+                ->orderByDesc('published_at')->orderByDesc('id')->first();
+            $previousStats = $previous?->languageStats()->where('iso_code', 'eng')->first();
+            $wordDiff = $engStats && $previousStats ? $engStats->words - $previousStats->words : null;
 
             $variables['{version.name}'] = $gameVersion->version ?? '';
             $variables['{version.published_at}'] = $publishedAt?->format('F j, Y') ?? '';
@@ -141,7 +212,7 @@ class DiscordEmbedRendererService
             $variables['{version.published_at_iso}'] = $publishedAt?->toIso8601String() ?? '';
             $variables['{version.devlog_url}'] = $gameVersion->devlog ?? '';
             $variables['{version.devlog_markdown}'] = $gameVersion->devlog ? '[Read devlog](' . $gameVersion->devlog . ')' : '';
-            $variables['{version.word_count_diff}'] = $wordDiff ? ('+' . $wordDiff) : '';
+            $variables['{version.word_count_diff}'] = $wordDiff === null ? '' : ($wordDiff > 0 ? '+' : '') . number_format($wordDiff);
         } else {
             $variables['{version.name}'] = '';
             $variables['{version.published_at}'] = '';
@@ -179,13 +250,18 @@ class DiscordEmbedRendererService
         $embed = $this->removeIncompleteFields($embed);
         $embed = $this->removeEmptyStrings($embed);
         $embed = $this->enforceDiscordLimits($embed);
+        foreach (['footer' => 'text', 'author' => 'name', 'image' => 'url', 'thumbnail' => 'url'] as $object => $required) {
+            if (empty($embed[$object][$required])) {
+                unset($embed[$object]);
+            }
+        }
 
         return $embed;
     }
 
     private function sanitizeEmbedUrls(array $embed): array
     {
-        foreach (['url', 'author.url', 'thumbnail.url', 'image.url', 'footer.icon_url'] as $path) {
+        foreach (['url', 'author.url', 'thumbnail.url', 'image.url', 'footer.icon_url', 'author.icon_url'] as $path) {
             $url = data_get($embed, $path);
             $parts = is_string($url) ? parse_url($url) : false;
             if (! is_array($parts)

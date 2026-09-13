@@ -96,6 +96,39 @@ class NotificationQueue extends Model
             ->orderBy('id');
     }
 
+    public function isDeliveryEnabled(): bool
+    {
+        if (($this->payload['type'] ?? null) === 'test') {
+            return $this->user()->exists();
+        }
+
+        $preference = match ($this->channel) {
+            'browser' => 'browser_notifications_enabled',
+            'discord' => 'discord_notifications_enabled',
+            default => null,
+        };
+
+        return $preference !== null
+            && UserNotificationPreferences::where('user_id', $this->user_id)->where($preference, true)->exists()
+            && $this->game()->where('is_visible', true)->where('is_paid', false)->exists()
+            && UserGameProgress::where('user_id', $this->user_id)->where('game_id', $this->game_id)->where('receive_updates', true)->exists();
+    }
+
+    public function ownedClaim(): Builder
+    {
+        return static::whereKey($this->id)->where('status', 'processing')->where('batch_key', $this->batch_key);
+    }
+
+    public function cancelDelivery(): void
+    {
+        $this->ownedClaim()->update([
+            'status' => 'failed',
+            'processed_at' => now(),
+            'batch_key' => null,
+            'error' => 'notification_no_longer_enabled',
+        ]);
+    }
+
     public function prunable(): Builder
     {
         return static::query()->whereIn('status', ['sent', 'failed'])->where('updated_at', '<=', now()->subDays(30));

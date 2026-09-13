@@ -39,6 +39,8 @@ class PushSubscriptionController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
+        $request->session()->put('push_subscription_endpoint', $request->input('subscription.endpoint'));
+
         $existingSubscription = PushSubscription::where('endpoint', $request->input('subscription.endpoint'))->first();
 
         if ($existingSubscription) {

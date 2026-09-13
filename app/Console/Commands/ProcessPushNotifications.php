@@ -140,6 +140,10 @@ class ProcessPushNotifications extends Command
 
     private function processDigestNotifications(Collection $notifications, Collection $subscriptions): bool
     {
+        $notifications = $notifications->filter(fn (NotificationQueue $notification): bool => $this->canDeliver($notification));
+        if ($notifications->isEmpty()) {
+            return false;
+        }
         $first = $notifications->first();
         $digestType = $first->user->notificationPreferences->notification_digest;
         $games = $notifications->map(fn (NotificationQueue $notification): array => [
@@ -152,6 +156,7 @@ class ProcessPushNotifications extends Command
         $result = $this->notificationService->sendPushNotifications($subscriptions, [
             'title' => $digestType === 'daily' ? 'Daily Game Updates' : 'Weekly Game Updates',
             'body' => $games->count() . ' games you follow have been updated.',
+            'tag' => 'game-digest-' . $digestType . '-' . now()->toDateString(),
             'data' => ['url' => route('dashboard'), 'digest' => true, 'games' => $games->values()->all()],
         ]);
 
@@ -170,6 +175,9 @@ class ProcessPushNotifications extends Command
 
     private function processIndividualNotification(NotificationQueue $notification, Collection $subscriptions): bool
     {
+        if (! $this->canDeliver($notification)) {
+            return false;
+        }
         $result = $this->notificationService->sendPushNotifications($subscriptions, $notification->payload);
         if ($result['sent'] > 0) {
             $this->markSent($notification, ['digest' => false]);
@@ -186,20 +194,24 @@ class ProcessPushNotifications extends Command
 
     private function markSent(NotificationQueue $notification, array $metaData): void
     {
-        $notification->update(['status' => 'sent', 'processed_at' => now(), 'error' => null, 'batch_key' => null]);
-        NotificationHistory::record([
-            'user_id' => $notification->user_id,
-            'game_id' => $notification->game_id,
-            'game_version_id' => $notification->game_version_id,
-            'type' => 'browser',
-            'success' => true,
-            'meta_data' => $metaData,
-        ]);
+        DB::transaction(function () use ($notification, $metaData): void {
+            if (! $notification->ownedClaim()->update(['status' => 'sent', 'processed_at' => now(), 'error' => null, 'batch_key' => null])) {
+                return;
+            }
+            NotificationHistory::record([
+                'user_id' => $notification->user_id,
+                'game_id' => $notification->game_id,
+                'game_version_id' => $notification->game_version_id,
+                'type' => 'browser',
+                'success' => true,
+                'meta_data' => $metaData,
+            ]);
+        });
     }
 
     private function releaseBlocked(NotificationQueue $notification): void
     {
-        $notification->update([
+        $notification->ownedClaim()->update([
             'status' => 'pending',
             'processed_at' => null,
             'error' => 'push_setup_required',
@@ -216,7 +228,7 @@ class ProcessPushNotifications extends Command
     {
         $attempts = $notification->attempts + 1;
         $terminal = $attempts >= NotificationQueue::MAX_ATTEMPTS;
-        $notification->update([
+        $notification->ownedClaim()->update([
             'status' => $terminal ? 'failed' : 'pending',
             'attempts' => $attempts,
             'scheduled_at' => $terminal ? $notification->scheduled_at : now()->addMinutes(NotificationQueue::BACKOFF_MINUTES[$attempts - 1]),
@@ -229,6 +241,20 @@ class ProcessPushNotifications extends Command
     private function resultError(array $result): string
     {
         return $result['errors'][0] ?? 'push_delivery_failed';
+    }
+
+    private function canDeliver(NotificationQueue $notification): bool
+    {
+        if (! $notification->ownedClaim()->exists()) {
+            return false;
+        }
+        if (! $notification->isDeliveryEnabled()) {
+            $notification->cancelDelivery();
+
+            return false;
+        }
+
+        return true;
     }
 
     private function logPerformanceMetrics(float $startTime, int $startMemory, int $notificationsProcessed, int $successCount, int $failedCount): void

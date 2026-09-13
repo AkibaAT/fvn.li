@@ -12,6 +12,7 @@ use App\Models\Rating;
 use App\Models\ReviewReport;
 use App\Models\SocialAccount;
 use App\Models\User;
+use App\Models\UserGameProgress;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 
@@ -89,7 +90,9 @@ it('claims pending Discord notifications and formats bot payloads', function () 
         'user_id' => $subscriber->id,
         'provider_id' => '123456789012345678',
     ]);
-    $game = Game::factory()->create(['name' => 'Discord VN']);
+    $game = Game::factory()->create(['name' => 'Discord VN', 'is_visible' => true, 'is_paid' => false]);
+    $subscriber->notificationPreferences()->create(['discord_notifications_enabled' => true]);
+    UserGameProgress::updateOrCreate(['user_id' => $subscriber->id, 'game_id' => $game->id], ['receive_updates' => true]);
     $version = latestGameVersionFor($game, ['version' => '2.0']);
     $notification = NotificationQueue::create([
         'user_id' => $subscriber->id,
@@ -134,7 +137,9 @@ it('recovers stale processing Discord notifications into a new server-generated 
         'user_id' => $subscriber->id,
         'provider_id' => '123456789012345679',
     ]);
-    $game = Game::factory()->create(['name' => 'SQL Safe VN']);
+    $game = Game::factory()->create(['name' => 'SQL Safe VN', 'is_visible' => true, 'is_paid' => false]);
+    $subscriber->notificationPreferences()->create(['discord_notifications_enabled' => true]);
+    UserGameProgress::updateOrCreate(['user_id' => $subscriber->id, 'game_id' => $game->id], ['receive_updates' => true]);
     $version = latestGameVersionFor($game);
     $notification = NotificationQueue::create([
         'user_id' => $subscriber->id,
@@ -263,7 +268,7 @@ it('backs off retryable DM failures and fails them at the attempt limit', functi
         ->and($notification->fresh()->attempts)->toBe(1)
         ->and($notification->fresh()->scheduled_at->between(now()->addMinutes(14), now()->addMinutes(16)))->toBeTrue();
 
-    $notification->update(['status' => 'processing', 'batch_key' => 'final-batch', 'attempts' => 2]);
+    $notification->refresh()->update(['status' => 'processing', 'batch_key' => 'final-batch', 'attempts' => 2]);
     $this->postJson('/api/discord-notifications/status', [
         'batch_key' => 'final-batch',
         'notifications' => [[
@@ -598,3 +603,53 @@ it('ignores channel announcement acks with a mismatched batch key', function () 
 
     expect($announcement->fresh()->status)->toBe('processing');
 });
+
+it('does not claim queued Discord updates after the user opts out', function (string $optOut) {
+    authenticateDiscordBot();
+    $user = User::factory()->create();
+    SocialAccount::factory()->discord()->create(['user_id' => $user->id, 'provider_id' => '123456789012345678']);
+    $user->notificationPreferences()->create(['discord_notifications_enabled' => $optOut !== 'channel']);
+    $game = Game::factory()->create(['is_visible' => true, 'is_paid' => false]);
+    $version = latestGameVersionFor($game);
+    UserGameProgress::updateOrCreate(['user_id' => $user->id, 'game_id' => $game->id], ['receive_updates' => $optOut !== 'game']);
+    $notification = NotificationQueue::create([
+        'user_id' => $user->id, 'game_id' => $game->id, 'game_version_id' => $version->id,
+        'channel' => 'discord', 'status' => 'pending', 'scheduled_at' => now()->subMinute(),
+    ]);
+    $this->getJson('/api/discord-notifications/pending')->assertOk()->assertJsonPath('notifications', []);
+    expect($notification->fresh()->status)->toBe('failed')->and($notification->fresh()->batch_key)->toBeNull();
+})->with(['channel', 'game']);
+
+it('counts only actual admin alert failures and ignores stale or repeated failure acknowledgements', function (string $kind) {
+    authenticateDiscordBot();
+    $item = $kind === 'addition-requests'
+        ? AdditionRequest::factory()->create(['status' => 'pending'])
+        : ReviewReport::create(['rating_id' => Rating::create(['game_id' => Game::factory()->create()->id, 'user_id' => User::factory()->create()->id, 'rating' => 4, 'review' => 'Review', 'source_platform' => 'fvn_li', 'published_at' => now()])->id, 'reporter_id' => User::factory()->create()->id, 'reason' => 'spoilers', 'status' => 'pending']);
+    $url = "/api/discord-notifications/{$kind}";
+    $firstClaim = $this->getJson($url)->assertOk()->json('notifications.0.claim_token');
+    expect($item->fresh()->discord_notify_attempts)->toBe(0);
+    $this->travel(16)->minutes();
+    $claim = $this->getJson($url)->assertOk()->assertJsonCount(1, 'notifications')->json('notifications.0.claim_token');
+    expect($item->fresh()->discord_notify_attempts)->toBe(0);
+    $this->postJson("{$url}/ack", ['ids' => [], 'failures' => [['id' => $item->id, 'claim_token' => $firstClaim, 'retryable' => true]]])->assertOk();
+    expect($item->fresh()->discord_notify_attempts)->toBe(0);
+    for ($attempt = 1; $attempt <= 3; $attempt++) {
+        $payload = ['ids' => [], 'failures' => [['id' => $item->id, 'claim_token' => $claim, 'retryable' => true]]];
+        $this->postJson("{$url}/ack", $payload)->assertOk();
+        $this->postJson("{$url}/ack", $payload)->assertOk();
+        expect($item->fresh()->discord_notify_attempts)->toBe($attempt);
+        $this->getJson($url)->assertOk()->assertJsonCount(0, 'notifications');
+        $this->travel(16)->minutes();
+        $next = $this->getJson($url)->assertOk()->assertJsonCount($attempt < 3 ? 1 : 0, 'notifications');
+        $claim = $next->json('notifications.0.claim_token');
+    }
+})->with(['addition-requests', 'review-reports']);
+
+it('preserves established DM authorization on transient or unknown test failures', function (mixed $code, bool $retryable, string $status) {
+    authenticateDiscordBot();
+    $user = User::factory()->create();
+    SocialAccount::factory()->discord()->for($user)->create(['provider_id' => '123456789']);
+    $preferences = $user->notificationPreferences()->create(['discord_dm_status' => 'deliverable']);
+    $this->postJson('/api/discord-notifications/dm-verify', ['discord_user_id' => '123456789', 'success' => false, 'error_code' => $code, 'retryable' => $retryable])->assertOk();
+    expect($preferences->fresh()->discord_dm_status)->toBe($status);
+})->with([[503, true, 'deliverable'], [null, false, 'deliverable'], ['50007', false, 'undeliverable']]);

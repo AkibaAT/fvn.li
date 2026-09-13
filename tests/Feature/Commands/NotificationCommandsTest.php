@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Console\Commands\ProcessPushNotifications;
+use App\Console\Commands\QueueGameUpdateNotifications;
 use App\Exceptions\WebPushConfigurationException;
 use App\Models\DiscordChannelAnnouncement;
 use App\Models\Game;
@@ -278,9 +280,8 @@ it('tolerates duplicate notification history records', function () {
 });
 
 it('processes individual browser push notifications and records history', function () {
-    $user = User::factory()->create();
-    pushSubscriptionFor($user);
     [$game, $version] = queueCommandGame();
+    $user = notificationUserFor($game);
     $notification = NotificationQueue::create([
         'user_id' => $user->id,
         'game_id' => $game->id,
@@ -369,9 +370,8 @@ it('aborts before claiming when VAPID configuration is invalid', function () {
 });
 
 it('backs off retryable browser failures and fails at the attempt limit', function () {
-    $user = User::factory()->create();
-    pushSubscriptionFor($user);
     [$game, $version] = queueCommandGame();
+    $user = notificationUserFor($game);
     $notification = NotificationQueue::create([
         'user_id' => $user->id,
         'game_id' => $game->id,
@@ -418,6 +418,7 @@ it('combines daily digest browser notifications for a user', function () {
     [$secondGame, $secondVersion] = queueCommandGame(['version' => '4.0']);
 
     foreach ([[$firstGame, $firstVersion], [$secondGame, $secondVersion]] as [$game, $version]) {
+        UserGameProgress::factory()->create(['user_id' => $user->id, 'game_id' => $game->id, 'game_version_id' => $version->id, 'receive_updates' => true]);
         NotificationQueue::create([
             'user_id' => $user->id,
             'game_id' => $game->id,
@@ -457,6 +458,7 @@ it('uses digest formatting even when only one digest row is due', function () {
     ]);
     pushSubscriptionFor($user);
     [$game, $version] = queueCommandGame();
+    UserGameProgress::updateOrCreate(['user_id' => $user->id, 'game_id' => $game->id], ['receive_updates' => true]);
     NotificationQueue::create([
         'user_id' => $user->id,
         'game_id' => $game->id,
@@ -478,3 +480,59 @@ it('uses digest formatting even when only one digest row is due', function () {
     $this->artisan('notifications:process-push')->assertSuccessful();
     expect(NotificationHistory::firstOrFail()->meta_data)->toBe(['digest' => true, 'digest_type' => 'daily']);
 });
+
+it('uses the next upcoming daily digest time', function (string $now, string $expected) {
+    Carbon::setTestNow($now);
+    try {
+        $command = app(QueueGameUpdateNotifications::class);
+        $time = (new ReflectionMethod($command, 'calculateScheduledTime'))->invoke($command, 'daily');
+        expect($time->toDateTimeString())->toBe($expected);
+    } finally {
+        Carbon::setTestNow();
+    }
+})->with([
+    ['2026-09-06 08:00:00', '2026-09-06 09:00:00'],
+    ['2026-09-06 09:00:00', '2026-09-07 09:00:00'],
+    ['2026-09-06 22:00:00', '2026-09-07 09:00:00'],
+]);
+
+it('drops queued browser updates after channel or game opt-outs including digests', function (string $optOut, string $digest) {
+    [$game, $version] = queueCommandGame();
+    $user = notificationUserFor($game, ['notification_digest' => $digest]);
+    $notification = NotificationQueue::create([
+        'user_id' => $user->id, 'game_id' => $game->id, 'game_version_id' => $version->id,
+        'channel' => 'browser', 'status' => 'pending', 'scheduled_at' => now()->subMinute(), 'payload' => ['title' => 'Update'],
+    ]);
+    if ($optOut === 'channel') {
+        $user->notificationPreferences()->update(['browser_notifications_enabled' => false]);
+    } else {
+        UserGameProgress::where('user_id', $user->id)->update(['receive_updates' => false]);
+    }
+    $service = Mockery::mock(NotificationService::class);
+    $service->shouldReceive('assertConfigured')->once();
+    $service->shouldNotReceive('sendPushNotifications');
+    app()->instance(NotificationService::class, $service);
+    $this->artisan('notifications:process-push')->assertSuccessful();
+    expect($notification->fresh()->status)->toBe('failed')
+        ->and($notification->fresh()->error)->toBe('notification_no_longer_enabled')
+        ->and(NotificationHistory::count())->toBe(0);
+})->with(['channel', 'game'])->with(['asap', 'daily']);
+
+it('does not let expired push claims change a newer lease or write history', function (string $operation) {
+    [$game, $version] = queueCommandGame();
+    $user = notificationUserFor($game);
+    $notification = NotificationQueue::create([
+        'user_id' => $user->id, 'game_id' => $game->id, 'game_version_id' => $version->id,
+        'channel' => 'browser', 'status' => 'processing', 'scheduled_at' => now(), 'batch_key' => 'old-lease',
+    ]);
+    NotificationQueue::whereKey($notification->id)->update(['batch_key' => 'new-lease', 'attempts' => 1]);
+    $command = app(ProcessPushNotifications::class);
+    $arguments = match ($operation) {
+        'markSent' => [[]], 'markRetryableFailure' => ['failure'], default => []
+    };
+    (new ReflectionMethod($command, $operation))->invoke($command, $notification, ...$arguments);
+    expect($notification->fresh()->batch_key)->toBe('new-lease')
+        ->and($notification->fresh()->status)->toBe('processing')
+        ->and($notification->fresh()->attempts)->toBe(1)
+        ->and(NotificationHistory::count())->toBe(0);
+})->with(['markSent', 'markRetryableFailure', 'releaseBlocked']);

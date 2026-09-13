@@ -5,8 +5,10 @@ declare(strict_types=1);
 use App\Models\DiscordServer;
 use App\Models\DiscordServerGameOverride;
 use App\Models\Game;
+use App\Models\Tag;
 use App\Services\Discord\DiscordRoutingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Validator;
 
 uses(RefreshDatabase::class);
 
@@ -369,14 +371,13 @@ describe('DiscordRoutingService', function () {
             ->and($result->getTargetChannels()[0]['channel_id'])->toBe('222222222');
     });
 
-    test('allows NSFW routing when channel metadata is unavailable', function () {
+    test('rejects routing when channel membership is unknown', function () {
         $this->server->update(['available_channels' => null]);
         $nsfwGame = Game::factory()->create(['is_nsfw' => true]);
 
         $result = $this->service->evaluateRoutes($this->server->fresh(), $nsfwGame, 'update');
 
-        expect($result->getTargetChannels())->toHaveCount(1)
-            ->and($result->getTargetChannels()[0]['channel_id'])->toBe('111111111');
+        expect($result->getTargetChannels())->toHaveCount(0);
     });
 
     test('does not route nsfw games to a non-nsfw override channel', function () {
@@ -415,3 +416,35 @@ describe('DiscordRoutingService', function () {
             ->and($result->getTargetChannels()[0]['channel_id'])->toBe('override_channel');
     });
 });
+
+it('evaluates tag arrays and legacy scalar enum membership without type errors', function (string $field, string $operator, mixed $value, bool $matches) {
+    $this->game->tags()->attach(Tag::firstOrCreate(['name' => 'Romance'], ['slug' => 'romance'])->id);
+    $this->server->config->update(['routing_rules' => [[
+        'enabled' => true, 'conditions' => [['field' => $field, 'operator' => $operator, 'value' => $value]],
+        'action' => ['type' => 'ignore'],
+    ]]]);
+    expect($this->service->evaluateRoutes($this->server, $this->game, 'update')->shouldSkip)->toBe($matches);
+})->with([
+    ['tags', 'contains', ['Romance'], true],
+    ['tags', 'contains', ['Romance', 'Horror'], false],
+    ['tags', 'contains_any', ['Romance', 'Horror'], true],
+    ['tags', 'not_contains', ['Horror'], true],
+    ['status', 'in', ['Released'], true],
+    ['status', 'in', 'Released', true],
+    ['status', 'equals', ['Released'], false],
+]);
+
+it('validates nested routing conditions before saving them', function (array $condition, bool $valid) {
+    $validator = Validator::make(['routing_rules' => [[
+        'id' => 'rule-1', 'name' => 'Rule', 'enabled' => true, 'priority' => 1,
+        'conditions' => [$condition], 'action' => ['type' => 'ignore'],
+    ]]], DiscordRoutingService::routingValidationRules($this->server));
+    expect($validator->passes())->toBe($valid);
+})->with([
+    [['field' => 'tags', 'operator' => 'contains', 'value' => ['Romance']], true],
+    [['field' => 'status', 'operator' => 'in', 'value' => ['Released']], true],
+    [['field' => 'is_nsfw', 'operator' => 'equals', 'value' => false], true],
+    [['field' => 'tags', 'operator' => 'equals', 'value' => ['Romance']], false],
+    [['field' => 'status', 'operator' => 'in', 'value' => [['nested']]], false],
+    [['field' => 'unknown', 'operator' => 'equals', 'value' => 'x'], false],
+]);

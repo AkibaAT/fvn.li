@@ -7,7 +7,7 @@ const notificationApi = vi.hoisted(() => ({
 
 vi.mock('@/api/notifications', () => notificationApi);
 
-import { PushPermissionDeniedError, subscribeToPush, syncPushSubscription, unsubscribeFromPush } from './push';
+import { localPushSubscription, PushPermissionDeniedError, subscribeToPush, syncPushSubscription, unsubscribeFromPush } from './push';
 
 const json = { endpoint: 'https://push.example/subscription', keys: { p256dh: 'key', auth: 'auth' } };
 const subscription = {
@@ -26,7 +26,7 @@ beforeEach(() => {
     vi.stubGlobal('PushManager', class {});
     Object.defineProperty(navigator, 'serviceWorker', {
         configurable: true,
-        value: { ready: Promise.resolve({ pushManager }) },
+        value: { ready: Promise.resolve({ pushManager }), getRegistration: vi.fn(async () => ({ pushManager })) },
     });
     pushManager.getSubscription.mockResolvedValue(null);
     pushManager.subscribe.mockResolvedValue(subscription);
@@ -74,5 +74,29 @@ describe('browser push subscription lifecycle', () => {
         await expect(unsubscribeFromPush()).resolves.toBe(true);
         expect(notificationApi.destroyPushSubscription).toHaveBeenCalledWith(json);
         expect(subscription.unsubscribe).toHaveBeenCalled();
+    });
+
+    test.each(['logout', 'unsubscribe'])('%s waits for an in-flight account association', async (action) => {
+        let finishStore!: () => void;
+        notificationApi.storePushSubscription.mockImplementationOnce(
+            () =>
+                new Promise<void>((resolve) => {
+                    finishStore = resolve;
+                }),
+        );
+        pushManager.getSubscription.mockResolvedValue(subscription);
+        const syncing = syncPushSubscription();
+        await vi.waitFor(() => expect(notificationApi.storePushSubscription).toHaveBeenCalledOnce());
+        let finished = false;
+        const detaching = (action === 'logout' ? localPushSubscription() : unsubscribeFromPush()).then(() => {
+            finished = true;
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(finished).toBe(false);
+        expect(notificationApi.destroyPushSubscription).not.toHaveBeenCalled();
+        finishStore();
+        await Promise.all([syncing, detaching]);
+        expect(finished).toBe(true);
     });
 });

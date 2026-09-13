@@ -8,6 +8,7 @@ use App\Models\BugReportComment;
 use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Models\NotificationHistory;
 use App\Models\SocialAccount;
 use App\Models\Tag;
 use App\Models\User;
@@ -73,6 +74,9 @@ $game = Game::factory()->create([
     'description' => "Original summary {$suffix}",
     'full_description' => $originalDescription,
     'is_visible' => true,
+    'is_paid' => false,
+    'is_nsfw' => false,
+    'initially_published_at' => '2026-05-03T00:30:00Z',
     'status' => 'Published',
     'platform' => 'itch_io',
     'url' => [
@@ -137,14 +141,22 @@ $game = Game::factory()->create([
     ],
 ]);
 
-GameVersion::factory()->latest()->create([
+$version = GameVersion::factory()->latest()->create([
     'game_id' => $game->id,
     'version' => '1.0.0',
-    'published_at' => now()->subDays(2),
+    'published_at' => '2026-05-03T00:30:00Z',
     'is_windows' => true,
     'is_linux' => true,
     'is_mac' => true,
 ]);
+
+NotificationHistory::create([
+    'user_id' => $user->id,
+    'game_id' => $game->id,
+    'game_version_id' => $version->id,
+    'type' => 'browser',
+    'success' => true,
+])->forceFill(['created_at' => '2026-05-03 00:30:00'])->save();
 
 SocialAccount::factory()->for($user)->itchio()->create([
     'provider_data' => [
@@ -242,6 +254,7 @@ echo json_encode([
         'value' => $encryptedSessionId,
     ],
     'slug' => $game->slug,
+    'versionId' => $version->id,
     'bugReportId' => $bugReport->id,
     'additionRequestUrl' => $pendingRequest->game_url,
     'originalName' => $originalName,

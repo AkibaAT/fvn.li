@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Http;
 describe('Discord guild filtering', function () {
     test('empty embed previews use the notification type default', function () {
         $user = User::factory()->createQuietly(['is_admin' => true]);
+        SocialAccount::factory()->discord()->for($user)->create();
         $server = DiscordServer::factory()->create(['owner_user_id' => $user->id]);
         Game::factory()->create([
             'name' => 'Preview VN',
@@ -35,7 +36,9 @@ describe('Discord guild filtering', function () {
 
     test('test notifications queue a complete routable update payload', function () {
         $user = User::factory()->createQuietly(['is_admin' => true]);
+        SocialAccount::factory()->discord()->for($user)->create();
         $server = DiscordServer::factory()->create(['owner_user_id' => $user->id]);
+        $server->update(['available_channels' => [['id' => 'channel-123']]]);
         DiscordServerConfig::create([
             'discord_server_id' => $server->id,
             'notification_channel_id' => 'channel-123',
@@ -59,7 +62,7 @@ describe('Discord guild filtering', function () {
         );
 
         $response->assertOk()
-            ->assertJsonPath('notification.notification_type', 'update')
+            ->assertJsonPath('notification.notification_type', 'test')
             ->assertJsonPath('notification.channel_id', 'channel-123')
             ->assertJsonPath('notification.delivery_status', 'pending')
             ->assertJsonPath('notification.payload.embeds.0.title', 'Delivery Test VN')
@@ -132,8 +135,9 @@ describe('Discord guild filtering', function () {
             'is_active' => true,
         ]);
 
+        $secondServer = DiscordServer::factory()->create(['discord_server_id' => 'second-managed-guild', 'is_active' => true]);
         Http::fake([
-            'https://discord.com/api/v10/users/@me/guilds' => Http::response([[
+            'https://discord.com/api/v10/users/@me/guilds' => Http::response([['id' => 'second-managed-guild', 'name' => 'Second Guild', 'owner' => true, 'permissions' => '0'], [
                 'id' => 'managed-guild',
                 'name' => 'Managed Guild',
                 'owner' => false,
@@ -144,8 +148,9 @@ describe('Discord guild filtering', function () {
         $response = $this->actingAs($user)->getJson(route('browser-api.discord.guilds'));
 
         $response->assertOk()
-            ->assertJsonPath('guilds.0.id', 'managed-guild')
+            ->assertJsonPath('guilds.0.id', 'second-managed-guild')
             ->assertJsonPath('guilds.0.has_bot', true);
+        $this->assertDatabaseHas('discord_server_members', ['discord_server_id' => $secondServer->id, 'discord_user_id' => 'discord-admin', 'user_id' => $user->id, 'is_admin' => true]);
         $this->assertDatabaseHas('discord_server_members', [
             'discord_server_id' => $server->id,
             'discord_user_id' => 'discord-admin',
@@ -201,6 +206,7 @@ describe('Discord guild filtering', function () {
         ]);
         $server = DiscordServer::factory()->create([
             'discord_server_id' => 'former-managed-guild',
+            'owner_user_id' => $user->id,
             'is_active' => true,
         ]);
         DiscordServerMember::create([
@@ -230,11 +236,13 @@ describe('Discord guild filtering', function () {
             'user_id' => $user->id,
             'is_admin' => false,
         ]);
-        expect($user->can('update', $server))->toBeFalse();
+        expect($server->fresh()->owner_user_id)->toBeNull()
+            ->and($user->can('update', $server->fresh()))->toBeFalse();
     });
 
     test('roles endpoint fetches non-managed guild roles with the bot token', function () {
         $user = User::factory()->createQuietly(['is_admin' => true]);
+        SocialAccount::factory()->discord()->for($user)->create();
         $server = DiscordServer::factory()->create([
             'owner_user_id' => $user->id,
             'discord_server_id' => 'guild-123',
@@ -315,8 +323,9 @@ describe('Discord guild filtering', function () {
             ],
         ]);
 
+        $secondServer = DiscordServer::factory()->create(['discord_server_id' => 'second-managed-guild', 'is_active' => true]);
         Http::fake([
-            'https://discord.com/api/v10/users/@me/guilds' => Http::response([[
+            'https://discord.com/api/v10/users/@me/guilds' => Http::response([['id' => 'second-managed-guild', 'name' => 'Second Guild', 'owner' => true, 'permissions' => '0'], [
                 'id' => 'managed-guild',
                 'name' => 'Managed Guild',
                 'owner' => false,
@@ -390,4 +399,50 @@ describe('Discord guild filtering', function () {
             'discord_server_id' => 'stale-install-guild',
         ]);
     });
+});
+
+test('refreshing one Discord identity preserves another linked identity server grant', function () {
+    $user = User::factory()->create(['is_admin' => true]);
+    $user->socialAccounts()->create(['provider_name' => 'discord', 'provider_id' => 'first-linked', 'token' => 'first-token']);
+    $user->socialAccounts()->create(['provider_name' => 'discord', 'provider_id' => 'second-linked', 'token' => 'second-token']);
+    $server = DiscordServer::factory()->create(['owner_user_id' => $user->id, 'is_active' => true]);
+    DiscordServerMember::create(['discord_server_id' => $server->id, 'user_id' => $user->id, 'discord_user_id' => 'second-linked', 'discord_username' => $user->name, 'is_admin' => true]);
+    Http::fake(['https://discord.com/api/v10/users/@me/guilds' => Http::sequence()->push([])->push([['id' => $server->discord_server_id, 'name' => 'Second identity guild', 'owner' => true, 'permissions' => '8']])]);
+
+    $this->actingAs($user)->getJson(route('browser-api.discord.guilds'))->assertOk();
+    expect($server->fresh()->owner_user_id)->toBe($user->id)
+        ->and($user->can('update', $server->fresh()))->toBeTrue();
+});
+
+test('bot installation uses the linked Discord identity that manages the guild', function () {
+    $user = User::factory()->create(['is_admin' => true]);
+    $user->socialAccounts()->create(['provider_name' => 'discord', 'provider_id' => 'first-linked', 'token' => 'first-token']);
+    $user->socialAccounts()->create(['provider_name' => 'discord', 'provider_id' => 'second-linked', 'token' => 'second-token']);
+    $guild = ['id' => 'second-account-guild', 'name' => 'Second account guild', 'owner' => true, 'permissions' => '8'];
+    Http::fake(fn ($request) => Http::response($request->hasHeader('Authorization', 'Bearer second-token') ? [$guild] : [], 200));
+
+    $this->actingAs($user)->get(route('dashboard.discord.install', ['guild' => $guild['id']]))->assertRedirect();
+    $install = session('discord_bot_install');
+    expect($install['guild_id'])->toBe($guild['id']);
+    $this->get(route('dashboard.discord.install.callback', ['state' => $install['state'], 'guild_id' => $guild['id']]))->assertRedirect();
+    $server = DiscordServer::where('discord_server_id', $guild['id'])->firstOrFail();
+    expect($server->members()->where('discord_user_id', 'second-linked')->where('is_admin', true)->exists())->toBeTrue()
+        ->and($server->members()->where('discord_user_id', 'first-linked')->exists())->toBeFalse();
+});
+
+test('all embed and destination write boundaries reject invalid inputs', function () {
+    $user = User::factory()->createQuietly(['is_admin' => true]);
+    SocialAccount::factory()->discord()->for($user)->create();
+    $server = DiscordServer::factory()->configured()->create(['owner_user_id' => $user->id, 'available_channels' => [['id' => 'owned']]]);
+    $game = Game::factory()->create();
+    $this->actingAs($user);
+    $base = "/browser-api/discord/servers/{$server->id}";
+    $this->putJson("{$base}/config", ['notification_channel_id' => 'foreign'])->assertUnprocessable()->assertJsonValidationErrors('notification_channel_id');
+    $this->postJson("{$base}/overrides", ['game_id' => $game->id, 'channel_id' => 'foreign'])->assertUnprocessable()->assertJsonValidationErrors('channel_id');
+    $this->putJson("{$base}/config", ['new_game_embed' => ['title' => ['wrong']]])->assertUnprocessable()->assertJsonValidationErrors('new_game_embed.title');
+    $this->postJson("{$base}/preview-embed", ['embed_template' => ['footer' => ['text' => ['wrong']]]])->assertUnprocessable()->assertJsonValidationErrors('embed_template.footer.text');
+    $this->putJson("{$base}/config", ['new_game_embed' => []])->assertOk()->assertJsonPath('config.new_game_embed', []);
+    $this->putJson("{$base}/config", ['notification_channel_id' => 'owned'])->assertOk();
+    $this->putJson("{$base}/config", ['new_game_embed' => ['fields' => [['name' => "\u{200b}", 'value' => "\u{200b}", 'inline' => false]]]])
+        ->assertOk()->assertJsonCount(1, 'config.new_game_embed.fields');
 });

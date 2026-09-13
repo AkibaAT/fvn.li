@@ -35,12 +35,14 @@ class DiscordNotificationHistory extends Model
         'delivery_mode',
         'payload_hash',
         'attempts',
+        'retry_at',
     ];
 
     protected $casts = [
         'sent_at' => 'datetime',
         'payload' => 'array',
         'attempts' => 'integer',
+        'retry_at' => 'datetime',
     ];
 
     public function discordServer(): BelongsTo
@@ -80,7 +82,8 @@ class DiscordNotificationHistory extends Model
 
     public function scopeClaimable(Builder $query): Builder
     {
-        return $query
+        return $query->where('attempts', '<', self::MAX_ATTEMPTS)
+            ->where(fn (Builder $query) => $query->whereNull('retry_at')->orWhere('retry_at', '<=', now()))
             ->where(function (Builder $query): void {
                 $query->where('delivery_status', 'pending')
                     ->orWhere(function (Builder $query): void {

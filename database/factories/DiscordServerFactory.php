@@ -22,6 +22,7 @@ class DiscordServerFactory extends Factory
             'discord_server_name' => fake()->company(),
             'owner_user_id' => User::factory(),
             'is_active' => true,
+            'bot_present' => true,
             'bot_joined_at' => now(),
             'available_channels' => [
                 ['id' => (string) fake()->randomNumber(8), 'name' => 'general', 'type' => 0],

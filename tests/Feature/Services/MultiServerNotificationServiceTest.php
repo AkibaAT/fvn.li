@@ -22,6 +22,7 @@ function discordServerWithConfig(array $serverAttributes = [], array $configAttr
         'discord_server_name' => fake()->company(),
         'is_active' => true,
         'bot_joined_at' => now(),
+        'bot_present' => true,
     ], $serverAttributes));
 
     DiscordServerConfig::create(array_merge([
@@ -32,6 +33,8 @@ function discordServerWithConfig(array $serverAttributes = [], array $configAttr
         'include_thumbnail' => false,
         'include_ratings' => false,
     ], $configAttributes));
+
+    $server->update(['available_channels' => [['id' => $server->config->notification_channel_id, 'nsfw' => true]]]);
 
     return $server->fresh('config');
 }

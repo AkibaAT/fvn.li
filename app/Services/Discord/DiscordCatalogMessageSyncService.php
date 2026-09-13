@@ -11,6 +11,22 @@ use Illuminate\Support\Facades\DB;
 
 class DiscordCatalogMessageSyncService
 {
+    public function trackMessage(int $serverId, int $gameId, string $channelId, ?string $messageId, ?string $hash = null): void
+    {
+        $identity = ['discord_server_id' => $serverId, 'game_id' => $gameId];
+        $values = ['discord_message_id' => $messageId, 'discord_payload_hash' => $hash, 'updated_at' => now()];
+        DB::table('discord_catalog_messages')->upsert(
+            [$identity + ['discord_channel_id' => $channelId, 'created_at' => now()] + $values],
+            ['discord_server_id', 'game_id', 'discord_channel_id'], array_keys($values),
+        );
+
+        // Keep the legacy API's primary destination without replacing it with each additional channel.
+        DB::table('discord_server_games')->insertOrIgnore($identity + ['created_at' => now(), 'updated_at' => now()]);
+        DB::table('discord_server_games')->where($identity)
+            ->where(fn ($query) => $query->whereNull('discord_channel_id')->orWhere('discord_channel_id', $channelId))
+            ->update($values + ['discord_channel_id' => $channelId, 'discord_updated_at' => now()]);
+    }
+
     public function queueForGame(Game|int $game): int
     {
         $game = $game instanceof Game ? $game : Game::find($game);
@@ -18,8 +34,16 @@ class DiscordCatalogMessageSyncService
             return 0;
         }
 
+        if (! $game->is_visible) {
+            DiscordNotificationHistory::where('game_id', $game->id)
+                ->whereIn('delivery_status', ['pending', 'processing'])
+                ->update(['delivery_status' => 'failed', 'batch_key' => null, 'error_message' => 'game_hidden']);
+
+            return 0;
+        }
+
         $game->loadMissing(['tags', 'sourceLanguage', 'latestVersion']);
-        $metadataRows = DB::table('discord_server_games')
+        $metadataRows = DB::table('discord_catalog_messages')
             ->where('game_id', $game->id)
             ->whereNotNull('discord_channel_id')
             ->get();
@@ -29,21 +53,26 @@ class DiscordCatalogMessageSyncService
             $server = DiscordServer::with(['config', 'gameOverrides'])
                 ->whereKey($metadata->discord_server_id)
                 ->where('is_active', true)
+                ->where('bot_present', true)
                 ->first();
             if (! $server) {
                 continue;
             }
 
             $override = $server->gameOverrides->firstWhere('game_id', $game->id);
-            if ($override?->is_ignored) {
+            $routing = app(DiscordRoutingService::class)->evaluateRoutes($server, $game, 'new_game', $game->latestVersion);
+            if ($routing->shouldSkip || ! isset($routing->targetChannels[$metadata->discord_channel_id])) {
+                DiscordNotificationHistory::where('discord_server_id', $server->id)->where('game_id', $game->id)
+                    ->where('channel_id', $metadata->discord_channel_id)
+                    ->where('notification_type', 'new_game')->whereIn('delivery_status', ['pending', 'processing'])
+                    ->update(['delivery_status' => 'failed', 'batch_key' => null, 'error_message' => 'catalog_route_changed']);
+
                 continue;
             }
 
             $renderer = app(DiscordEmbedRendererService::class);
-            $template = $override?->new_game_embed
-                ?? $server->config?->new_game_embed
-                ?? $renderer->getDefaultNewGameEmbed();
-            $payload = ['embeds' => [$renderer->renderEmbed($template, $game, 'new_game', $game->latestVersion, $server)]];
+            $template = $routing->targetChannels[$metadata->discord_channel_id]['embed_override'] ?? $override?->new_game_embed;
+            $payload = $renderer->renderPayload($server, $game, 'new_game', $game->latestVersion, $template);
             $hash = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
             if ($metadata->discord_message_id && $metadata->discord_payload_hash === $hash) {
@@ -55,6 +84,7 @@ class DiscordCatalogMessageSyncService
             $alreadyQueued = DiscordNotificationHistory::query()
                 ->where('discord_server_id', $server->id)
                 ->where('game_id', $game->id)
+                ->where('channel_id', $metadata->discord_channel_id)
                 ->where('delivery_mode', $deliveryMode)
                 ->where('payload_hash', $hash)
                 ->whereIn('delivery_status', ['pending', 'processing'])
@@ -84,7 +114,7 @@ class DiscordCatalogMessageSyncService
     public function queueAll(): int
     {
         $queued = 0;
-        DB::table('discord_server_games')
+        DB::table('discord_catalog_messages')
             ->whereNotNull('discord_channel_id')
             ->distinct()
             ->orderBy('game_id')

@@ -243,6 +243,7 @@ class QueueGameUpdateNotifications extends Command
                 'version' => $game->latestVersion->version,
             ],
             'icon' => $game->getThumbnailUrl('small'),
+            'tag' => "game-update-{$gameId}-{$gameVersionId}",
         ];
 
         return NotificationQueue::query()->insertOrIgnore([
@@ -267,7 +268,9 @@ class QueueGameUpdateNotifications extends Command
                 return $now;
 
             case 'daily':
-                return $now->copy()->addDay()->setHour(9)->setMinute(0)->setSecond(0);
+                $scheduledAt = $now->copy()->setTime(9, 0);
+
+                return $scheduledAt->lte($now) ? $scheduledAt->addDay() : $scheduledAt;
 
             case 'weekly':
                 $scheduledAt = $now->copy()->startOfDay();

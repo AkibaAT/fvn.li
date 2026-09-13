@@ -12,6 +12,7 @@ use App\Models\Game;
 use App\Models\Language;
 use App\Models\SocialAccount;
 use App\Models\Tag;
+use App\Models\User;
 use App\Services\Discord\DiscordEmbedRendererService;
 use App\Services\Discord\DiscordRoutingService;
 use Exception;
@@ -50,7 +51,7 @@ class DiscordConfigController extends Controller
         $this->authorize('view', $server);
 
         $server->load($this->getServerRelations([
-            'notificationHistory' => fn ($q) => $q->latest()->limit(50),
+            'notificationHistory' => fn ($q) => $q->with('game:id,name,slug')->latest()->limit(50),
         ]));
 
         return response()->json([
@@ -61,51 +62,47 @@ class DiscordConfigController extends Controller
     public function guilds(Request $request): JsonResponse
     {
         $user = $request->user();
-        $discordAccount = SocialAccount::where('user_id', $user->id)
-            ->where('provider_name', 'discord')
-            ->first();
-
-        if (! $discordAccount) {
+        $discordAccounts = $user->socialAccounts()->where('provider_name', 'discord')->get();
+        if ($discordAccounts->isEmpty()) {
             return response()->json(['guilds' => [], 'has_discord' => false]);
         }
 
-        $managedGuildsLoadedFromDiscord = false;
-        $managedGuilds = $this->getManagedGuildsForDiscordAccount(
-            $discordAccount,
-            $managedGuildsLoadedFromDiscord,
-        );
+        $managedGuilds = collect();
+        $allAccountsFresh = true;
+        foreach ($discordAccounts as $discordAccount) {
+            $loadedFromDiscord = false;
+            $accountGuilds = $this->getManagedGuildsForDiscordAccount($discordAccount, $loadedFromDiscord);
+            $managedGuilds = $managedGuilds->merge($accountGuilds)->unique('id');
+            $allAccountsFresh = $allAccountsFresh && $loadedFromDiscord;
+            if (! $loadedFromDiscord) {
+                continue;
+            }
 
-        $managedGuildIds = $managedGuilds->pluck('id')->all();
-        $existingServers = DiscordServer::whereIn('discord_server_id', $managedGuildIds)
-            ->with('config')
-            ->get()
-            ->keyBy('discord_server_id');
-
-        if ($managedGuildsLoadedFromDiscord) {
-            $managedGuilds->each(function (array $guild) use ($existingServers, $discordAccount, $user): void {
-                $server = $existingServers->get($guild['id']);
-
-                if ($server?->is_active !== true) {
-                    return;
+            $accountServers = DiscordServer::whereIn('discord_server_id', $accountGuilds->pluck('id'))
+                ->get()->keyBy('discord_server_id');
+            foreach ($accountGuilds as $guild) {
+                $server = $accountServers->get($guild['id']);
+                if ($server?->bot_present !== true) {
+                    continue;
                 }
-
                 DiscordServerMember::updateOrCreate(
-                    [
-                        'discord_server_id' => $server->id,
-                        'discord_user_id' => (string) $discordAccount->provider_id,
-                    ],
-                    [
-                        'user_id' => $user->id,
-                        'discord_username' => $user->name,
-                        'is_admin' => true,
-                    ],
+                    ['discord_server_id' => $server->id, 'discord_user_id' => (string) $discordAccount->provider_id],
+                    ['user_id' => $user->id, 'discord_username' => $user->name, 'is_admin' => true],
                 );
-            });
-
+            }
             DiscordServerMember::where('discord_user_id', (string) $discordAccount->provider_id)
                 ->where('user_id', $user->id)
-                ->whereNotIn('discord_server_id', $existingServers->pluck('id')->all())
+                ->whereNotIn('discord_server_id', $accountServers->pluck('id'))
                 ->update(['is_admin' => false]);
+        }
+
+        $managedGuildIds = $managedGuilds->pluck('id');
+        $existingServers = DiscordServer::whereIn('discord_server_id', $managedGuildIds)
+            ->with('config')->get()->keyBy('discord_server_id');
+        if ($allAccountsFresh) {
+            DiscordServer::where('owner_user_id', $user->id)
+                ->whereNotIn('discord_server_id', $managedGuildIds)
+                ->update(['owner_user_id' => null]);
         }
 
         $ownedServerIds = DiscordServer::where('owner_user_id', $user->id)->pluck('discord_server_id');
@@ -120,7 +117,7 @@ class DiscordConfigController extends Controller
         $result = $managedGuilds->filter(function ($guild) use ($existingServers, $managedServerIds) {
             $server = $existingServers->get($guild['id']);
 
-            if ($server?->is_active === true) {
+            if ($server?->bot_present === true) {
                 return in_array($guild['id'], $managedServerIds, false);
             }
 
@@ -133,9 +130,9 @@ class DiscordConfigController extends Controller
                 'name' => $guild['name'],
                 'icon' => $guild['icon'] ?? null,
                 'owner' => $guild['owner'] ?? false,
-                'has_bot' => $server?->is_active === true,
+                'has_bot' => $server?->bot_present === true,
                 'server' => $server,
-                'bot_install_url' => $server?->is_active !== true
+                'bot_install_url' => $server?->bot_present !== true
                     ? $this->getBotInstallUrl($guild['id'])
                     : null,
             ];
@@ -149,17 +146,8 @@ class DiscordConfigController extends Controller
 
     public function redirectToBotInstall(Request $request, string $guildId): RedirectResponse
     {
-        $discordAccount = SocialAccount::where('user_id', $request->user()->id)
-            ->where('provider_name', 'discord')
-            ->first();
-
-        abort_unless($discordAccount !== null, 404);
-
-        $managedGuildsLoadedFromDiscord = false;
-        $guild = $this->getManagedGuildsForDiscordAccount($discordAccount, $managedGuildsLoadedFromDiscord)
-            ->firstWhere('id', $guildId);
-
-        abort_unless($managedGuildsLoadedFromDiscord && $guild !== null, 403);
+        abort_unless($request->user()->socialAccounts()->where('provider_name', 'discord')->exists(), 404);
+        abort_unless($this->findManagedGuild($request->user(), $guildId) !== null, 403);
 
         $state = Str::random(40);
         $request->session()->put(self::DISCORD_BOT_INSTALL_SESSION_KEY, [
@@ -197,28 +185,23 @@ class DiscordConfigController extends Controller
                 ->with('error', 'Discord did not return a guild for this install.');
         }
 
-        $discordAccount = SocialAccount::where('user_id', $user->id)
-            ->where('provider_name', 'discord')
-            ->first();
-
-        if (! $discordAccount) {
+        if (! $user->socialAccounts()->where('provider_name', 'discord')->exists()) {
             return redirect()->route('dashboard.discord.index')
                 ->with('error', 'Your Discord account is no longer connected.');
         }
 
-        $managedGuildsLoadedFromDiscord = false;
-        $guild = $this->getManagedGuildsForDiscordAccount($discordAccount, $managedGuildsLoadedFromDiscord)
-            ->firstWhere('id', $guildId);
-
-        if (! $managedGuildsLoadedFromDiscord || ! $guild) {
+        $managed = $this->findManagedGuild($user, $guildId);
+        if (! $managed) {
             return redirect()->route('dashboard.discord.index')
                 ->with('error', 'You no longer have permission to manage that Discord server.');
         }
+        [$discordAccount, $guild] = $managed;
 
         $server = DiscordServer::firstOrNew(['discord_server_id' => $guildId]);
         $server->discord_server_name = $guild['name'];
         $server->owner_user_id ??= $user->id;
         $server->is_active = true;
+        $server->bot_present = true;
         $server->bot_joined_at = now();
         $server->save();
 
@@ -369,16 +352,16 @@ class DiscordConfigController extends Controller
         $this->authorize('update', $server);
 
         $validated = $request->validate([
-            'notification_channel_id' => 'nullable|string',
+            'notification_channel_id' => $server->channelValidationRules(),
             'notification_format' => 'sometimes|in:compact,detailed,custom',
             'custom_template' => 'nullable|string|max:2000',
             'include_game_description' => 'boolean',
             'include_thumbnail' => 'boolean',
             'include_ratings' => 'boolean',
             'ping_role_id' => 'nullable|string',
-            'routing_rules' => 'nullable|array',
-            'new_game_embed' => 'nullable|array',
-            'update_embed' => 'nullable|array',
+            ...DiscordRoutingService::routingValidationRules($server),
+            ...DiscordEmbedRendererService::validationRules('new_game_embed'),
+            ...DiscordEmbedRendererService::validationRules('update_embed'),
             'is_active' => 'boolean',
         ]);
 
@@ -415,9 +398,9 @@ class DiscordConfigController extends Controller
         $validated = $request->validate([
             'game_id' => 'required|exists:games,id',
             'is_ignored' => 'boolean',
-            'channel_id' => 'nullable|string',
-            'new_game_embed' => 'nullable|array',
-            'update_embed' => 'nullable|array',
+            'channel_id' => $server->channelValidationRules(),
+            ...DiscordEmbedRendererService::validationRules('new_game_embed'),
+            ...DiscordEmbedRendererService::validationRules('update_embed'),
         ]);
 
         $override = DiscordServerGameOverride::query()->updateOrCreate(
@@ -441,9 +424,9 @@ class DiscordConfigController extends Controller
 
         $validated = $request->validate([
             'is_ignored' => 'boolean',
-            'channel_id' => 'nullable|string',
-            'new_game_embed' => 'nullable|array',
-            'update_embed' => 'nullable|array',
+            'channel_id' => $server->channelValidationRules(),
+            ...DiscordEmbedRendererService::validationRules('new_game_embed'),
+            ...DiscordEmbedRendererService::validationRules('update_embed'),
         ]);
 
         $override->update($validated);
@@ -469,17 +452,13 @@ class DiscordConfigController extends Controller
         $this->authorize('view', $server);
 
         $validated = $request->validate([
-            'embed_template' => 'present|array',
+            ...DiscordEmbedRendererService::validationRules('embed_template', 'present'),
             'game_id' => 'nullable|exists:games,id',
             'notification_type' => 'string|in:new_game,update',
         ]);
 
         $renderer = app(DiscordEmbedRendererService::class);
         $notificationType = $validated['notification_type'] ?? 'update';
-        $template = $validated['embed_template'] ?: ($notificationType === 'new_game'
-            ? $renderer->getDefaultNewGameEmbed()
-            : $renderer->getDefaultUpdateEmbed());
-
         $game = isset($validated['game_id'])
             ? Game::with(['tags', 'sourceLanguage', 'latestVersion'])->find($validated['game_id'])
             : $this->getSampleGame();
@@ -490,15 +469,9 @@ class DiscordConfigController extends Controller
 
         $gameVersion = $game->latestVersion ?? null;
 
-        $embed = $renderer->renderEmbed(
-            $template,
-            $game,
-            $notificationType,
-            $gameVersion,
-            $server,
-        );
+        $payload = $renderer->renderPayload($server, $game, $notificationType, $gameVersion, $validated['embed_template']);
 
-        return response()->json(['embed' => $embed]);
+        return response()->json(['embed' => $payload['embeds'][0] ?? [], 'content' => $payload['content'] ?? null]);
     }
 
     public function channels(DiscordServer $server): JsonResponse
@@ -584,17 +557,11 @@ class DiscordConfigController extends Controller
 
         $target = $targetChannels[0];
 
-        $embedTemplate = $target['embed_override']
-            ?? ($notificationType === 'new_game' ? $config->new_game_embed : $config->update_embed)
-            ?? ($notificationType === 'new_game' ? $renderer->getDefaultNewGameEmbed() : $renderer->getDefaultUpdateEmbed());
-
-        $payload = [
-            'embeds' => [$renderer->renderEmbed($embedTemplate, $game, $notificationType, $gameVersion, $server)],
-        ];
+        $payload = $renderer->renderPayload($server, $game, $notificationType, $gameVersion, $target['embed_override'] ?? null);
 
         $notification = $server->notificationHistory()->create([
             'game_id' => $game->id,
-            'notification_type' => 'update',
+            'notification_type' => 'test',
             'channel_id' => $target['channel_id'],
             'delivery_status' => 'pending',
             'payload' => $payload,
@@ -742,6 +709,19 @@ class DiscordConfigController extends Controller
             'redirect_uri' => route('dashboard.discord.install.callback'),
             'state' => $state,
         ], '', '&', PHP_QUERY_RFC3986);
+    }
+
+    private function findManagedGuild(User $user, string $guildId): ?array
+    {
+        foreach ($user->socialAccounts()->where('provider_name', 'discord')->get() as $account) {
+            $fresh = false;
+            $guild = $this->getManagedGuildsForDiscordAccount($account, $fresh)->firstWhere('id', $guildId);
+            if ($fresh && $guild) {
+                return [$account, $guild];
+            }
+        }
+
+        return null;
     }
 
     private function getManagedGuildsForDiscordAccount(
