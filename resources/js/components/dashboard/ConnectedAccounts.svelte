@@ -1,10 +1,10 @@
 <script lang="ts">
+    import { refreshPage } from '@/utils/refreshPage';
     import GoogleIcon from '@/components/icons/Google.svelte';
     import DiscordIcon from '@/components/icons/Discord.svelte';
     import LinkIcon from '@/components/icons/Link.svelte';
     import TelegramIcon from '@/components/icons/Telegram.svelte';
     import { disconnectSocialAccount } from '@/api';
-    import { untrack } from 'svelte';
     import { getCsrfToken } from '@/utils/csrf';
     import Itchio from '@/components/icons/Itchio.svelte';
     import Steam from '@/components/icons/Steam.svelte';
@@ -20,8 +20,7 @@
 
     let { connectedProviders, socialAccounts }: Props = $props();
 
-    let providers = $state<string[]>(untrack(() => connectedProviders || []));
-    let accounts = $state<Record<string, SocialAccount>>(untrack(() => socialAccounts || {}));
+    let disconnecting = $state(false);
 
     const PROVIDERS: Record<string, { name: string; iconType: string }> = {
         discord: { name: 'Discord', iconType: 'discord' },
@@ -32,27 +31,28 @@
     };
 
     async function handleDisconnect(provider: string) {
+        if (disconnecting) return;
         if (!confirm(`Are you sure you want to disconnect your ${PROVIDERS[provider]?.name} account?`)) {
             return;
         }
 
+        disconnecting = true;
         try {
             const message = await disconnectSocialAccount(provider);
+            if (!(await refreshPage())) return;
             toast.success(message || `${PROVIDERS[provider]?.name} account disconnected successfully.`);
-            providers = providers.filter((p) => p !== provider);
-            const next = { ...accounts };
-            delete next[provider];
-            accounts = next;
         } catch (error) {
             console.error('Error disconnecting account:', error);
-            toast.error('An error occurred while disconnecting the account.');
+            toast.error(error instanceof Error ? error.message : 'An error occurred while disconnecting the account.');
+        } finally {
+            disconnecting = false;
         }
     }
 
     function handleConnect(provider: string) {
         if (
             !confirm(
-                `If an account already exists with this ${PROVIDERS[provider]?.name} login, it will be merged into your current account. This action cannot be undone. Continue?`,
+                `If an account already exists with this ${PROVIDERS[provider]?.name} login, it will be merged into your current account. Your current reviews, settings and reading statuses take precedence; duplicate reviews are retained in your data export. This action cannot be undone. Continue?`,
             )
         ) {
             return;
@@ -76,8 +76,8 @@
 <div>
     <div class="grid grid-cols-1 gap-4">
         {#each Object.entries(PROVIDERS) as [provider, config] (provider)}
-            {@const isConnected = providers.includes(provider)}
-            {@const accountData = accounts[provider]}
+            {@const isConnected = connectedProviders.includes(provider)}
+            {@const accountData = socialAccounts[provider]}
             <div class="rounded-lg border p-4 transition-colors hover:bg-gray-50/50 dark:border-gray-700 dark:hover:bg-gray-700/30">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
@@ -118,6 +118,7 @@
                                 tone="danger"
                                 size="icon-sm"
                                 onclick={() => handleDisconnect(provider)}
+                                disabled={disconnecting}
                                 class="ml-2 text-red-500 transition-colors hover:text-red-600"
                                 title="Unlink {config.name} account"
                             >

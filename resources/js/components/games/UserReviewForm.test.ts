@@ -6,8 +6,10 @@ const api = vi.hoisted(() => ({
     submitUserReview: vi.fn(),
     deleteUserReview: vi.fn(),
 }));
+const router = vi.hoisted(() => ({ reload: vi.fn() }));
 
 vi.mock('@inertiajs/svelte', () => ({
+    router,
     page: {
         props: {
             auth: {
@@ -25,6 +27,7 @@ describe('UserReviewForm', () => {
     beforeEach(() => {
         api.submitUserReview.mockReset();
         api.deleteUserReview.mockReset();
+        router.reload.mockReset();
         vi.stubGlobal(
             'route',
             vi.fn((name: string, params: { game: number }) => `/${name}/${params.game}`),
@@ -62,7 +65,18 @@ describe('UserReviewForm', () => {
             .mockResolvedValueOnce({ message: 'Review submitted!', review: submittedReview })
             .mockResolvedValueOnce({ message: 'Review updated!', review: updatedReview });
 
-        const { component } = render(UserReviewForm, { props: { gameId: 42, onReviewChange } });
+        const { component, rerender } = render(UserReviewForm, { props: { gameId: 42, onReviewChange } });
+        router.reload
+            .mockImplementationOnce(async ({ onSuccess, onFinish }) => {
+                await rerender({ initialReview: submittedReview });
+                onSuccess();
+                onFinish();
+            })
+            .mockImplementationOnce(async ({ onSuccess, onFinish }) => {
+                await rerender({ initialReview: updatedReview });
+                onSuccess();
+                onFinish();
+            });
         component.startEditing();
         await tick();
 
@@ -76,7 +90,7 @@ describe('UserReviewForm', () => {
             review: 'Excellent route.',
             has_spoilers: false,
         });
-        expect(onReviewChange).toHaveBeenCalledWith(true);
+        await waitFor(() => expect(onReviewChange).toHaveBeenCalledOnce());
         expect(screen.getByText('Your Review')).toBeTruthy();
 
         await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -96,7 +110,7 @@ describe('UserReviewForm', () => {
         const onReviewChange = vi.fn();
         api.deleteUserReview.mockResolvedValue('Review deleted.');
 
-        render(UserReviewForm, {
+        const { rerender } = render(UserReviewForm, {
             props: {
                 gameId: 42,
                 onReviewChange,
@@ -110,12 +124,17 @@ describe('UserReviewForm', () => {
                 },
             },
         });
+        router.reload.mockImplementationOnce(async ({ onSuccess, onFinish }) => {
+            await rerender({ initialReview: null });
+            onSuccess();
+            onFinish();
+        });
 
         await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
         await fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
         await waitFor(() => expect(api.deleteUserReview).toHaveBeenCalledWith(42));
-        expect(onReviewChange).toHaveBeenCalledWith(false);
+        await waitFor(() => expect(onReviewChange).toHaveBeenCalledOnce());
         expect(screen.queryByText('Your Review')).toBeNull();
     });
 

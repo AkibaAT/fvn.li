@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { formatLocalDate, formatCalendarDate } from '@/utils/date-formatting';
     import ChevronRightIcon from '@/components/icons/ChevronRight.svelte';
     import StarIcon from '@/components/icons/Star.svelte';
     import type { Attachment } from 'svelte/attachments';
@@ -180,11 +181,11 @@
             {#if currentVersion}
                 <div class="border-l-4 pl-3 {hasUpdate ? 'border-yellow-500' : 'border-transparent'}">
                     v{currentVersion.version}
-                    <span class="text-gray-400">({new Date(currentVersion.published_at).toLocaleDateString()})</span>
+                    <span class="text-gray-400">({formatLocalDate(currentVersion.published_at)})</span>
                     {#if hasUpdate}
                         <div class="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
                             Latest: v{game.latest_version?.version}
-                            <span class="text-gray-400">({new Date(game.latest_version?.published_at || '').toLocaleDateString()})</span>
+                            <span class="text-gray-400">({formatLocalDate(game.latest_version?.published_at)})</span>
                         </div>
                         {#if game.latest_version && currentVersion && versionHasCharacterStats[currentVersion.id]}
                             <Button
@@ -207,14 +208,12 @@
         </div>
 
         <div class="w-30 text-sm">
-            {userProgress?.started_at || entry.started_at ? new Date(userProgress?.started_at || entry.started_at!).toLocaleDateString() : '-'}
+            {userProgress?.started_at || entry.started_at ? formatCalendarDate(userProgress?.started_at || entry.started_at!) : '-'}
         </div>
 
         {#if vnListType === 'custom' || vnListType === 'completed'}
             <div class="w-28 text-sm">
-                {userProgress?.completed_at || entry.completed_at
-                    ? new Date(userProgress?.completed_at || entry.completed_at!).toLocaleDateString()
-                    : '-'}
+                {userProgress?.completed_at || entry.completed_at ? formatCalendarDate(userProgress?.completed_at || entry.completed_at!) : '-'}
             </div>
         {/if}
 
@@ -327,7 +326,7 @@
                         <span>Started:</span>
                         <span class="ml-1"
                             >{userProgress?.started_at || entry.started_at
-                                ? new Date(userProgress?.started_at || entry.started_at!).toLocaleDateString()
+                                ? formatCalendarDate(userProgress?.started_at || entry.started_at!)
                                 : 'Not started'}</span
                         >
                     </div>
@@ -336,7 +335,7 @@
                             <span>Completed:</span>
                             <span class="ml-1"
                                 >{userProgress?.completed_at || entry.completed_at
-                                    ? new Date(userProgress?.completed_at || entry.completed_at!).toLocaleDateString()
+                                    ? formatCalendarDate(userProgress?.completed_at || entry.completed_at!)
                                     : '-'}</span
                             >
                         </div>
@@ -344,7 +343,7 @@
                     {#if hasUpdate}
                         <div class="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
                             Latest: v{game.latest_version?.version}
-                            <span class="ml-1 text-gray-400">({new Date(game.latest_version?.published_at || '').toLocaleDateString()})</span>
+                            <span class="ml-1 text-gray-400">({formatLocalDate(game.latest_version?.published_at)})</span>
                             {#if game.latest_version && currentVersion && versionHasCharacterStats[currentVersion.id]}
                                 <Button
                                     type="button"
@@ -452,7 +451,7 @@
                         >
                             <option value="">Not started</option>
                             {#each game.game_versions || [] as version (version.id)}
-                                <option value={String(version.id)}>{version.version} ({new Date(version.published_at).toLocaleDateString()})</option>
+                                <option value={String(version.id)}>{version.version} ({formatLocalDate(version.published_at)})</option>
                             {/each}
                         </select>
                     </div>

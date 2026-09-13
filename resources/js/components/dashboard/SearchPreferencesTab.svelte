@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { untrack } from 'svelte';
+    import { refreshPage } from '@/utils/refreshPage';
     import { Link } from '@inertiajs/svelte';
     import { unignoreGame, updateExcludedTags, updateLanguagePreferences } from '@/api/user-preferences';
     import { toast } from '@/utils/toast';
@@ -32,34 +32,45 @@
         ignoredGamesCountInitial,
     }: SearchPreferencesTabProps = $props();
 
-    let selectedLanguages = $state<string[]>(untrack(() => languagePreferencesInitial || []));
+    let languageDraft = $state<string[] | null>(null);
+    const selectedLanguages = $derived(languageDraft ?? languagePreferencesInitial);
     let savingLanguages = $state(false);
-    let excludedTags = $state<number[]>(untrack(() => excludedTagPreferencesInitial || []));
+    let excludedTagDraft = $state<number[] | null>(null);
+    const excludedTags = $derived(excludedTagDraft ?? excludedTagPreferencesInitial);
     let savingExcludedTags = $state(false);
     let tagSearch = $state('');
-    let ignoredGames = $state<IgnoredGame[]>(untrack(() => ignoredGamesInitial || []));
-    let ignoredGamesCount = $state(untrack(() => ignoredGamesCountInitial || 0));
+    const ignoredGames = $derived(ignoredGamesInitial);
+    const ignoredGamesCount = $derived(ignoredGamesCountInitial);
+    let removingGameIds = $state<number[]>([]);
+
+    const refreshPreferences = refreshPage;
 
     const handleUnignoreGame = async (gameId: number) => {
+        if (removingGameIds.includes(gameId)) return;
+        removingGameIds = [...removingGameIds, gameId];
         try {
             await unignoreGame(gameId);
-            ignoredGames = ignoredGames.filter((g) => g.id !== gameId);
-            ignoredGamesCount -= 1;
+            if (!(await refreshPreferences(['ignoredGames', 'ignoredGamesCount']))) return;
             toast.success('Game removed from ignore list');
         } catch (error) {
             console.error('Failed to unignore game:', error);
             toast.error(error instanceof Error ? error.message : 'Failed to remove game from ignore list');
+        } finally {
+            removingGameIds = removingGameIds.filter((id) => id !== gameId);
         }
     };
 
     const toggleLanguagePreference = (isoCode: string) => {
-        selectedLanguages = selectedLanguages.includes(isoCode) ? selectedLanguages.filter((l) => l !== isoCode) : [...selectedLanguages, isoCode];
+        languageDraft = selectedLanguages.includes(isoCode) ? selectedLanguages.filter((l) => l !== isoCode) : [...selectedLanguages, isoCode];
     };
 
     const saveLanguagePreferences = async () => {
+        if (savingLanguages) return;
         savingLanguages = true;
         try {
             await updateLanguagePreferences(selectedLanguages);
+            if (!(await refreshPreferences(['languagePreferences']))) return;
+            languageDraft = null;
             toast.success('Language preferences saved');
         } catch (error) {
             console.error('Failed to save language preferences:', error);
@@ -70,13 +81,16 @@
     };
 
     const toggleExcludedTag = (tagId: number) => {
-        excludedTags = excludedTags.includes(tagId) ? excludedTags.filter((id) => id !== tagId) : [...excludedTags, tagId];
+        excludedTagDraft = excludedTags.includes(tagId) ? excludedTags.filter((id) => id !== tagId) : [...excludedTags, tagId];
     };
 
     const saveExcludedTags = async () => {
+        if (savingExcludedTags) return;
         savingExcludedTags = true;
         try {
             await updateExcludedTags(excludedTags);
+            if (!(await refreshPreferences(['excludedTagPreferences']))) return;
+            excludedTagDraft = null;
             toast.success('Excluded tags saved');
         } catch (error) {
             console.error('Failed to save excluded tags:', error);
@@ -111,6 +125,7 @@
                     variant={selectedLanguages.includes(iso) ? 'solid' : 'soft'}
                     tone={selectedLanguages.includes(iso) ? 'primary' : 'neutral'}
                     onclick={() => toggleLanguagePreference(iso)}
+                    disabled={savingLanguages}
                     class="rounded-full px-3 py-1 text-sm transition-colors {selectedLanguages.includes(iso)
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
@@ -160,6 +175,7 @@
                     variant={excludedTags.includes(Number(tagId)) ? 'solid' : 'soft'}
                     tone={excludedTags.includes(Number(tagId)) ? 'danger' : 'neutral'}
                     onclick={() => toggleExcludedTag(Number(tagId))}
+                    disabled={savingExcludedTags}
                     class="rounded-full px-3 py-1 text-sm transition-colors {excludedTags.includes(Number(tagId))
                         ? 'bg-red-600 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
@@ -184,8 +200,9 @@
                     type="button"
                     variant="soft"
                     tone="neutral"
+                    disabled={savingExcludedTags}
                     onclick={() => {
-                        excludedTags = [];
+                        excludedTagDraft = [];
                         saveExcludedTags();
                     }}
                     class="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
@@ -213,7 +230,14 @@
                         <Link href={route('games.show', game.slug)} class="truncate text-sm text-blue-600 hover:underline dark:text-blue-400"
                             >{game.name}</Link
                         >
-                        <Button type="button" variant="link" tone="danger" onclick={() => handleUnignoreGame(game.id)} class="ml-2">Remove</Button>
+                        <Button
+                            type="button"
+                            variant="link"
+                            tone="danger"
+                            onclick={() => handleUnignoreGame(game.id)}
+                            disabled={removingGameIds.includes(game.id)}
+                            class="ml-2">Remove</Button
+                        >
                     </div>
                 {/each}
             </div>

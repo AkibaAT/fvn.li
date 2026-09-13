@@ -8,6 +8,7 @@
     import type { Snippet } from 'svelte';
     import Button from './Button.svelte';
     import XMarkIcon from '@/components/icons/XMark.svelte';
+    import { trapFocus } from '@/utils/accessibility';
     import { isDialogBackdropClick } from '@/utils/dialog';
 
     interface Props {
@@ -68,14 +69,20 @@
         if (open && !dialogEl.open) {
             openerEl = document.activeElement as HTMLElement | null;
             dialogEl.showModal();
-        } else if (!open && dialogEl.open) {
-            dialogEl.close();
+            const element = dialogEl;
+            return () => {
+                element.close();
+                openerEl?.focus();
+            };
         }
+    });
+
+    $effect(() => {
+        if (open && dialogEl) return trapFocus(dialogEl);
     });
 
     function close() {
         onClose();
-        openerEl?.focus?.();
     }
 </script>
 

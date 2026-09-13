@@ -36,7 +36,6 @@ export function useUrlSyncedFilters({ route: targetRoute, only, getParams }: Opt
         router.get(targetRoute, Object.fromEntries(desired.entries()), {
             preserveScroll: true,
             preserveState: true,
-            replace: true,
             only,
             onFinish: () => {
                 isLoading = false;

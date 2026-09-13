@@ -8,7 +8,8 @@
     import NotificationSettings from '@/components/dashboard/NotificationSettings.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import type { NotificationPreferences } from '@/api/user-preferences';
-    import { Link } from '@inertiajs/svelte';
+    import { Link, page, router } from '@inertiajs/svelte';
+    import { SvelteURL } from 'svelte/reactivity';
     import { Button, Card } from '@/components/ui';
     import type { User, SocialAccount } from '@/types';
     interface AdditionRequest {
@@ -85,7 +86,7 @@
         itchioData,
         myGames,
         myGamesClickStats,
-        notificationPreferences: notificationPreferencesInitial,
+        notificationPreferences,
         recentRequests: recentRequestsInitial,
         ignoredGames: ignoredGamesInitial,
         ignoredGamesCount: ignoredGamesCountInitial,
@@ -116,31 +117,25 @@
     ];
     const tabs = $derived(allTabs.filter((t) => t.condition !== false));
 
-    function tabFromHash(): Tab {
-        if (typeof window !== 'undefined') {
-            const hash = window.location.hash.slice(1);
-            if (hash === 'my-games' || hash === 'additions' || hash === 'search') return hash;
-        }
+    function tabFromUrl(): Tab {
+        const url = new SvelteURL(typeof window !== 'undefined' ? window.location.href : page.url, 'http://localhost');
+        const tab = url.searchParams.get('tab') ?? url.hash.slice(1);
+        if (tab === 'my-games' || tab === 'additions' || tab === 'search') return tab;
         return 'account';
     }
-    let activeTab = $state<Tab>(tabFromHash());
+    let activeTab = $state<Tab>(tabFromUrl());
 
     function setTab(tab: Tab) {
         if (tab === activeTab) return;
         activeTab = tab;
         if (typeof window !== 'undefined') {
-            const url = tab === 'account' ? window.location.pathname : `${window.location.pathname}#${tab}`;
-            window.history.pushState({ tab }, '', url);
+            const url = new SvelteURL(window.location.href);
+            if (tab === 'account') url.searchParams.delete('tab');
+            else url.searchParams.set('tab', tab);
+            url.hash = '';
+            router.push({ url: `${url.pathname}${url.search}${url.hash}`, preserveState: true, preserveScroll: true });
         }
     }
-
-    $effect(() => {
-        const onPopState = () => {
-            activeTab = tabFromHash();
-        };
-        window.addEventListener('popstate', onPopState);
-        return () => window.removeEventListener('popstate', onPopState);
-    });
 
     const handleExportData = () => {
         if (typeof window !== 'undefined') window.location.href = route('browser-api.user.export');
@@ -152,7 +147,7 @@
 <PageHeader title={metaTags?.title || 'Dashboard'} class="mb-6" />
 
 <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
-    <div class="-mb-px flex space-x-6" aria-label="Dashboard tabs" role="tablist">
+    <div class="-mb-px flex flex-wrap gap-x-6" aria-label="Dashboard tabs" role="tablist">
         {#each tabs as tab (tab.id)}
             <Button
                 type="button"
@@ -208,11 +203,7 @@
                 </div>
             </Card>
 
-            <NotificationSettings
-                initialPreferences={notificationPreferencesInitial}
-                hasDiscord={connectedProviders.includes('discord')}
-                {vapidPublicKey}
-            />
+            <NotificationSettings preferences={notificationPreferences} hasDiscord={connectedProviders.includes('discord')} {vapidPublicKey} />
         </div>
 
         <div class="space-y-6 lg:col-span-2">

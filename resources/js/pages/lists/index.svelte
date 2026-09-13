@@ -1,14 +1,15 @@
 <script lang="ts">
+    import { refreshPage } from '@/utils/refreshPage';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import PlusCircleIcon from '@/components/icons/PlusCircle.svelte';
     import UsersIcon from '@/components/icons/Users.svelte';
-    import { untrack } from 'svelte';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
     import Pagination from '@/components/Pagination.svelte';
     import type { VnList } from '@/components/VnListCard.svelte';
     import VnListCard from '@/components/VnListCard.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import { Link, router } from '@inertiajs/svelte';
+    import { shouldIntercept } from '@inertiajs/core';
     import { toast } from '@/utils/toast';
     import { destroyVnList, toggleVnListVisibility } from '@/api/lists';
     import { Card } from '@/components/ui';
@@ -23,13 +24,6 @@
     let { lists, visibility, metaTags, counts = { all: 0, public: 0, private: 0 } }: Props = $props();
 
     let isLoading = $state(false);
-    let localLists = $state(untrack(() => lists.data));
-    let localCounts = $state(untrack(() => counts));
-
-    $effect(() => {
-        localLists = lists.data;
-        localCounts = counts;
-    });
 
     function handleTabChange(newVisibility: string) {
         isLoading = true;
@@ -78,43 +72,30 @@
         return `/lists?${params.toString()}`;
     }
 
-    async function handleToggleVisibility(list: VnList) {
-        const newIsPublic = !list.is_public;
-        localLists = localLists.map((l) => (l.id === list.id ? { ...l, is_public: newIsPublic } : l));
-        const newCounts = { ...localCounts };
-        if (newIsPublic) {
-            newCounts.public += 1;
-            newCounts.private -= 1;
-        } else {
-            newCounts.public -= 1;
-            newCounts.private += 1;
+    async function refreshLists(): Promise<boolean> {
+        if (!(await refreshPage(['lists', 'counts', 'metaTags']))) return false;
+        if (lists.current_page > lists.last_page) {
+            router.get(buildPageUrl(lists.last_page), {}, { preserveState: true, preserveScroll: true, replace: true });
         }
-        localCounts = newCounts;
+        return true;
+    }
 
+    async function handleToggleVisibility(list: VnList) {
         try {
             const data = await toggleVnListVisibility(list.id);
+            if (!(await refreshLists())) return;
             toast.success(data.message || 'List visibility updated successfully.');
         } catch (error) {
-            localLists = lists.data;
-            localCounts = counts;
             toast.error(error instanceof Error ? error.message : 'Failed to update list visibility');
         }
     }
 
     async function handleDelete(list: VnList) {
-        localLists = localLists.filter((l) => l.id !== list.id);
-        const newCounts = { ...localCounts };
-        newCounts.all -= 1;
-        if (list.is_public) newCounts.public -= 1;
-        else newCounts.private -= 1;
-        localCounts = newCounts;
-
         try {
             await destroyVnList(list.id);
+            if (!(await refreshLists())) return;
             toast.success('List deleted successfully.');
         } catch (error) {
-            localLists = lists.data;
-            localCounts = counts;
             toast.error(error instanceof Error ? error.message : 'Failed to delete list');
         }
     }
@@ -151,10 +132,11 @@
     <Card variant="glass" padding="lg">
         <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
             {#each tabs as tab (tab.key)}
-                {@const count = localCounts[tab.key as keyof typeof localCounts] ?? 0}
+                {@const count = counts[tab.key as keyof typeof counts] ?? 0}
                 <a
-                    href={route('lists.index', tab.key === 'all' ? {} : { visibility: tab.key })}
+                    href={route('lists.index', { visibility: tab.key === 'all' ? undefined : tab.key, per_page: lists.per_page, page: 1 })}
                     onclick={(e: MouseEvent) => {
+                        if (!shouldIntercept(e)) return;
                         e.preventDefault();
                         handleTabChange(tab.key);
                     }}
@@ -168,9 +150,9 @@
         </div>
     </Card>
 
-    {#if localLists.length > 0}
+    {#if lists.data.length > 0}
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {#each localLists as list (list.id)}
+            {#each lists.data as list (list.id)}
                 <VnListCard {list} isOwner={true} showActions={true} onToggleVisibility={handleToggleVisibility} onDelete={handleDelete} />
             {/each}
         </div>

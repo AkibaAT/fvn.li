@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { formatLocalDate } from '@/utils/date-formatting';
     import { Card } from '@/components/ui';
     import RatingDistributionBars from './RatingDistributionBars.svelte';
     import type { GlobalStats, StatsBlock } from './types';
@@ -13,8 +14,6 @@
 
     const primary = $derived(scope ? stats[scope] : stats.all_games);
     const secondary = $derived(scope ? null : stats.visible_games);
-    const formatDate = (value?: string | null) =>
-        value ? new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '\u2014';
 
     const tiles = $derived([
         {
@@ -52,7 +51,9 @@
 <Card padding="lg" class="shadow">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{heading}</h2>
-        <div class="text-sm text-gray-500 dark:text-gray-400">{formatDate(stats.first_rating)} - {formatDate(stats.latest_rating)}</div>
+        <div class="text-sm text-gray-500 dark:text-gray-400">
+            {formatLocalDate(stats.first_rating) ?? '—'} - {formatLocalDate(stats.latest_rating) ?? '—'}
+        </div>
     </div>
 
     <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">

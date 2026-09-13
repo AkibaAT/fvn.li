@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { formatLocalDateTime } from '@/utils/date-formatting';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import CheckIcon from '@/components/icons/Check.svelte';
     import {
@@ -25,6 +26,8 @@
     import { Alert, Badge, Button, Card, Switch } from '@/components/ui';
     import type { BadgeTone } from '@/components/ui/Badge.svelte';
     import ChannelPicker from './components/ChannelPicker.svelte';
+    import { page, router } from '@inertiajs/svelte';
+    import { SvelteURL } from 'svelte/reactivity';
 
     interface Props {
         server: number;
@@ -33,14 +36,29 @@
     let { server: serverId }: Props = $props();
 
     type Tab = 'general' | 'routing' | 'ignored' | 'overrides' | 'embeds' | 'history';
-    let activeTab = $state<Tab>('general');
+    const activeTab = $derived.by(() => {
+        const tab = new SvelteURL(page.url, 'http://localhost').searchParams.get('tab');
+        return tabs.find((item) => item.id === tab)?.id ?? 'general';
+    });
+
+    function setTab(tab: Tab) {
+        if (tab === activeTab) return;
+        const url = new SvelteURL(window.location.href);
+        if (tab === 'general') url.searchParams.delete('tab');
+        else url.searchParams.set('tab', tab);
+        router.push({ url: `${url.pathname}${url.search}${url.hash}`, preserveState: true, preserveScroll: true });
+    }
 
     let server = $state<DiscordServer | null>(null);
     let channels = $state<DiscordChannel[]>([]);
     let roles = $state<DiscordRole[]>([]);
     let loading = $state(true);
     let error = $state<string | null>(null);
-    let saving = $state(false);
+    let pendingSaves = $state(0);
+    let embedJsonValid = $state({ new_game: true, update: true });
+    let savedConfig: ServerConfig;
+    const pendingConfigSaves: Partial<ServerConfig>[] = [];
+    const saving = $derived(pendingSaves > 0);
     let sendingTest = $state(false);
     let ruleFieldMetadata = $state<Record<string, RuleFieldMetadata>>({});
 
@@ -60,22 +78,28 @@
     let overrides = $state<GameOverride[]>([]);
 
     $effect(() => {
+        let active = true;
         (async () => {
             loading = true;
             error = null;
             try {
                 const data = await fetchDiscordServer(serverId);
+                if (!active) return;
                 server = data;
                 if (data.config) {
                     config = { ...config, ...data.config };
                 }
-                overrides = data.gameOverrides || [];
+                savedConfig = $state.snapshot(config);
+                overrides = data.game_overrides || [];
             } catch (e) {
-                error = e instanceof Error ? e.message : 'Failed to load server configuration';
+                if (active) error = e instanceof Error ? e.message : 'Failed to load server configuration';
             } finally {
-                loading = false;
+                if (active) loading = false;
             }
         })();
+        return () => {
+            active = false;
+        };
     });
 
     $effect(() => {
@@ -112,16 +136,26 @@
 
     async function saveConfig(partial?: Partial<ServerConfig>) {
         if (!server) return;
-        saving = true;
+        if (!partial && (!embedJsonValid.new_game || !embedJsonValid.update)) {
+            toast.error('Fix the embed JSON before saving.');
+            return;
+        }
+        const payload = $state.snapshot(partial ?? config);
+        pendingConfigSaves.push(payload);
+        pendingSaves += 1;
+        config = { ...config, ...payload };
         try {
-            const payload = partial ? { ...config, ...partial } : config;
-            config = { ...config, ...partial };
             await updateDiscordServerConfig(serverId, payload);
+            savedConfig = { ...savedConfig, ...payload };
             toast.success('Configuration saved');
+            return true;
         } catch (e) {
             toast.error(e instanceof Error ? e.message : 'Failed to save configuration');
+            return false;
         } finally {
-            saving = false;
+            pendingConfigSaves.splice(pendingConfigSaves.indexOf(payload), 1);
+            config = Object.assign({}, savedConfig, ...pendingConfigSaves);
+            pendingSaves -= 1;
         }
     }
 
@@ -139,12 +173,7 @@
         }
     }
 
-    function handleConfigChange(key: keyof ServerConfig, value: unknown) {
-        config = { ...config, [key]: value };
-    }
-
     function handleRulesChange(rules: RoutingRule[]) {
-        config = { ...config, routing_rules: rules };
         saveConfig({ routing_rules: rules } as Partial<ServerConfig>);
     }
 
@@ -153,26 +182,18 @@
     }
 
     function handleNewGameEmbedChange(template: Record<string, unknown>) {
-        config = { ...config, new_game_embed: template };
-        saveConfig({ new_game_embed: template } as Partial<ServerConfig>);
+        return saveConfig({ new_game_embed: template } as Partial<ServerConfig>);
     }
 
     function handleUpdateEmbedChange(template: Record<string, unknown>) {
-        config = { ...config, update_embed: template };
-        saveConfig({ update_embed: template } as Partial<ServerConfig>);
-    }
-
-    function formatDate(dateStr: string): string {
-        return new Date(dateStr).toLocaleString();
+        return saveConfig({ update_embed: template } as Partial<ServerConfig>);
     }
 
     function selectNotificationChannel(channelId: string | null) {
-        handleConfigChange('notification_channel_id', channelId);
         saveConfig({ notification_channel_id: channelId } as Partial<ServerConfig>);
     }
 
     function selectPingRole(roleId: string | null) {
-        handleConfigChange('ping_role_id', roleId);
         saveConfig({ ping_role_id: roleId } as Partial<ServerConfig>);
     }
 
@@ -245,10 +266,12 @@
         </Alert>
     {:else}
         <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
-            <nav class="-mb-px flex space-x-6" aria-label="Server config tabs">
+            <div class="-mb-px flex flex-wrap gap-x-6" aria-label="Server config tabs" role="tablist">
                 {#each tabs as tab (tab.id)}
                     <button
-                        onclick={() => (activeTab = tab.id)}
+                        onclick={() => setTab(tab.id)}
+                        role="tab"
+                        aria-selected={activeTab === tab.id}
                         class="border-b-2 px-1 py-3 text-sm font-medium transition-colors {activeTab === tab.id
                             ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
                             : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'}"
@@ -256,7 +279,7 @@
                         {tab.label}
                     </button>
                 {/each}
-            </nav>
+            </div>
         </div>
 
         {#if activeTab === 'general'}
@@ -310,7 +333,6 @@
                                 placeholder="Enter Discord channel ID"
                                 onchange={(e) => {
                                     const val = (e.target as HTMLInputElement).value.trim();
-                                    handleConfigChange('notification_channel_id', val || null);
                                     saveConfig({ notification_channel_id: val || null } as Partial<ServerConfig>);
                                 }}
                                 class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -345,7 +367,6 @@
                                 placeholder="Enter Discord role ID"
                                 onchange={(e) => {
                                     const val = (e.target as HTMLInputElement).value.trim();
-                                    handleConfigChange('ping_role_id', val || null);
                                     saveConfig({ ping_role_id: val || null } as Partial<ServerConfig>);
                                 }}
                                 class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -359,13 +380,14 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <div class="font-medium text-gray-700 dark:text-gray-300">Include Game Description</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Include the game description in notifications</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">
+                                Add the description to generated embeds. Custom embeds control their own layout.
+                            </div>
                         </div>
                         <Switch
                             checked={config.include_game_description}
                             ariaLabel="Include game description"
                             onchange={() => {
-                                handleConfigChange('include_game_description', !config.include_game_description);
                                 saveConfig({ include_game_description: !config.include_game_description } as Partial<ServerConfig>);
                             }}
                         />
@@ -374,13 +396,14 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <div class="font-medium text-gray-700 dark:text-gray-300">Include Thumbnail</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Include the game thumbnail in notifications</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">
+                                Add the thumbnail to generated embeds. Custom embeds control their own layout.
+                            </div>
                         </div>
                         <Switch
                             checked={config.include_thumbnail}
                             ariaLabel="Include thumbnail"
                             onchange={() => {
-                                handleConfigChange('include_thumbnail', !config.include_thumbnail);
                                 saveConfig({ include_thumbnail: !config.include_thumbnail } as Partial<ServerConfig>);
                             }}
                         />
@@ -389,13 +412,14 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <div class="font-medium text-gray-700 dark:text-gray-300">Include Ratings</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Include game ratings in notifications</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">
+                                Add ratings to generated embeds. Custom embeds control their own layout.
+                            </div>
                         </div>
                         <Switch
                             checked={config.include_ratings}
                             ariaLabel="Include ratings"
                             onchange={() => {
-                                handleConfigChange('include_ratings', !config.include_ratings);
                                 saveConfig({ include_ratings: !config.include_ratings } as Partial<ServerConfig>);
                             }}
                         />
@@ -420,11 +444,23 @@
             <div class="space-y-6">
                 <Card variant="glass" padding="lg">
                     <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">New Game Embed</h2>
-                    <EmbedEditor template={config.new_game_embed || {}} notificationType="new_game" {serverId} onchange={handleNewGameEmbedChange} />
+                    <EmbedEditor
+                        template={config.new_game_embed || {}}
+                        notificationType="new_game"
+                        {serverId}
+                        onvaliditychange={(valid) => (embedJsonValid.new_game = valid)}
+                        onchange={handleNewGameEmbedChange}
+                    />
                 </Card>
                 <Card variant="glass" padding="lg">
                     <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Update Embed</h2>
-                    <EmbedEditor template={config.update_embed || {}} notificationType="update" {serverId} onchange={handleUpdateEmbedChange} />
+                    <EmbedEditor
+                        template={config.update_embed || {}}
+                        notificationType="update"
+                        {serverId}
+                        onvaliditychange={(valid) => (embedJsonValid.update = valid)}
+                        onchange={handleUpdateEmbedChange}
+                    />
                 </Card>
             </div>
         {/if}
@@ -432,7 +468,7 @@
         {#if activeTab === 'history'}
             <Card variant="glass" padding="lg">
                 <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Notification History</h2>
-                {#if server?.notificationHistory && server.notificationHistory.length > 0}
+                {#if server?.notification_history && server.notification_history.length > 0}
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead>
@@ -455,7 +491,7 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                                {#each server.notificationHistory as entry (entry.id)}
+                                {#each server.notification_history as entry (entry.id)}
                                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                         <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
                                             {entry.game?.name || `Game #${entry.game_id}`}
@@ -475,7 +511,7 @@
                                             {entry.channel_id}
                                         </td>
                                         <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                                            {formatDate(entry.sent_at)}
+                                            {formatLocalDateTime(entry.sent_at)}
                                         </td>
                                     </tr>
                                 {/each}

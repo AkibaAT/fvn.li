@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { formatLocalDate } from '@/utils/date-formatting';
     import CopyIcon from '@/components/icons/Copy.svelte';
     import { untrack } from 'svelte';
     import Pagination from '@/components/Pagination.svelte';
@@ -14,7 +15,7 @@
         type DuplicateItem,
     } from '@/api';
     import { renderTrustedMarksOnly } from '@/utils/safe-highlight';
-    import { page } from '@inertiajs/svelte';
+    import { page, router } from '@inertiajs/svelte';
     import { Alert, Button, Card } from '@/components/ui';
 
     type InitialProps = {
@@ -55,15 +56,14 @@
     let debouncedQ = $state(untrack(() => qpQ));
     let currentPage = $state(Number.isFinite(qpPage) && qpPage > 0 ? qpPage : 1);
     let perPage = $state([25, 50, 100].includes(qpPerPage) ? qpPerPage : 25);
-    let selectedLangs = $state<string[]>(qpSelectedLangs);
     let language = $state<string>(qpSelectedLangs[0] || 'eng');
-    let selectedCharacterId = $state<string>('');
-    let selectedContext = $state<string>('');
-    let exactMatch = $state<boolean>(false);
-    let showDuplicates = $state(false);
-    let minLineLength = $state<number>(10);
-    let minDuplicateCount = $state<number>(3);
-    let duplicatesLimit = $state<number>(10);
+    let selectedCharacterId = $state(qp.get('characterId') || '');
+    let selectedContext = $state(qp.get('context') || '');
+    let exactMatch = $state(qp.get('exactMatch') === '1');
+    let showDuplicates = $state(qp.get('duplicates') === '1');
+    let minLineLength = $state(Math.min(50, Math.max(3, Number(qp.get('minLineLength')) || 10)));
+    let minDuplicateCount = $state(Math.min(20, Math.max(2, Number(qp.get('minDuplicateCount')) || 3)));
+    let duplicatesLimit = $state(Math.min(50, Math.max(5, Number(qp.get('duplicatesLimit')) || 10)));
 
     // Debounce search query
     let debounceTimer: ReturnType<typeof setTimeout>;
@@ -80,7 +80,13 @@
         return () => clearTimeout(debounceTimer);
     });
 
-    // Async data state
+    let previousFilters: string | undefined;
+    $effect.pre(() => {
+        const filters = JSON.stringify([versionId, language, selectedCharacterId, selectedContext, exactMatch]);
+        if (previousFilters !== undefined && filters !== previousFilters) currentPage = 1;
+        previousFilters = filters;
+    });
+
     let options = $state<any>(null);
     let versionStats = $state<any>(null);
     let searchData = $state<any>(null);
@@ -91,36 +97,46 @@
     let duplicatesLoading = $state(false);
 
     $effect(() => {
+        let active = true;
         optionsLoading = true;
         fetchDialogueOptions({ gameId, versionId: versionId ?? undefined, language })
             .then((data) => {
-                options = data;
+                if (active) options = data;
             })
             .catch(() => {
-                options = null;
+                if (active) options = null;
             })
             .finally(() => {
-                optionsLoading = false;
+                if (active) optionsLoading = false;
             });
+        return () => {
+            active = false;
+        };
     });
 
     $effect(() => {
+        let active = true;
         if (!versionId) {
             versionStats = null;
             return;
         }
         fetchDialogueVersionStats(versionId)
             .then((data) => {
-                versionStats = data;
+                if (active) versionStats = data;
             })
             .catch(() => {
-                versionStats = null;
+                if (active) versionStats = null;
             });
+        return () => {
+            active = false;
+        };
     });
 
     $effect(() => {
+        let active = true;
         if (showDuplicates || !versionId || !debouncedQ.trim()) {
             searchData = null;
+            searchLoading = false;
             return;
         }
         searchLoading = true;
@@ -136,19 +152,24 @@
             exactMatch,
         })
             .then((data) => {
-                searchData = data;
+                if (active) searchData = data;
             })
             .catch(() => {
-                searchData = null;
+                if (active) searchData = null;
             })
             .finally(() => {
-                searchLoading = false;
+                if (active) searchLoading = false;
             });
+        return () => {
+            active = false;
+        };
     });
 
     $effect(() => {
+        let active = true;
         if (!showDuplicates || !versionId) {
             duplicates = [];
+            duplicatesLoading = false;
             return;
         }
         duplicatesLoading = true;
@@ -162,28 +183,35 @@
             limit: duplicatesLimit,
         })
             .then((data) => {
-                duplicates = data;
+                if (active) duplicates = data;
             })
             .catch(() => {
-                duplicates = [];
+                if (active) duplicates = [];
             })
             .finally(() => {
-                duplicatesLoading = false;
+                if (active) duplicatesLoading = false;
             });
+        return () => {
+            active = false;
+        };
     });
 
     $effect(() => {
+        let active = true;
         if (!versionId) {
             wordFrequency = [];
             return;
         }
         fetchWordFrequency({ versionId, language })
             .then((data) => {
-                wordFrequency = data;
+                if (active) wordFrequency = data;
             })
             .catch(() => {
-                wordFrequency = [];
+                if (active) wordFrequency = [];
             });
+        return () => {
+            active = false;
+        };
     });
 
     const versions = $derived(options?.versions || []);
@@ -211,16 +239,17 @@
     const loading = $derived(optionsLoading || searchLoading || duplicatesLoading);
     const canSearch = $derived(!!versionId);
 
-    // Reset character/context when version or language changes
+    let previousSelection = untrack(() => `${versionId}:${language}`);
     $effect(() => {
-        if (!versionId) return;
-        // Track dependencies
-        void language;
+        const selection = `${versionId}:${language}`;
+        if (selection === previousSelection) return;
+        previousSelection = selection;
         selectedCharacterId = '';
         selectedContext = '';
     });
 
-    // Sync state to URL
+    let previousQuery: string | undefined;
+    let previousDebouncedQuery: string | undefined;
     $effect(() => {
         if (typeof window === 'undefined') return;
         const next = new URL(window.location.href);
@@ -237,11 +266,26 @@
         if (q) sp.set('q', q);
         if (currentPage && currentPage !== 1) sp.set('page', String(currentPage));
         if (perPage && perPage !== 25) sp.set('perPage', String(perPage));
-        if (selectedLangs.length > 0) sp.set('selectedLangs', selectedLangs.join(','));
+        if (language) sp.set('selectedLangs', language);
+        for (const [key, value] of Object.entries({
+            characterId: selectedCharacterId,
+            context: selectedContext,
+            exactMatch: exactMatch ? '1' : '',
+            duplicates: showDuplicates ? '1' : '',
+            minLineLength: minLineLength !== 10 ? String(minLineLength) : '',
+            minDuplicateCount: minDuplicateCount !== 3 ? String(minDuplicateCount) : '',
+            duplicatesLimit: duplicatesLimit !== 10 ? String(duplicatesLimit) : '',
+        })) {
+            if (value) sp.set(key, value);
+            else sp.delete(key);
+        }
 
         const newUrl = `${next.pathname}?${sp.toString()}`;
+        const replace = previousQuery === undefined || q !== previousQuery || debouncedQ !== previousDebouncedQuery;
+        previousQuery = q;
+        previousDebouncedQuery = debouncedQ;
         if (newUrl !== window.location.pathname + window.location.search) {
-            window.history.replaceState({}, '', newUrl);
+            untrack(() => router[replace ? 'replace' : 'push']({ url: newUrl, preserveState: true, preserveScroll: true }));
         }
     });
 
@@ -281,7 +325,7 @@
                         {#each versions as v (v.id)}
                             <option value={v.id}>
                                 {v.version}
-                                {v.published_at ? ` (${new Date(v.published_at).toISOString().slice(0, 10)})` : ''}
+                                {v.published_at ? ` (${formatLocalDate(v.published_at)})` : ''}
                             </option>
                         {/each}
                     </select>
@@ -592,7 +636,7 @@
                                     {#if line.first_seen_version}
                                         <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                             First seen in version {line.first_seen_version.version}{line.first_seen_version.published_at
-                                                ? ` (${line.first_seen_version.published_at})`
+                                                ? ` (${formatLocalDate(line.first_seen_version.published_at)})`
                                                 : ''}
                                         </div>
                                     {/if}

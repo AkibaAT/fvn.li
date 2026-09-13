@@ -101,8 +101,8 @@ export interface DiscordServer {
     available_channels: DiscordChannel[];
     channels_synced_at: string | null;
     config: ServerConfig | null;
-    gameOverrides: GameOverride[];
-    notificationHistory: NotificationHistoryEntry[];
+    game_overrides: GameOverride[];
+    notification_history: NotificationHistoryEntry[];
 }
 
 export interface GameSearchResult {
@@ -138,8 +138,21 @@ export async function fetchRuleMetadata(): Promise<Record<string, RuleFieldMetad
     return data.fields;
 }
 
+const configSaves = new Map<number, Promise<void>>();
+
 export async function updateDiscordServerConfig(serverId: number, payload: Partial<ServerConfig> & { is_active?: boolean }): Promise<void> {
-    await http.put(route('browser-api.discord.servers.config', { server: serverId }), payload);
+    const snapshot = JSON.parse(JSON.stringify(payload));
+    const save = (configSaves.get(serverId) ?? Promise.resolve())
+        .catch(() => {})
+        .then(async () => {
+            await http.put(route('browser-api.discord.servers.config', { server: serverId }), snapshot);
+        });
+    configSaves.set(serverId, save);
+    try {
+        await save;
+    } finally {
+        if (configSaves.get(serverId) === save) configSaves.delete(serverId);
+    }
 }
 
 export async function sendTestNotification(serverId: number): Promise<string> {
@@ -152,11 +165,14 @@ export async function previewEmbed(
     embedTemplate: Record<string, unknown>,
     notificationType: string,
 ): Promise<Record<string, unknown>> {
-    const { data } = await http.post<{ embed: Record<string, unknown> }>(route('browser-api.discord.servers.preview-embed', { server: serverId }), {
-        embed_template: embedTemplate,
-        notification_type: notificationType,
-    });
-    return data.embed;
+    const { data } = await http.post<{ embed: Record<string, unknown>; content?: string | null }>(
+        route('browser-api.discord.servers.preview-embed', { server: serverId }),
+        {
+            embed_template: embedTemplate,
+            notification_type: notificationType,
+        },
+    );
+    return data.content ? { ...data.embed, message_content: data.content } : data.embed;
 }
 
 export async function searchGames(query: string, limit = 10): Promise<GameSearchResult[]> {
@@ -174,16 +190,29 @@ export async function createGameOverride(
     return data.override;
 }
 
+const overrideSaves = new Map<number, Promise<GameOverride>>();
+
 export async function updateGameOverride(
     serverId: number,
     overrideId: number,
     payload: { is_ignored?: boolean; channel_id?: string | null },
 ): Promise<GameOverride> {
-    const { data } = await http.put<{ override: GameOverride }>(
-        route('browser-api.discord.servers.overrides.update', { server: serverId, override: overrideId }),
-        payload,
-    );
-    return data.override;
+    const snapshot = { ...payload };
+    const save = (overrideSaves.get(overrideId) ?? Promise.resolve())
+        .catch(() => {})
+        .then(async () => {
+            const { data } = await http.put<{ override: GameOverride }>(
+                route('browser-api.discord.servers.overrides.update', { server: serverId, override: overrideId }),
+                snapshot,
+            );
+            return data.override;
+        });
+    overrideSaves.set(overrideId, save);
+    try {
+        return await save;
+    } finally {
+        if (overrideSaves.get(overrideId) === save) overrideSaves.delete(overrideId);
+    }
 }
 
 export async function deleteGameOverride(serverId: number, overrideId: number): Promise<void> {

@@ -1,16 +1,11 @@
 <script lang="ts">
     import ChevronLeftIcon from '@/components/icons/ChevronLeft.svelte';
     import XLinesIcon from '@/components/icons/XLines.svelte';
-    import { Button } from '@/components/ui';
+    import { Button, Dialog } from '@/components/ui';
     import { gameScreenshotAltText, gameScreenshotThumbnailAltText } from '@/utils/imageAltText';
     import { untrack } from 'svelte';
 
-    export type Screenshot = {
-        id: number;
-        url: string;
-        thumbnail_url?: string;
-        original_url?: string;
-    };
+    import type { Screenshot } from '@/types/game-show';
 
     interface Props {
         isOpen: boolean;
@@ -49,9 +44,6 @@
         if (!isOpen) return;
         function handleKeyDown(e: KeyboardEvent) {
             switch (e.key) {
-                case 'Escape':
-                    onClose();
-                    break;
                 case 'ArrowLeft':
                     navigate('prev');
                     break;
@@ -86,8 +78,23 @@
 </script>
 
 {#if isOpen && screenshots && screenshots.length > 0}
-    <div class="bg-opacity-95 fixed inset-0 z-50 flex flex-col bg-black">
-        <Button type="button" variant="ghost" tone="neutral" class="absolute inset-0" ariaLabel="Close lightbox" onclick={onClose}></Button>
+    <Dialog
+        open={isOpen}
+        {onClose}
+        labelledBy="screenshot-lightbox-title"
+        size="full"
+        class="h-dvh max-h-dvh w-screen max-w-none rounded-none border-0 bg-black text-white dark:bg-black"
+        bodyClass="flex h-full max-h-none flex-col p-0"
+    >
+        <h2 id="screenshot-lightbox-title" class="sr-only">Screenshots{gameName ? ` for ${gameName}` : ''}</h2>
+        <Button
+            type="button"
+            variant="ghost"
+            tone="neutral"
+            class="absolute inset-0 hover:bg-transparent dark:hover:bg-transparent"
+            ariaLabel="Close lightbox"
+            onclick={onClose}
+        ></Button>
 
         <div class="relative z-10 flex flex-shrink-0 items-center justify-between p-2">
             <div class="text-sm text-white">{index + 1} / {screenshots.length}</div>
@@ -131,7 +138,7 @@
                     type="button"
                     variant="ghost"
                     tone="neutral"
-                    class="flex h-full w-full items-center justify-center overflow-hidden transition-transform duration-300 {isZoomed
+                    class="flex h-full w-full items-center justify-center overflow-hidden transition-transform duration-300 hover:bg-transparent dark:hover:bg-transparent {isZoomed
                         ? 'scale-150 cursor-zoom-out'
                         : 'cursor-zoom-in'}"
                     onclick={(e) => {
@@ -166,7 +173,7 @@
                     style="top: 50%; transform: translateY(-50%)"
                     ariaLabel="Next screenshot"
                 >
-                    <ChevronLeftIcon class="h-6 w-6" />
+                    <ChevronLeftIcon class="h-6 w-6 rotate-180" />
                 </Button>
             {/if}
         </div>
@@ -218,5 +225,5 @@
                 </a>
             </div>
         </div>
-    </div>
+    </Dialog>
 {/if}

@@ -60,9 +60,10 @@ export interface GameVersion {
 }
 
 export interface Screenshot {
-    id: number;
+    id?: string | number;
     url: string;
-    thumbnail_url: string;
+    thumbnail_url?: string;
+    original_url?: string;
     optimized?: Record<string, { path?: string }>;
 }
 

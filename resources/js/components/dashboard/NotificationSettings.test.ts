@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 const notificationApi = vi.hoisted(() => ({
@@ -36,7 +37,7 @@ describe('NotificationSettings', () => {
     });
 
     test('hides browser push settings and health when VAPID is not configured', async () => {
-        render(NotificationSettings, { props: { initialPreferences, hasDiscord: true } });
+        render(NotificationSettings, { props: { preferences: initialPreferences, hasDiscord: true } });
 
         expect(await screen.findByText('Discord notification status')).toBeTruthy();
         expect(screen.queryByText('Browser Push Notifications')).toBeNull();
@@ -47,7 +48,7 @@ describe('NotificationSettings', () => {
     });
 
     test('shows browser push settings and health when VAPID is configured', async () => {
-        render(NotificationSettings, { props: { initialPreferences, hasDiscord: true, vapidPublicKey: 'public-key' } });
+        render(NotificationSettings, { props: { preferences: initialPreferences, hasDiscord: true, vapidPublicKey: 'public-key' } });
 
         expect(await screen.findByText('Browser notification status')).toBeTruthy();
         expect(screen.getByText('Browser Push Notifications')).toBeTruthy();
@@ -64,7 +65,7 @@ describe('NotificationSettings', () => {
 
         render(NotificationSettings, {
             props: {
-                initialPreferences: { ...initialPreferences, discord_notifications_enabled: true },
+                preferences: { ...initialPreferences, discord_notifications_enabled: true },
                 hasDiscord: true,
             },
         });
@@ -83,7 +84,7 @@ describe('NotificationSettings', () => {
 
         render(NotificationSettings, {
             props: {
-                initialPreferences: { ...initialPreferences, browser_notifications_enabled: true },
+                preferences: { ...initialPreferences, browser_notifications_enabled: true },
                 hasDiscord: true,
                 vapidPublicKey: 'public-key',
             },
@@ -92,5 +93,19 @@ describe('NotificationSettings', () => {
         const testButton = await screen.findByRole('button', { name: 'Send test notification' });
 
         expect(testButton.className).toContain('bg-blue-600');
+    });
+    test('refreshes health when the linked Discord account changes and ignores an older response', async () => {
+        const pending = Promise.withResolvers<typeof health>();
+        notificationApi.fetchNotificationHealth.mockResolvedValue({ ...health, discord: { ...health.discord, linked: false } });
+        notificationApi.fetchNotificationHealth.mockImplementationOnce(() => pending.promise);
+        const { rerender } = render(NotificationSettings, { props: { preferences: initialPreferences, hasDiscord: true } });
+        await waitFor(() => expect(notificationApi.fetchNotificationHealth).toHaveBeenCalled());
+        await rerender({ hasDiscord: false });
+        expect(await screen.findByText('Link your Discord account to use this channel.')).toBeVisible();
+        pending.resolve(health);
+        await pending.promise;
+        await tick();
+        await waitFor(() => expect(screen.queryByText('Switch on Discord notifications above to use this channel.')).toBeNull());
+        expect(screen.getByText('Link your Discord account to use this channel.')).toBeVisible();
     });
 });

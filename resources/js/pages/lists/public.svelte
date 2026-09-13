@@ -8,6 +8,7 @@
     import PublicListResults from '@/components/lists/PublicListResults.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import { Link, router } from '@inertiajs/svelte';
+    import { shouldIntercept } from '@inertiajs/core';
     import { Alert, Button, Card } from '@/components/ui';
 
     interface FilterGame {
@@ -241,8 +242,16 @@
         <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
             {#each tabs as tab (tab.key)}
                 <a
-                    href={route('lists.public', tab.key === 'all' ? {} : { type: tab.key })}
+                    href={route('lists.public', {
+                        type: tab.key,
+                        per_page: lists.per_page,
+                        page: 1,
+                        search: currentSearch || undefined,
+                        sort: currentSort !== 'default' ? currentSort : undefined,
+                        game: filterGame?.id || undefined,
+                    })}
                     onclick={(e: MouseEvent) => {
+                        if (!shouldIntercept(e)) return;
                         e.preventDefault();
                         handleTabChange(tab.key);
                     }}

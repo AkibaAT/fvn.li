@@ -23,6 +23,8 @@
         type VisualRouteEdge,
     } from '@/utils/route-map';
     import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+    import { router } from '@inertiajs/svelte';
+    import { untrack } from 'svelte';
 
     const getColorMode = (): 'light' | 'dark' =>
         typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'dark' : 'light';
@@ -59,6 +61,9 @@
     let visibleLanguages = $state<string[]>((() => [...($state.snapshot(availableLanguages) ?? [])])());
     let selectedNodeId = $state<string | null>(null);
     let isLoading = $state(false);
+    let graphError = $state<string | null>(null);
+    let failedGraphRequest: { versionId: number; includeUnreachable: boolean } | null = null;
+    let graphGeneration = 0;
     let searchQuery = $state('');
     let showSidebar = $state(false);
     let includeUnreachable = $state<boolean>(
@@ -467,7 +472,9 @@
         const targetVersion = versionId ?? selectedVersionId;
         const shouldIncludeUnreachable = canInspectFullRouteMap && includeUnreachableOverride;
 
+        const generation = ++graphGeneration;
         isLoading = true;
+        graphError = null;
 
         try {
             const graph = await fetchRouteGraph({
@@ -476,6 +483,8 @@
                 includeUnreachable: shouldIncludeUnreachable,
             });
 
+            if (generation !== graphGeneration) return;
+            failedGraphRequest = null;
             routeGraph = graph;
             layoutVersion += 1;
             if (Array.isArray(graph.available_languages)) {
@@ -495,8 +504,12 @@
             seenNodeIds.clear();
             pathfinder.clearCache();
             saveUploadError = null;
+        } catch (error) {
+            if (generation !== graphGeneration) return;
+            graphError = error instanceof Error ? error.message : 'Unable to load the route map.';
+            failedGraphRequest = { versionId: targetVersion, includeUnreachable: shouldIncludeUnreachable };
         } finally {
-            isLoading = false;
+            if (generation === graphGeneration) isLoading = false;
         }
     }
 
@@ -509,16 +522,40 @@
         selectedLanguage = lang;
     }
 
+    let hasSyncedHistory = false;
     $effect(() => {
         // eslint-disable-next-line svelte/prefer-svelte-reactivity -- ephemeral, not reactive state
         const params = new URLSearchParams();
-        if (selectedVersionId !== currentVersion?.id) params.set('version_id', String(selectedVersionId));
+        params.set('version_id', String(selectedVersionId));
         if (selectedLanguage) params.set('lang', selectedLanguage);
         if (canInspectFullRouteMap && includeUnreachable) params.set('include_unreachable', '1');
         if (navigationTarget) params.set('target', navigationTarget);
         const qs = params.toString();
         const url = window.location.pathname + (qs ? '?' + qs : '');
-        window.history.replaceState({}, '', url);
+        if (isLoading) return;
+        const replace = !hasSyncedHistory;
+        hasSyncedHistory = true;
+        if (url === window.location.pathname + window.location.search) return;
+        const graph = $state.snapshot(routeGraph);
+        const version = $state.snapshot(gameVersions.find((version) => version.id === selectedVersionId));
+        const language = selectedLanguage;
+        const languages = $state.snapshot(visibleLanguages);
+        const unreachable = includeUnreachable;
+        untrack(() =>
+            router[replace ? 'replace' : 'push']({
+                url,
+                preserveState: true,
+                preserveScroll: true,
+                props: (props) => ({
+                    ...props,
+                    currentVersion: version,
+                    routeGraph: graph,
+                    currentLanguage: language,
+                    availableLanguages: languages,
+                    includeUnreachable: unreachable,
+                }),
+            }),
+        );
     });
 
     async function uploadSaveFile(file: File) {
@@ -725,6 +762,17 @@
 </script>
 
 <SeoHead {metaTags} />
+
+{#if graphError}
+    <div role="alert" class="flex items-center gap-3 bg-red-50 p-4 text-red-800 dark:bg-red-950 dark:text-red-200">
+        <span>{graphError} The previous route map is still displayed.</span>
+        <button
+            type="button"
+            class="rounded border px-3 py-1"
+            onclick={() => failedGraphRequest && loadGraph(failedGraphRequest.versionId, failedGraphRequest.includeUnreachable)}>Retry</button
+        >
+    </div>
+{/if}
 
 <RouteMapWorkspace
     {game}

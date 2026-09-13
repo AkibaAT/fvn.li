@@ -3,7 +3,6 @@
     import FunnelIcon from '@/components/icons/Funnel.svelte';
     import InformationCircleIcon from '@/components/icons/InformationCircle.svelte';
     import NoSymbolIcon from '@/components/icons/NoSymbol.svelte';
-    import { untrack } from 'svelte';
     import FilterModal from '@/components/FilterModal.svelte';
     import { useGameFilters } from '@/hooks/useGameFilters.svelte';
     import { usePlatformIcons, type GameCardPlatform } from '@/hooks/usePlatformIcons';
@@ -89,7 +88,6 @@
     let { games, filters, currentFilters, metaTags, ignoredCount = 0, ignoredGameIds = [] }: GamesIndexProps = $props();
 
     let showFilters = $state(false);
-    let localIgnoredGameIds = $state<number[]>(untrack(() => ignoredGameIds));
 
     const { updateFilters, toggleFilter, clearFilters, hasActiveFilters, buildActiveFilterChips, buildPageUrl } = useGameFilters({
         getCurrentFilters: () => currentFilters,
@@ -105,10 +103,6 @@
     const { getStorePlatformIcon: getTypedStorePlatformIcon } = useStorePlatformIcons();
     const getStorePlatformIcon = (platform: string) => {
         return getTypedStorePlatformIcon(platform as StorePlatform);
-    };
-
-    const handleIgnoreToggle = (gameId: number, isIgnored: boolean, newIgnoredGameIds: number[]) => {
-        localIgnoredGameIds = newIgnoredGameIds;
     };
 
     let isRandomLoading = $state(false);
@@ -253,7 +247,7 @@
         <Alert tone="neutral" layout="inline" role="status" class="mb-4">
             {#snippet icon()}<NoSymbolIcon class="h-5 w-5" />{/snippet}
             <strong>{ignoredCount}</strong>
-            {ignoredCount === 1 ? 'game' : 'games'} hidden from results
+            {ignoredCount === 1 ? 'game is' : 'games are'} on your ignore list. Matching ignored games are excluded from results.
             {#snippet actions()}
                 <Button type="button" variant="solid" tone="primary" size="sm" onclick={() => updateFilters({ showIgnored: true })}
                     >Show Ignored</Button
@@ -277,7 +271,7 @@
     <GamesGrid
         games={games.data}
         {currentFilters}
-        ignoredGameIds={localIgnoredGameIds}
+        {ignoredGameIds}
         onPlatformClick={(p) => toggleFilter('platform', p)}
         onLanguageClick={(iso) => toggleFilter('language', iso)}
         onTagClick={(tagId) => toggleFilter('tag', tagId)}
@@ -289,7 +283,6 @@
         onSaleToggle={() => updateFilters({ showSale: !currentFilters.showSale })}
         onDelistedToggle={() => updateFilters({ delisted: !currentFilters.delisted })}
         {updateFilters}
-        onIgnoreToggle={handleIgnoreToggle}
     />
 
     <Pagination

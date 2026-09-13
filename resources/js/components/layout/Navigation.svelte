@@ -3,6 +3,7 @@
     import XMarkIcon from '@/components/icons/XMark.svelte';
     import { useStableRoutes } from '@/hooks/useStableRoutes.svelte';
     import { router } from '@inertiajs/svelte';
+    import { shouldIntercept } from '@inertiajs/core';
 
     const routes = useStableRoutes();
     let showMobileMenu = $state(false);
@@ -25,6 +26,7 @@
     });
 
     function navigate(event: MouseEvent, path: string): void {
+        if (!shouldIntercept(event)) return;
         event.preventDefault();
         showMobileMenu = false;
         router.visit(path, { preserveState: false });

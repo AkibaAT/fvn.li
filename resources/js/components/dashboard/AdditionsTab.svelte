@@ -1,7 +1,7 @@
 <script lang="ts">
     import { untrack } from 'svelte';
     import { Link } from '@inertiajs/svelte';
-    import { cancelAdditionRequest, fetchAdditionRequests, submitAdditionRequests, type AdditionRequest, type AdditionSubmissionResult } from '@/api';
+    import { cancelAdditionRequest, fetchAdditionRequests, submitAdditionRequests, type AdditionRequest } from '@/api';
     import { toast } from '@/utils/toast';
     import { Alert, Button, Card } from '@/components/ui';
 
@@ -13,48 +13,25 @@
 
     let requestText = $state('');
     let requests = $state<AdditionRequest[]>(untrack(() => recentRequestsInitial || []));
-    let _requestsLoading = $state(false);
-    let _requestResults: AdditionSubmissionResult | null = $state(null);
-    let _showRequestSuccess = $state(false);
+    let requestsLoading = $state(true);
+    let requestsError = $state<string | null>(null);
+    let requestsRefresh = $state(0);
     let requestSearch = $state('');
     let requestStatus = $state<'all' | 'pending' | 'processing' | 'approved' | 'rejected'>('all');
     let submittingRequest = $state(false);
 
-    const loadRequests = async (opts?: { status?: string; search?: string }) => {
-        _requestsLoading = true;
-        try {
-            requests = await fetchAdditionRequests({
-                status: opts?.status ?? requestStatus,
-                search: (opts?.search ?? requestSearch).trim() || undefined,
-            });
-        } catch {
-            /* ignore */
-        } finally {
-            _requestsLoading = false;
-        }
-    };
-
     const submitRequest = async () => {
         const trimmed = requestText.trim();
-        if (!trimmed) return;
+        if (!trimmed || submittingRequest) return;
         submittingRequest = true;
         try {
             const data = await submitAdditionRequests(trimmed);
-            if (data.success) {
-                const result: AdditionSubmissionResult = data.result;
-                _requestResults = result;
-                _showRequestSuccess = result?.success_count > 0;
-                if (result?.success_count > 0) {
-                    toast.success(data.message || `Successfully submitted ${result.success_count} request(s)!`);
-                    requestText = '';
-                }
-                await loadRequests({ status: requestStatus, search: requestSearch });
-            } else {
-                _requestResults = data?.result ?? { success_count: 0, duplicate_count: 0, invalid_count: 0, errors: [] };
-                _showRequestSuccess = false;
-            }
-        } catch {
-            toast.error('An error occurred while submitting requests.');
+            if (!data.success) throw new Error(data.message || 'No requests were submitted.');
+            toast.success(data.message || `Successfully submitted ${data.result.success_count} request(s)!`);
+            requestText = '';
+            requestsRefresh++;
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'An error occurred while submitting requests.');
         } finally {
             submittingRequest = false;
         }
@@ -63,15 +40,31 @@
     const cancelRequest = async (id: number) => {
         try {
             await cancelAdditionRequest(id);
-            await loadRequests({ status: requestStatus, search: requestSearch });
+            requestsRefresh++;
         } catch (error) {
             toast.error(error instanceof Error ? error.message : 'Failed to cancel addition request.');
         }
     };
 
     $effect(() => {
-        void requestStatus;
-        loadRequests({ status: requestStatus });
+        const status = requestStatus;
+        void requestsRefresh;
+        let active = true;
+        requestsLoading = true;
+        requestsError = null;
+        fetchAdditionRequests({ status })
+            .then((result) => {
+                if (active) requests = result;
+            })
+            .catch((error) => {
+                if (active) requestsError = error instanceof Error ? error.message : 'Failed to load addition requests.';
+            })
+            .finally(() => {
+                if (active) requestsLoading = false;
+            });
+        return () => {
+            active = false;
+        };
     });
 
     const filteredRequests = $derived(
@@ -160,7 +153,9 @@
         <Card padding="lg">
             <div class="mb-6 flex items-center justify-between">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">My Requests</h2>
-                <span class="text-sm text-gray-500 dark:text-gray-400">{filteredRequests.length} request(s)</span>
+                {#if !requestsLoading && !requestsError}
+                    <span class="text-sm text-gray-500 dark:text-gray-400">{filteredRequests.length} request(s)</span>
+                {/if}
             </div>
             <div class="mb-6 flex flex-col gap-4 sm:flex-row">
                 <div class="flex-1">
@@ -185,7 +180,16 @@
                     </select>
                 </div>
             </div>
-            {#if filteredRequests.length > 0}
+            {#if requestsLoading}
+                <p role="status" class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">Loading requests…</p>
+            {:else if requestsError}
+                <Alert title="Could not load requests" tone="danger">
+                    <p>{requestsError}</p>
+                    {#snippet actions()}
+                        <Button type="button" variant="outline" tone="danger" onclick={() => requestsRefresh++}>Retry</Button>
+                    {/snippet}
+                </Alert>
+            {:else if filteredRequests.length > 0}
                 <div class="space-y-2">
                     {#each filteredRequests as req (req.id)}
                         <div class="flex items-center justify-between rounded-lg bg-gray-50 p-3 dark:bg-gray-700/50">
@@ -223,7 +227,11 @@
             {:else}
                 <div class="py-8 text-center">
                     <div class="text-sm font-medium text-gray-500 dark:text-gray-400">No requests found</div>
-                    <div class="text-xs text-gray-400 dark:text-gray-500">You haven't submitted any addition requests yet.</div>
+                    <div class="text-xs text-gray-400 dark:text-gray-500">
+                        {requestSearch || requestStatus !== 'all'
+                            ? 'Try another search or status filter.'
+                            : "You haven't submitted any addition requests yet."}
+                    </div>
                 </div>
             {/if}
         </Card>

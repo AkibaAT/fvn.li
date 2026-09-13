@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { formatLocalDate } from '@/utils/date-formatting';
     import { Button, PlatformIcon, Stars } from '@/components/ui';
     import ExternalLinkIcon from '@/components/icons/ExternalLink.svelte';
     import { Link } from '@inertiajs/svelte';
@@ -13,15 +14,7 @@
     let { row, reviewStyle, showRater = false }: Props = $props();
     let spoilerRevealed = $state(false);
 
-    const formattedDate = $derived(
-        row.date
-            ? new Date(row.date).toLocaleDateString(undefined, {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-              })
-            : '',
-    );
+    const formattedDate = $derived(formatLocalDate(row.date) ?? '');
     const sourcePlatform = $derived(row.sourcePlatform ?? row.rater?.externalPlatform);
 </script>
 

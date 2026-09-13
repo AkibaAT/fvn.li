@@ -1,3 +1,4 @@
+import { localDateTimeToUtc } from '@/utils/date-formatting';
 import http from '@/utils/http';
 
 export interface MyGameLink {
@@ -10,12 +11,15 @@ export interface MyGameLink {
     release_at?: string | null;
 }
 
-export async function updateMyGameLinks(gameSlug: string, links: MyGameLink[], timezoneOffset: number): Promise<void> {
-    const { data } = await http.put<{ success?: boolean; message?: string }>(route('browser-api.my-games.update', { game: gameSlug }), {
-        links,
-        timezone_offset: timezoneOffset,
-    });
+export async function updateMyGameLinks(gameSlug: string, links: MyGameLink[]): Promise<MyGameLink[]> {
+    const { data } = await http.put<{ success?: boolean; message?: string; links: MyGameLink[] }>(
+        route('browser-api.my-games.update', { game: gameSlug }),
+        {
+            links: links.map((link) => ({ ...link, release_at: localDateTimeToUtc(link.release_at) })),
+        },
+    );
     if (!data.success) throw new Error(data.message || 'Failed to save changes');
+    return data.links;
 }
 
 export async function uploadMyGameScreenshots(
@@ -33,10 +37,14 @@ export async function uploadMyGameScreenshots(
     return data;
 }
 
-export async function deleteMyGameScreenshot(gameSlug: string | undefined, index: number): Promise<{ screenshots?: unknown }> {
+export async function deleteMyGameScreenshot(
+    gameSlug: string | undefined,
+    index: number,
+    screenshotId?: string | number,
+): Promise<{ screenshots?: unknown }> {
     const { data } = await http.delete<{ success?: boolean; message?: string; screenshots?: unknown }>(
         route('browser-api.my-games.screenshots.delete', { game: gameSlug }),
-        { data: { index } },
+        { data: { index, ...(screenshotId ? { screenshot_id: screenshotId } : {}) } },
     );
     if (!data.success) throw new Error(data.message || 'Failed to delete screenshot');
     return data;

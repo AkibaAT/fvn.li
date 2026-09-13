@@ -108,7 +108,7 @@
                 ? 'undo redo | bold italic strikethrough spoiler | bullist numlist | table link | alignleft aligncenter alignright'
                 : disableImages
                   ? 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | link | code | fullscreen | help'
-                  : 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | image imagepicker media link | code | fullscreen | help',
+                  : 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | image media link | code | fullscreen | help',
             formats: reviewMode
                 ? {
                       spoiler: {
@@ -257,41 +257,6 @@
                         },
                     });
                 }
-
-                editor.ui.registry.addButton('imagepicker', {
-                    text: 'Gallery',
-                    icon: 'gallery',
-                    tooltip: 'Insert image from gallery',
-                    onAction: function () {
-                        const gid = gameId ?? (document?.querySelector('[data-game-id]') as HTMLElement)?.dataset.gameId;
-                        if (!gid) {
-                            editor.notificationManager.open({
-                                text: 'Game ID not found. Cannot load image gallery.',
-                                type: 'error',
-                            });
-                            return;
-                        }
-
-                        const handleImageSelection = (event: Event) => {
-                            const imageUrl = (event as CustomEvent<{ imageUrl: string }>).detail?.imageUrl;
-                            if (imageUrl) {
-                                editor.insertContent(`<img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto;" />`);
-                            }
-                            window.removeEventListener('image-selected', handleImageSelection);
-                        };
-                        window.addEventListener('image-selected', handleImageSelection);
-
-                        const w = window as Window & { openImagePickerDialog?: () => void };
-                        if (typeof w.openImagePickerDialog === 'function') {
-                            w.openImagePickerDialog();
-                        } else {
-                            editor.notificationManager.open({
-                                text: 'Image gallery is not available on this page.',
-                                type: 'warning',
-                            });
-                        }
-                    },
-                });
 
                 editor.on('change input', () => {
                     onUpdate(editor.getContent());

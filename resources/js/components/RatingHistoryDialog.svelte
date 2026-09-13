@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { formatLocalDate } from '@/utils/date-formatting';
     import { fetchRaterGameHistory, type RatingHistoryEntry } from '@/api';
     import LoadingSpinner from '@/components/LoadingSpinner.svelte';
     import { Alert, Button, Dialog, Stars } from '@/components/ui';
@@ -24,24 +25,25 @@
     let loading = $state(false);
 
     $effect(() => {
-        if (open && raterId && gameId) {
-            loadHistory(raterId, gameId);
-        }
-    });
-
-    async function loadHistory(rater: number, game: number) {
+        if (!open || !raterId || !gameId) return;
+        let active = true;
         loading = true;
         ratings = [];
         error = null;
-        try {
-            ratings = await fetchRaterGameHistory(rater, game);
-        } catch (err) {
-            console.error('Failed to load rating history', err);
-            error = 'Unable to load rating history.';
-        } finally {
-            loading = false;
-        }
-    }
+        fetchRaterGameHistory(raterId, gameId)
+            .then((history) => {
+                if (active) ratings = history;
+            })
+            .catch(() => {
+                if (active) error = 'Unable to load rating history.';
+            })
+            .finally(() => {
+                if (active) loading = false;
+            });
+        return () => {
+            active = false;
+        };
+    });
 </script>
 
 <Dialog {open} {onClose} title={title || 'Rating History'} size="lg">
@@ -60,9 +62,7 @@
                         <div class="flex items-center gap-2">
                             <Stars rating={hr.rating} />
                             <span class="text-sm text-gray-500 dark:text-gray-400">
-                                {hr.published_at
-                                    ? new Date(hr.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-                                    : ''}
+                                {hr.published_at ? formatLocalDate(hr.published_at) : ''}
                             </span>
                             {#if hr.is_visible}
                                 <span class="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300"

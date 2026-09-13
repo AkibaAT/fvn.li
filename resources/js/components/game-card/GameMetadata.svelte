@@ -1,16 +1,8 @@
 <script lang="ts">
+    import { formatLocalDate } from '@/utils/date-formatting';
     import type { GameCardGame } from '@/hooks/useGameCard.svelte';
 
     let { game }: { game: GameCardGame } = $props();
-
-    const formatDate = (dateStr: string | null | undefined) => {
-        if (!dateStr) return '\u2014';
-        return new Date(dateStr).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-        });
-    };
 </script>
 
 <dl class="min-h-24 space-y-1 overflow-hidden border-t border-gray-100 pt-2 text-sm dark:border-gray-700/50">
@@ -30,13 +22,13 @@
     <div class="grid grid-cols-[120px_1fr] gap-2">
         <dt class="text-gray-500 dark:text-gray-400">Released</dt>
         <dd class="text-gray-700 dark:text-gray-200">
-            {formatDate(game.initially_published_at)}
+            {formatLocalDate(game.initially_published_at) ?? '—'}
         </dd>
     </div>
     <div class="grid grid-cols-[120px_1fr] gap-2">
         <dt class="text-gray-500 dark:text-gray-400">Updated</dt>
         <dd class="text-gray-700 dark:text-gray-200">
-            {formatDate(game.latest_version_published_at)}
+            {formatLocalDate(game.latest_version_published_at) ?? '—'}
         </dd>
     </div>
     <div class="grid grid-cols-[120px_1fr] gap-2">

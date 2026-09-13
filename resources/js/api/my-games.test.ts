@@ -18,21 +18,28 @@ beforeEach(() => {
 });
 
 describe('updateMyGameLinks', () => {
-    test('puts links and timezone offset to the game route', async () => {
-        http.put.mockResolvedValueOnce({ data: { success: true } });
+    test('returns canonical link IDs and sends release dates in UTC', async () => {
+        const savedLinks = [{ id: 'stable-id', name: 'Steam', url: 'https://store.steampowered.com/app/1', release_at: '2026-12-01T11:00:00.000Z' }];
+        http.put.mockResolvedValueOnce({ data: { success: true, links: savedLinks } });
 
-        const links = [{ name: 'Steam', url: 'https://store.steampowered.com/app/1' }];
-        await expect(updateMyGameLinks('my-vn', links, -120)).resolves.toBeUndefined();
+        const links = [{ name: 'Steam', url: 'https://store.steampowered.com/app/1', release_at: '2026-12-01T12:00:00+01:00' }];
+        await expect(updateMyGameLinks('my-vn', links)).resolves.toEqual(savedLinks);
         expect(route).toHaveBeenCalledWith('browser-api.my-games.update', { game: 'my-vn' });
-        expect(http.put).toHaveBeenCalledWith('/browser-api.my-games.update', { links, timezone_offset: -120 });
+        expect(http.put).toHaveBeenCalledWith('/browser-api.my-games.update', {
+            links: [{ ...links[0], release_at: '2026-12-01T11:00:00.000Z' }],
+        });
+
+        http.put.mockResolvedValueOnce({ data: { success: true, links: savedLinks } });
+        await updateMyGameLinks('my-vn', savedLinks);
+        expect(http.put.mock.calls[1][1].links[0].id).toBe('stable-id');
     });
 
     test('throws the server message, falling back to a default', async () => {
         http.put.mockResolvedValueOnce({ data: { success: false, message: 'Nope' } });
-        await expect(updateMyGameLinks('my-vn', [], 0)).rejects.toThrow('Nope');
+        await expect(updateMyGameLinks('my-vn', [])).rejects.toThrow('Nope');
 
         http.put.mockResolvedValueOnce({ data: { success: false } });
-        await expect(updateMyGameLinks('my-vn', [], 0)).rejects.toThrow('Failed to save changes');
+        await expect(updateMyGameLinks('my-vn', [])).rejects.toThrow('Failed to save changes');
     });
 });
 

@@ -11,6 +11,7 @@
 
 <script lang="ts">
     import { Button } from '@/components/ui';
+    import { shouldIntercept } from '@inertiajs/core';
 
     interface Props {
         meta: PaginationMeta;
@@ -118,6 +119,7 @@
                 variant="outline"
                 tone="neutral"
                 onclick={(event) => {
+                    if (!shouldIntercept(event)) return;
                     event.preventDefault();
                     changePage(meta.current_page - 1, 'prev');
                 }}
@@ -158,6 +160,7 @@
                 variant="outline"
                 tone="neutral"
                 onclick={(event) => {
+                    if (!shouldIntercept(event)) return;
                     event.preventDefault();
                     changePage(meta.current_page + 1, 'next');
                 }}

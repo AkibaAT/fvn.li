@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { Link, router } from '@inertiajs/svelte';
+    import { Link } from '@inertiajs/svelte';
+    import { refreshPage } from '@/utils/refreshPage';
     import { notify } from '@/components/Toast.svelte';
     import ArrowTopRightIcon from '@/components/icons/ArrowTopRight.svelte';
     import DocumentArrowDownIcon from '@/components/icons/DocumentArrowDown.svelte';
@@ -42,8 +43,8 @@
 
         try {
             const message = await syncItchioGames();
+            if (!(await refreshPage(['myGames', 'myGamesClickStats']))) return;
             notify(message, 'success');
-            router.reload({ only: ['myGames', 'myGamesClickStats'] });
         } catch (error) {
             notify(error instanceof Error ? error.message : 'Could not sync your itch.io games.', 'error');
         } finally {
