@@ -55,3 +55,10 @@ export async function disconnectSocialAccount(provider: string): Promise<string 
     if (!data.success) throw new Error(data.message || 'Failed to disconnect account.');
     return data.message;
 }
+
+export async function deleteAccount(): Promise<void> {
+    const { data } = await http.delete<{ success?: boolean; message?: string }>(route('user.account.delete'), {
+        headers: { Accept: 'application/json' },
+    });
+    if (!data.success) throw new Error(data.message || 'Failed to delete account.');
+}

@@ -22,7 +22,7 @@ class GameVersionFactory extends Factory
     {
         return [
             'game_id' => Game::factory(),
-            'version' => fake()->numerify('#.#.#'),
+            'version' => fake()->unique()->numerify('#.#.%########'),
             'published_at' => fake()->dateTimeThisYear(),
             'is_windows' => true,
             'is_linux' => fake()->boolean(50),
