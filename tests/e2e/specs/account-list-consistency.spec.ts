@@ -9,9 +9,16 @@ test.beforeEach(async ({ page, baseURL }, info) => {
     pageErrors.set(page, errors);
     page.on('pageerror', (error) => errors.push(error.message));
     fixture = JSON.parse(
-        execFileSync('php', ['tests/e2e/support/make-account-list-fixture.php', info.title.includes('last provider') ? 'last-provider' : ''], {
-            encoding: 'utf8',
-        }),
+        execFileSync(
+            'php',
+            [
+                'tests/e2e/support/make-account-list-fixture.php',
+                info.title.includes('last provider') ? 'last-provider' : info.title.includes('account deletion') ? 'account-deletion' : '',
+            ],
+            {
+                encoding: 'utf8',
+            },
+        ),
     );
     await page.context().addCookies([{ ...fixture.authCookie, url: baseURL! }]);
     await page.route('**/storage/e2e/**', (r) => r.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg"/>' }));
@@ -20,6 +27,57 @@ test.beforeEach(async ({ page, baseURL }, info) => {
 });
 
 test.afterEach(({ page }) => expect(pageErrors.get(page)).toEqual([]));
+
+test('account deletion requires confirmation and can retry after failure', async ({ page }, info) => {
+    let requests = 0;
+    let pending: Route | undefined;
+    await page.route('**/user/account', (route) => {
+        expect(route.request().method()).toBe('DELETE');
+        if (++requests === 1) {
+            pending = route;
+            return;
+        }
+        return route.continue();
+    });
+    await page.goto('/dashboard');
+    await expect(page).toHaveTitle(/Dashboard/);
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Export My Data', exact: true }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/^user-data-.+\.zip$/);
+    await download.saveAs(info.outputPath('account-data.zip'));
+    expect(await download.failure()).toBeNull();
+    const button = page.getByRole('button', { name: 'Delete Account', exact: true });
+    await expect(button).toBeVisible();
+    await button.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath('delete-account-desktop.png') });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await button.scrollIntoViewIfNeeded();
+    await expect(button).toBeVisible();
+    await page.screenshot({ path: info.outputPath('delete-account-mobile.png') });
+
+    page.once('dialog', (dialog) => dialog.dismiss());
+    await button.click();
+    await expect(button).toBeEnabled();
+    expect(requests).toBe(0);
+
+    page.on('dialog', (dialog) => dialog.accept());
+    await button.click();
+    await expect(page.getByRole('button', { name: /Deleting Account/ })).toBeDisabled();
+    await expect.poll(() => Boolean(pending)).toBe(true);
+    await pending!.fulfill({ status: 500, json: { message: 'Simulated deletion failure' } });
+    await expect(page.getByText('Simulated deletion failure', { exact: true })).toBeVisible();
+    await expect(button).toBeEnabled();
+    await expect(page).toHaveURL(/\/dashboard$/);
+
+    const deleted = page.waitForResponse((response) => response.url().endsWith('/user/account') && response.ok());
+    await button.click();
+    expect((await deleted).status()).toBe(200);
+    await expect(page).toHaveURL(new URL('/', info.project.use.baseURL).href);
+    await page.goto('/dashboard');
+    await expect(page).toHaveURL(/\/login$/);
+    expect(requests).toBe(2);
+});
 
 test('notification frequency survives tab changes, later saves, and Back navigation', async ({ page }, info) => {
     await page.goto('/dashboard');

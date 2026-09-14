@@ -8,6 +8,8 @@
     import NotificationSettings from '@/components/dashboard/NotificationSettings.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import type { NotificationPreferences } from '@/api/user-preferences';
+    import { deleteAccount } from '@/api/dashboard';
+    import { toast } from '@/utils/toast';
     import { Link, page, router } from '@inertiajs/svelte';
     import { SvelteURL } from 'svelte/reactivity';
     import { Button, Card } from '@/components/ui';
@@ -140,6 +142,20 @@
     const handleExportData = () => {
         if (typeof window !== 'undefined') window.location.href = route('browser-api.user.export');
     };
+
+    let deletingAccount = $state(false);
+
+    async function handleDeleteAccount() {
+        if (deletingAccount || !confirm('Are you sure you want to delete your account? This action cannot be undone.')) return;
+        deletingAccount = true;
+        try {
+            await deleteAccount();
+            window.location.assign(route('home'));
+        } catch (error) {
+            deletingAccount = false;
+            toast.error(error instanceof Error ? error.message : 'Failed to delete account.');
+        }
+    }
 </script>
 
 <SeoHead {metaTags} title="Dashboard" />
@@ -210,6 +226,17 @@
             <Card padding="lg">
                 <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Connected Accounts</h2>
                 <ConnectedAccounts {user} {connectedProviders} {socialAccounts} />
+            </Card>
+
+            <Card padding="lg">
+                <h2 class="mb-4 text-lg font-semibold text-red-600 dark:text-red-400">Delete Account</h2>
+                <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
+                    Permanently delete your account, saved lists, reading progress, and reviews posted on FVN.li.
+                    This cannot be undone. You can export your data first.
+                </p>
+                <Button type="button" tone="danger" loading={deletingAccount} onclick={handleDeleteAccount}>
+                    {deletingAccount ? 'Deleting Account…' : 'Delete Account'}
+                </Button>
             </Card>
         </div>
     </div>

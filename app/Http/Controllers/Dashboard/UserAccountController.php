@@ -95,13 +95,12 @@ class UserAccountController extends Controller
             DB::table('notification_history')->where('user_id', $userId)->delete();
             DB::table('user_ignored_games')->where('user_id', $userId)->delete();
 
-            // Finally delete the user account
+            // Logout rotates the remember token, so it must run before deleting the model.
+            Auth::logout();
             $user->delete();
             DB::table('users')->where('id', $userId)->delete();
         });
 
-        // Logout the user
-        Auth::logout();
         session()->invalidate();
         session()->regenerateToken();
 

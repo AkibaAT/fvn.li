@@ -50,6 +50,7 @@ test('deleting the last list on a page returns to a populated page with correct 
 test('visibility changes update both filtered lists immediately', async ({ page }, info) => {
     await page.goto('/lists?visibility=public');
     const list = page.getByRole('article', { name: 'Public list', exact: true });
+    await expect(list).toBeVisible();
     const originalCount = await page.getByRole('article').count();
     await list.getByRole('button', { name: 'Make Private', exact: true }).click();
     await expect(list).toHaveCount(0);

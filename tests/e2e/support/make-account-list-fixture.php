@@ -14,5 +14,8 @@ $user->notificationPreferences()->updateOrCreate([], [
 if (($argv[1] ?? '') === 'last-provider') {
     $user->socialAccounts()->where('provider_name', '!=', 'discord')->get()->each->delete();
 }
+if (($argv[1] ?? '') === 'account-deletion') {
+    $user->forceFill(['is_admin' => false])->saveQuietly();
+}
 
 echo json_encode([...$fixture, 'gameId' => $game->id, 'extraGameId' => $ratedGame->id, 'extraGameName' => $ratedGame->name], JSON_THROW_ON_ERROR);

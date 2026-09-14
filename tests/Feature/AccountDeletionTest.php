@@ -30,6 +30,7 @@ beforeEach(function () {
         'name' => 'Test User',
         'email' => 'test@example.com',
         'password' => bcrypt('password'),
+        'remember_token' => 'remember-me-token',
     ]);
 });
 
@@ -51,10 +52,7 @@ describe('account deletion endpoint', function () {
         $response->assertRedirect(route('home'));
         $response->assertSessionHas('success');
 
-        // Note: We can't verify the user is actually deleted from the database
-        // because RefreshDatabase rolls back all changes after the test.
-        // The deletion is verified by the successful response and the fact that
-        // other cascade deletion tests pass (which proves the transaction works).
+        $this->assertDatabaseMissing('users', ['id' => $this->user->id]);
     });
 
     test('logs out user after deletion', function () {
@@ -69,7 +67,9 @@ describe('account deletion endpoint', function () {
         expect(Auth::check())->toBeFalse();
     });
 
-    test('returns JSON for AJAX requests', function () {
+    test('deletes an account through JSON without requiring a password', function () {
+        $account = SocialAccount::factory()->for($this->user)->create();
+
         $response = $this->actingAs($this->user)
             ->deleteJson(route('user.account.delete'));
 
@@ -78,6 +78,9 @@ describe('account deletion endpoint', function () {
             'success' => true,
             'message' => 'Your account has been successfully deleted.',
         ]);
+        $this->assertDatabaseMissing('users', ['id' => $this->user->id]);
+        $this->assertDatabaseMissing('social_accounts', ['id' => $account->id]);
+        $this->assertGuest();
     });
 });
 
@@ -115,9 +118,9 @@ describe('cascade deletion of user data', function () {
         expect(UserGameProgress::where('user_id', $this->user->id)->exists())->toBeFalse();
     });
 
-    test('deletes native site reviews and keeps imported ratings', function () {
+    test('deletes native site reviews and disconnects imported ratings', function (string $platform) {
         $game = Game::factory()->create();
-        $importedRater = Rater::factory()->create(['external_platform' => 'itch_io']);
+        $importedRater = Rater::factory()->create(['external_platform' => $platform, 'user_id' => $this->user->id]);
         $nativeRating = Rating::create([
             'game_id' => $game->id,
             'user_id' => $this->user->id,
@@ -132,18 +135,21 @@ describe('cascade deletion of user data', function () {
             'game_id' => $game->id,
             'rater_id' => $importedRater->id,
             'rating' => 4,
-            'review' => 'Imported itch review.',
+            'review' => 'Imported review.',
             'is_visible' => true,
             'is_reviewed' => true,
-            'source_platform' => 'itch_io',
+            'source_platform' => $platform,
             'published_at' => now(),
         ]);
 
-        $this->actingAs($this->user)->delete(route('user.account.delete'), ['password' => 'password']);
+        $this->actingAs($this->user)->deleteJson(route('user.account.delete'))->assertOk();
 
         expect(Rating::find($nativeRating->id))->toBeNull()
-            ->and(Rating::find($importedRating->id))->not->toBeNull();
-    });
+            ->and($importedRating->fresh()->review)->toBe('Imported review.')
+            ->and($importedRating->fresh()->rater_id)->toBe($importedRater->id)
+            ->and($importedRater->fresh()->user_id)->toBeNull()
+            ->and(Rating::authoredBy($this->user->id)->exists())->toBeFalse();
+    })->with(['itch_io', 'steam']);
 
     test('deletes all social accounts', function () {
         SocialAccount::create([
