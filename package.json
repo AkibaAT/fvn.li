@@ -26,20 +26,20 @@
         "@playwright/test": "1.63.0",
         "@testing-library/jest-dom": "7.0.1",
         "@testing-library/svelte": "5.4.2",
-        "@types/node": "26.4.1",
+        "@types/node": "26.5.1",
         "@vitest/coverage-v8": "5.0.0",
-        "eslint": "10.9.1",
+        "eslint": "10.10.0",
         "eslint-config-prettier": "10.1.8",
         "eslint-plugin-svelte": "3.23.0",
         "jsdom": "30.0.1",
-        "knip": "6.34.0",
+        "knip": "6.35.1",
         "prettier": "3.9.6",
         "prettier-plugin-svelte": "4.1.1",
         "prettier-plugin-tailwindcss": "0.8.1",
         "svelte-check": "4.7.6",
         "typescript": "6.0.3",
-        "typescript-eslint": "8.69.0",
-        "vite": "8.2.2",
+        "typescript-eslint": "8.70.0",
+        "vite": "8.3.0",
         "vitest": "5.0.0"
     },
     "dependencies": {
@@ -61,7 +61,7 @@
         "svelte": "5.57.0",
         "tailwind-merge": "3.6.0",
         "tailwindcss": "4.3.3",
-        "tinymce": "8.9.0"
+        "tinymce": "8.9.1"
     },
     "optionalDependencies": {
         "@rollup/rollup-linux-x64-gnu": "4.63.1",
