@@ -35,7 +35,6 @@ function makeSearchGame(array $gameAttributes = []): Game
         'authors' => 'Search Author',
         'custom_tags' => 'romance mystery',
         'is_visible' => true,
-        'is_delisted' => false,
         'platform' => 'itch_io',
         'first_visible_at' => now(),
         'url' => ['itch_io' => 'https://example.itch.io/searchable-game'],
@@ -310,7 +309,6 @@ it('returns service unavailable when enhanced or global search backends fail', f
 
 it('returns global search results and random visible game slugs', function () {
     $game = makeSearchGame(['name' => 'Random Candidate']);
-    makeSearchGame(['name' => 'Delisted Candidate', 'is_delisted' => true]);
 
     $this->mock(MeilisearchService::class, function (MockInterface $mock) use ($game) {
         $mock->shouldReceive('globalSearch')

@@ -39,7 +39,6 @@ test('game search array includes cleaned text tags jams languages platforms and 
         'custom_tags' => null,
         'status' => 'Released',
         'is_visible' => true,
-        'is_delisted' => false,
         'is_nsfw' => true,
         'is_paid' => true,
         'has_demo' => false,

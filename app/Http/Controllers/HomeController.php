@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Game;
+use App\Models\Tag;
 use App\Services\HomePageCacheService;
 use App\Services\MeilisearchService;
 use App\Support\Seo\MetaTags;
@@ -86,7 +87,7 @@ class HomeController extends Controller
 
         if ($paginator->count() > 0) {
             $paginator->getCollection()->load([
-                'tags',
+                'tags' => Tag::constrainToPopular(),
                 'sourceLanguage',
                 'latestVersion.supportedLanguages.language',
                 'latestVersion.languageStats',

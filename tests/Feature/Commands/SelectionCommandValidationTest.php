@@ -75,12 +75,6 @@ it('validates steam import and refresh commands before external calls', function
         ->assertExitCode(1);
 });
 
-it('validates delisted check selection options before external calls', function () {
-    $this->artisan('games:check-delisted')
-        ->expectsOutput('You must provide either --game-id, --game-name, or --all option')
-        ->assertExitCode(1);
-});
-
 it('validates itch refresh options and selection before external calls', function () {
     expect(app(RefreshGames::class)->getDefinition()->getOption('force')->getDescription())
         ->toBe('Include abandoned/canceled games and reprocess existing version stats');

@@ -150,7 +150,6 @@ class GamesSearchController extends Controller
                 'showDemo' => $request->boolean('showDemo'),
                 'showSale' => $request->boolean('showSale'),
                 'showIgnored' => $request->boolean('showIgnored'),
-                'delisted' => $request->boolean('delisted'),
                 'sort' => $sortField,
                 'direction' => $sortDirection,
                 'perPage' => $perPage,
@@ -282,7 +281,6 @@ class GamesSearchController extends Controller
     {
         $game = Game::query()
             ->where('is_visible', true)
-            ->where('is_delisted', false)
             ->whereNotNull('slug')
             ->inRandomOrder()
             ->first(['slug']);
@@ -410,11 +408,6 @@ class GamesSearchController extends Controller
         // Sale filter
         if ($request->boolean('showSale')) {
             $filters['is_on_sale'] = true;
-        }
-
-        // Delisted filter - when checked, show only delisted games
-        if ($request->boolean('delisted')) {
-            $filters['is_delisted'] = true;
         }
 
         return $filters;

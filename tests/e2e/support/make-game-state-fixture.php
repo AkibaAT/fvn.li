@@ -1,6 +1,8 @@
 <?php
 
 declare(strict_types=1);
+
+use App\Models\Game;
 use App\Models\Tag;
 use Illuminate\Support\Facades\DB;
 
@@ -12,6 +14,15 @@ for ($i = 1; $i <= 12; $i++) {
     $tags[] = Tag::create(['name' => "Fixture tag {$i} {$suffix}"])->id;
 }
 $game->tags()->sync($tags);
+
+// Public UI hides tags used by fewer than Tag::minPublicGameCount() games.
+$extraGameCount = max(0, Tag::minPublicGameCount() - 1);
+if ($extraGameCount > 0) {
+    $extraGames = Game::factory()->count($extraGameCount)->create(['is_visible' => true]);
+    foreach ($extraGames as $extraGame) {
+        $extraGame->tags()->sync($tags);
+    }
+}
 foreach (['eng', 'deu', 'fra', 'spa', 'ita', 'jpn', 'kor', 'por', 'pol'] as $lang) {
     DB::table('iso_639_3_languages')->insertOrIgnore(['id' => $lang, 'scope' => 'I', 'type' => 'L', 'ref_name' => $lang, 'flag_code' => 'gb']);
     $version->addSupportedLanguage($lang);

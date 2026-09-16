@@ -175,6 +175,9 @@ $ignoredGame = Game::factory()->create([
 $user->ignoredGames()->attach($ignoredGame->id);
 
 $excludedTag = Tag::create(['name' => "E2E Excluded {$suffix}"]);
+// Public UI hides tags used by fewer than Tag::minPublicGameCount() games.
+Game::factory()->count(Tag::minPublicGameCount())->create(['is_visible' => true])
+    ->each(fn (Game $taggedGame) => $taggedGame->tags()->attach($excludedTag->id));
 UserPreference::create([
     'user_id' => $user->id,
     'preferred_languages' => ['eng'],

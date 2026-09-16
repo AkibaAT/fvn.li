@@ -9,6 +9,7 @@ use App\Models\ClickStat;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\Rating;
+use App\Models\Tag;
 use App\Models\VnList;
 use App\Services\DenKitStashPersistenceService;
 use App\Services\GameSocialMetaBuilder;
@@ -34,7 +35,7 @@ class GamesDisplayController extends Controller
     public function show(Game $game): Response
     {
         $game->load([
-            'tags',
+            'tags' => Tag::constrainToPopular(),
             'gameJams',
         ]);
 
@@ -441,7 +442,7 @@ class GamesDisplayController extends Controller
     {
         $game->load([
             'latestVersion.supportedLanguages.language',
-            'tags',
+            'tags' => Tag::constrainToPopular(),
             'gameJams',
         ]);
 

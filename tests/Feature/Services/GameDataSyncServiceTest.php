@@ -14,11 +14,9 @@ use App\Services\GameMetadataImageProcessor;
 use App\Services\GamePendingAssociationProcessor;
 use App\Services\GameStatsService;
 use App\Services\GameVersionArchiveRepositoryService;
-use App\Services\ItchGameMetadataRefresher;
 use App\Services\ItchHttpClientService;
 use App\Support\Stats\ArrayStatsPayload;
 use App\Support\Stats\StatsPayload;
-use Dom\HTMLDocument;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Storage;
 
@@ -100,7 +98,7 @@ it('caches HTTP responses by game url options and anonymous mode and can clear t
         ->toBe('fresh body');
 });
 
-it('extracts devlog links and noindex metadata from itch HTML', function () {
+it('extracts devlog links from itch HTML', function () {
     $game = Game::factory()->create([
         'url' => ['itch_io' => 'https://creator.itch.io/game'],
     ]);
@@ -118,12 +116,6 @@ it('extracts devlog links and noindex metadata from itch HTML', function () {
 
     expect(invokeGameDataSyncMethod($service, 'getDevlogLink', [$game]))
         ->toBe('https://creator.itch.io/game/devlog/1');
-
-    $doc = HTMLDocument::createFromString('<meta name="robots" content="NOINDEX">', LIBXML_NOERROR);
-    expect(app(ItchGameMetadataRefresher::class)->hasNoindexTag($doc))->toBeTrue();
-
-    $doc = HTMLDocument::createFromString('<meta name="robots" content="index">', LIBXML_NOERROR);
-    expect(app(ItchGameMetadataRefresher::class)->hasNoindexTag($doc))->toBeFalse();
 });
 
 it('copies language support from previous versions or source language fallback', function () {

@@ -26,7 +26,6 @@ export interface GameCardGame {
     is_paid?: boolean;
     has_demo?: boolean;
     is_on_sale?: boolean;
-    is_delisted?: boolean;
     platform?: 'itch_io' | 'steam' | 'other';
     is_windows?: boolean;
     is_linux?: boolean;
@@ -66,7 +65,6 @@ export interface GameCardProps {
     showPaid?: boolean;
     showDemo?: boolean;
     showSale?: boolean;
-    delisted?: boolean;
     ignoredGameIds?: number[];
     onTagClick?: (tagId: string) => void;
     onPlatformClick?: (platform: GameCardPlatform) => void;
@@ -77,7 +75,6 @@ export interface GameCardProps {
     onPaidToggle?: () => void;
     onDemoToggle?: () => void;
     onSaleToggle?: () => void;
-    onDelistedToggle?: () => void;
 }
 
 export function useGameCard({
@@ -92,7 +89,6 @@ export function useGameCard({
     onPaidToggle,
     onDemoToggle,
     onSaleToggle,
-    onDelistedToggle,
 }: GameCardProps) {
     const getThumbnailUrl = (): string | null => {
         if (game.optimized_thumbnails?.default?.path) {
@@ -169,11 +165,6 @@ export function useGameCard({
         navigateWith({ showSale: true });
     };
 
-    const handleDelistedToggle = () => {
-        if (onDelistedToggle) return onDelistedToggle();
-        navigateWith({ delisted: true });
-    };
-
     // Tag ordering and state
     const orderedTags =
         game.tags && game.tags.length > 0
@@ -202,7 +193,6 @@ export function useGameCard({
         handlePaidToggle,
         handleDemoToggle,
         handleSaleToggle,
-        handleDelistedToggle,
 
         // Tags
         orderedTags,

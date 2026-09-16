@@ -49,7 +49,6 @@
         showPaid: 'Paid Games',
         showDemo: 'Has Demo',
         showSale: 'On Sale',
-        delisted: 'Delisted',
     };
     const contentPricingKeys = Object.keys(contentPricingOptions) as Array<keyof CurrentFilters>;
     let selectedContentPricing = $derived(contentPricingKeys.filter((key) => Boolean(currentFilters[key])));
@@ -69,7 +68,6 @@
             showPaid: false,
             showDemo: false,
             showSale: false,
-            delisted: false,
         });
     };
 </script>

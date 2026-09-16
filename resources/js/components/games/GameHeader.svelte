@@ -144,9 +144,6 @@
                     {#if game.is_nsfw}
                         <Badge tone="danger" size="sm">NSFW</Badge>
                     {/if}
-                    {#if game.is_delisted}
-                        <Badge tone="warning" size="sm">Delisted</Badge>
-                    {/if}
                     {#if game.is_on_sale}
                         <Badge tone="primary" size="sm">
                             Sale{typeof game.discount_percentage === 'number' ? ` -${game.discount_percentage}%` : ''}

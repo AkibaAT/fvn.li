@@ -138,11 +138,6 @@ class MeilisearchService
             $search->where('is_visible', true);
         }
 
-        // Delisted filter - only filter when explicitly set (to show only delisted games)
-        if (isset($filters['is_delisted'])) {
-            $search->where('is_delisted', $filters['is_delisted']);
-        }
-
         $sortableFields = [
             'first_visible_at',
             'latest_version_published_at',
@@ -205,7 +200,9 @@ class MeilisearchService
     {
         $games = $this->searchGames($query, ['show_hidden' => false], $limit, 1);
         $dialogue = $this->searchDialogue($query, [], $limit, 1);
-        $tags = $this->searchTags($query, [], $limit, 1);
+        $tags = $this->searchTags($query, [
+            'min_game_count' => Tag::minPublicGameCount(),
+        ], $limit, 1);
 
         return [
             'games' => $games->items(),
@@ -262,7 +259,7 @@ class MeilisearchService
                 : $games->where($field, $filters[$field]);
         }
 
-        foreach (['is_nsfw', 'is_paid', 'has_demo', 'is_on_sale', 'is_delisted'] as $field) {
+        foreach (['is_nsfw', 'is_paid', 'has_demo', 'is_on_sale'] as $field) {
             if (isset($filters[$field])) {
                 $games->where($field, $filters[$field]);
             }

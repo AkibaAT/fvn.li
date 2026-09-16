@@ -36,7 +36,6 @@
         handlePaidToggle,
         handleDemoToggle,
         handleSaleToggle,
-        handleDelistedToggle,
         orderedTags,
     } = untrack(() => useGameCard(props));
 
@@ -50,7 +49,6 @@
         showPaid,
         showDemo,
         showSale,
-        delisted,
         ignoredGameIds,
         fixedHeight = false,
     } = $derived(props);
@@ -84,7 +82,7 @@
     };
 
     const showFooterBadges = $derived(
-        game.is_nsfw || Boolean((game as Game).is_on_sale) || game.is_paid || game.has_demo || game.is_delisted || Boolean(game.status),
+        game.is_nsfw || Boolean((game as Game).is_on_sale) || game.is_paid || game.has_demo || Boolean(game.status),
     );
 </script>
 
@@ -162,12 +160,10 @@
                         {showPaid}
                         {showDemo}
                         {showSale}
-                        showDelisted={delisted}
                         onNsfwToggle={handleNsfwToggle}
                         onPaidToggle={handlePaidToggle}
                         onDemoToggle={handleDemoToggle}
                         onSaleToggle={handleSaleToggle}
-                        onDelistedToggle={handleDelistedToggle}
                     />
                 </div>
             {/if}
