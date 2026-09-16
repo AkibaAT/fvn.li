@@ -150,7 +150,6 @@ interface Game {
     custom_css?: string;
     custom_tags?: string;
     is_visible?: boolean;
-    is_delisted?: boolean;
     created_at: string;
     updated_at: string;
     tags?: Tag[];

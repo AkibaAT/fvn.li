@@ -99,7 +99,6 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
             showFree: false,
             showDemo: false,
             showSale: false,
-            delisted: false,
             noDefaults: true,
         });
     };
@@ -121,7 +120,6 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
             showFree,
             showDemo,
             showSale,
-            delisted,
         } = getCurrentFilters();
 
         return Boolean(
@@ -139,8 +137,7 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
             showPaid ||
             showFree ||
             showDemo ||
-            showSale ||
-            delisted,
+            showSale,
         );
     };
 
@@ -264,13 +261,6 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
                 type: 'sale',
                 label: 'On Sale',
                 onClear: () => updateFilters({ showSale: false }),
-            });
-        if (getCurrentFilters().delisted)
-            chips.push({
-                key: 'delisted',
-                type: 'delisted',
-                label: 'Delisted',
-                onClear: () => updateFilters({ delisted: false }),
             });
 
         return chips;

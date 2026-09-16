@@ -37,7 +37,6 @@
         is_nsfw: boolean;
         is_paid: boolean;
         has_demo: boolean;
-        is_delisted: boolean;
         authors?: string;
         tags?: Array<{ id: number; name: string; slug: string }>;
         gameJams?: Array<{ id: number; name: string }>;
@@ -281,7 +280,6 @@
         onPaidToggle={() => updateFilters({ showPaid: !currentFilters.showPaid })}
         onDemoToggle={() => updateFilters({ showDemo: !currentFilters.showDemo })}
         onSaleToggle={() => updateFilters({ showSale: !currentFilters.showSale })}
-        onDelistedToggle={() => updateFilters({ delisted: !currentFilters.delisted })}
         {updateFilters}
     />
 

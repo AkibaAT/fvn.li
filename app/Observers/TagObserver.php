@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Models\Tag;
+use App\Services\GameFilterService;
 use App\Services\ObserverSearchIndexService;
 use Illuminate\Support\Facades\Cache;
 
@@ -15,12 +16,14 @@ class TagObserver
         // If the tag name changed, update all related games
         if ($tag->isDirty('name')) {
             $this->updateRelatedGames($tag);
+            GameFilterService::clearCache();
         }
     }
 
     public function deleted(Tag $tag): void
     {
         $this->updateRelatedGames($tag);
+        GameFilterService::clearCache();
     }
 
     private function updateRelatedGames(Tag $tag): void

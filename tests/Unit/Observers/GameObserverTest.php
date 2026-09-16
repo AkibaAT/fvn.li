@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Game;
 use App\Models\GameVersion;
+use App\Models\Tag;
 use App\Models\VnListEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Queue\CallQueuedClosure;
@@ -155,21 +156,23 @@ describe('GameObserver visibility tracking', function () {
 
 describe('GameObserver cache management', function () {
     test('clears cache when game is created', function () {
-        Cache::put('react-game-filter-options', 'test_data', 60);
+        $cacheKey = 'react-game-filter-options:min-' . Tag::minPublicGameCount();
+        Cache::put($cacheKey, 'test_data', 60);
 
         Game::factory()->create();
 
-        expect(Cache::has('react-game-filter-options'))->toBeFalse();
+        expect(Cache::has($cacheKey))->toBeFalse();
     });
 
     test('clears cache when game is deleted', function () {
         $game = Game::factory()->create();
 
-        Cache::put('react-game-filter-options', 'test_data', 60);
+        $cacheKey = 'react-game-filter-options:min-' . Tag::minPublicGameCount();
+        Cache::put($cacheKey, 'test_data', 60);
 
         $game->delete();
 
-        expect(Cache::has('react-game-filter-options'))->toBeFalse();
+        expect(Cache::has($cacheKey))->toBeFalse();
     });
 });
 

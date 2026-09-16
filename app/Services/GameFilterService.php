@@ -15,12 +15,13 @@ class GameFilterService
 {
     public static function clearCache(): void
     {
-        Cache::forget('react-game-filter-options');
+        Cache::forget(self::cacheKey());
+        Tag::clearPopularCache();
     }
 
     public static function getOptions(): array
     {
-        return Cache::remember('react-game-filter-options', 3600, function () {
+        return Cache::remember(self::cacheKey(), 3600, function () {
             $gameIds = DB::table('game_versions')
                 ->where('is_latest', true)
                 ->pluck('game_id');
@@ -117,12 +118,13 @@ class GameFilterService
                     (string) $jam->id => $jam->name,
                 ]);
 
+            $popularTagCounts = Tag::popularGameCounts();
             $tags = Tag::query()
-                ->withCount('games')
+                ->whereIn('id', array_keys($popularTagCounts))
                 ->orderBy('name')
                 ->get()
                 ->mapWithKeys(fn ($tag) => [
-                    (string) $tag->id => $tag->name . ' (' . $tag->games_count . ')',
+                    (string) $tag->id => $tag->name . ' (' . $popularTagCounts[$tag->id] . ')',
                 ]);
 
             return [
@@ -161,5 +163,10 @@ class GameFilterService
                 ],
             ];
         });
+    }
+
+    private static function cacheKey(): string
+    {
+        return 'react-game-filter-options:min-' . Tag::minPublicGameCount();
     }
 }

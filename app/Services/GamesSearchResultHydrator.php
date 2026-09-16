@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Tag;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,7 @@ class GamesSearchResultHydrator
         $collection = $games->getCollection();
         if ($collection instanceof EloquentCollection) {
             $collection->load([
-                'tags',
+                'tags' => Tag::constrainToPopular(),
                 'sourceLanguage',
                 'latestVersion.supportedLanguages.language',
                 'latestVersion.languageStats',

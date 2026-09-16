@@ -12,24 +12,20 @@
         showPaid,
         showDemo,
         showSale,
-        showDelisted,
         onNsfwToggle,
         onPaidToggle,
         onDemoToggle,
         onSaleToggle,
-        onDelistedToggle,
     }: {
         game: GameCardGame;
         nsfw?: boolean;
         showPaid?: boolean;
         showDemo?: boolean;
         showSale?: boolean;
-        showDelisted?: boolean;
         onNsfwToggle?: () => void;
         onPaidToggle?: () => void;
         onDemoToggle?: () => void;
         onSaleToggle?: () => void;
-        onDelistedToggle?: () => void;
     } = $props();
 
     const badges = $derived([
@@ -72,16 +68,6 @@
             ariaLabel: 'Filter by has demo',
             classes: 'border-sky-300 bg-sky-200 text-sky-800 dark:border-sky-700/60 dark:bg-sky-900/40 dark:text-sky-300',
             activeClasses: 'border-2 ring-1 ring-sky-300 dark:ring-sky-300',
-        },
-        {
-            visible: game.is_delisted,
-            label: 'Delisted',
-            icon: null,
-            active: Boolean(showDelisted),
-            onToggle: onDelistedToggle,
-            ariaLabel: 'Filter by delisted games',
-            classes: 'border-yellow-300 bg-yellow-200 text-yellow-800 dark:border-yellow-700/60 dark:bg-yellow-900/40 dark:text-yellow-300',
-            activeClasses: 'border-2 ring-1 ring-yellow-300 dark:ring-yellow-300',
         },
     ]);
 </script>

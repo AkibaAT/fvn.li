@@ -29,7 +29,6 @@ class ItchGameMetadataRefresher
         $this->syncInfoTable($game, $doc);
 
         $game->is_nsfw = $doc->querySelector('div.content_warning_inner') !== null;
-        $game->is_delisted = $this->hasNoindexTag($doc);
 
         app(GameMetadataImageProcessor::class)->process($game, $originalThumbUrl, $originalScreenshots, 'Metadata');
 
@@ -40,18 +39,6 @@ class ItchGameMetadataRefresher
             'custom_css_length' => strlen($game->custom_css ?? ''),
             'dirty_attributes' => $game->getDirty(),
         ]);
-    }
-
-    public function hasNoindexTag(HTMLDocument $doc): bool
-    {
-        foreach ($doc->querySelectorAll('meta[name="robots"]') as $meta) {
-            $content = strtolower($meta->getAttribute('content') ?? '');
-            if (str_contains($content, 'noindex')) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private function refreshStatus(Game $game, HTMLDocument $doc): void

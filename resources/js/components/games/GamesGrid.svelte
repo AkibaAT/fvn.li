@@ -19,7 +19,6 @@
         is_nsfw: boolean;
         is_paid: boolean;
         has_demo: boolean;
-        is_delisted: boolean;
         authors?: string;
         tags?: Array<{ id: number; name: string; slug: string }>;
         gameJams?: Array<{ id: number; name: string }>;
@@ -56,7 +55,6 @@
         onPaidToggle: () => void;
         onDemoToggle: () => void;
         onSaleToggle: () => void;
-        onDelistedToggle: () => void;
         updateFilters: (filters: Partial<CurrentFilters>) => void;
     }
 
@@ -73,7 +71,6 @@
         onPaidToggle,
         onDemoToggle,
         onSaleToggle,
-        onDelistedToggle,
     }: Props = $props();
 </script>
 
@@ -96,7 +93,6 @@
                 showPaid={currentFilters.showPaid || false}
                 showDemo={currentFilters.showDemo || false}
                 showSale={currentFilters.showSale || false}
-                delisted={currentFilters.delisted || false}
                 {ignoredGameIds}
                 {onPlatformClick}
                 {onLanguageClick}
@@ -107,7 +103,6 @@
                 {onPaidToggle}
                 {onDemoToggle}
                 {onSaleToggle}
-                {onDelistedToggle}
             />
         {/each}
     </div>
