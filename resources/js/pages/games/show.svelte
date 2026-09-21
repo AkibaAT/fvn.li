@@ -1,27 +1,28 @@
 <script lang="ts">
     import { refreshPage } from '@/utils/refreshPage';
     import { toast } from '@/utils/toast';
+    import { getErrorMessage } from '@/utils/async-action.svelte';
     import GameStats from '@/components/GameStats.svelte';
-    import ChevronLeftIcon from '@/components/icons/ChevronLeft.svelte';
     import VersionComparisonModal from '@/components/VersionComparisonModal.svelte';
     import GameHeader from '@/components/games/GameHeader.svelte';
     import ScreenshotsGallery from '@/components/games/ScreenshotsGallery.svelte';
     import ScreenshotsLightbox from '@/components/games/ScreenshotsLightbox.svelte';
-    import GameDetailsSection from '@/components/games/GameDetailsSection.svelte';
-    import { Card } from '@/components/ui';
+    import GameJamsSection from '@/components/games/GameJamsSection.svelte';
+    import { Badge, Card, formatListType, listTypeBorderClass, listTypeTone } from '@/components/ui';
     import DownloadsList from '@/components/games/DownloadsList.svelte';
     import GameRecommendationsSection from '@/components/games/GameRecommendationsSection.svelte';
     import GameReviewsSection from '@/components/games/GameReviewsSection.svelte';
     import GameVersionHistory from '@/components/games/GameVersionHistory.svelte';
     import ReportReviewModal from '@/components/games/ReportReviewModal.svelte';
-    import ReviewTextControls, { useReviewTextStyles } from '@/components/ReviewTextControls.svelte';
+    import { useReviewStyleString } from '@/components/ReviewTextControls.svelte';
     import { Link, page } from '@inertiajs/svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
+    import StickyBackBar, { type StickyBackBarSection } from '@/components/layout/StickyBackBar.svelte';
     import { formatLocalDate } from '@/utils/date-formatting';
     import { escapeStyleElementText } from '@/utils/style-html';
-    import { getGamePlatforms, getPublicListColors } from '@/utils/game-show';
+    import { getGamePlatforms } from '@/utils/game-show';
     import { fetchReviews, fetchVersions, fetchCharacterStats, fetchFileStats, uploadThumbnail } from '@/api';
-    import type { GameShowProps, Screenshot } from '@/types/game-show';
+    import type { GameFact, GameShowProps, Screenshot } from '@/types/game-show';
 
     let {
         game,
@@ -51,15 +52,10 @@
         metaTags,
     }: GameShowProps = $props();
 
-    // Auth from Inertia
     const auth = $derived((page.props as any)?.auth);
     const isAuthenticated = $derived(Boolean(auth?.user));
 
-    // Review text styles
-    const reviewStylesObj = useReviewTextStyles();
-    const reviewStyles = $derived(
-        `max-width: ${reviewStylesObj.maxWidth}; font-size: ${reviewStylesObj.fontSize}; line-height: ${reviewStylesObj.lineHeight}; margin: ${reviewStylesObj.margin};`,
-    );
+    const reviewStyles = useReviewStyleString();
     const latestVersionHasDialogue = $derived(
         game.latest_version
             ? (versionCharacterCounts[game.latest_version.id] ?? 0) > 0 && versionHasDialogueLines[game.latest_version.id] === true
@@ -68,7 +64,6 @@
     const latestVersionHasRouteMap = $derived(game.latest_version ? versionHasRouteData[game.latest_version.id] === true : false);
     const canBrowseLatestDialogue = $derived(Boolean(game.latest_version && !game.is_paid && latestVersionHasDialogue));
 
-    // State
     let showAllRatings = $state(false);
     let selectedRating = $state<number | null>(null);
     let compareFromVersionId = $state<number | null>(null);
@@ -83,34 +78,19 @@
     let reportingReviewId = $state<number | null>(null);
     let reportingReviewerName = $state('');
     let copiedReviewId = $state<number | null>(null);
-    let currentThumbnail = $state<string | null>(null);
-    let customScreenshots = $state<Screenshot[]>([]);
-    let visitorScreenshots = $state<Screenshot[]>([]);
-    let visitorName = $state('');
-    let visitorDescription = $state('');
-    let visitorViewMode = $state<'custom' | 'original'>('original');
     let previewingVisitorView = $state(false);
     let isUploadingThumbnail = $state(false);
+    const currentThumbnail = $derived<string | null>(game.optimized_thumbnail_url || null);
+    const customScreenshots = $derived<Screenshot[]>(game.custom_screenshots || game.effective_screenshots || game.screenshots || []);
+    let visitorScreenshots = $derived<Screenshot[]>(game.effective_screenshots || game.screenshots || []);
+    let visitorName = $derived(game.effective_name);
+    let visitorDescription = $derived(game.effective_description || game.full_description || game.description || '');
+    let visitorViewMode = $derived<'custom' | 'original'>(game.view_mode === 'custom' ? 'custom' : 'original');
     const currentScreenshots = $derived(editPermissions.canEdit && !previewingVisitorView ? customScreenshots : visitorScreenshots);
 
-    function customScreenshotsForEditor(): Screenshot[] {
-        return game.custom_screenshots || game.effective_screenshots || game.screenshots || [];
-    }
-
-    $effect(() => {
-        currentThumbnail = game.optimized_thumbnail_url || null;
-        customScreenshots = customScreenshotsForEditor();
-        visitorScreenshots = game.effective_screenshots || game.screenshots || [];
-        visitorName = game.effective_name;
-        visitorDescription = game.effective_description || game.full_description || game.description || '';
-        visitorViewMode = game.view_mode === 'custom' ? 'custom' : 'original';
-    });
-
-    // Async data state
     let characterStatsData = $state<any>(null);
     let fileStatsData = $state<any>(null);
 
-    // Reviews state
     let reviewsPage = $state(1);
     let reviewsPerPage = $derived(reviews?.per_page ?? reviews?.meta?.per_page ?? 5);
     let reviewsData = $state<any>(null);
@@ -157,7 +137,6 @@
         };
     });
 
-    // Versions state
     let versionsPage = $state(1);
     // eslint-disable-next-line svelte/prefer-writable-derived
     let versionsPerPage = $state(5);
@@ -259,43 +238,35 @@
 
     const activePlatforms = $derived(getGamePlatforms(platforms, game.latest_version));
 
-    const detailItems = $derived([
-        { label: 'Status', value: game.status ? String(game.status) : '-' },
-        { label: 'Engine', value: game.game_engine ? String(game.game_engine) : '-' },
-        { label: 'Initial Release', value: formatLocalDate(game.initially_published_at) || '-' },
-        { label: 'Latest Update', value: formatLocalDate(game.latest_version?.published_at) || '-' },
-        { label: 'Current Version', value: game.latest_version?.version || '-' },
-        {
-            label: `Word Count (${primaryLanguageLabel || 'EN'})`,
-            value:
-                typeof primaryStats?.words === 'number' && primaryStats.words > 0
-                    ? primaryStats.words.toLocaleString() +
-                      (primaryLanguageLabel && primaryLanguageLabel !== 'EN' && typeof englishStats?.words === 'number' && englishStats.words > 0
-                          ? ` (EN: ${englishStats.words.toLocaleString()})`
-                          : '')
-                    : '-',
-        },
-        {
-            label: 'Est. Reading Time',
-            value: estimatedReadingTime
-                ? estimatedReadingTime.hours > 0
-                    ? `~${estimatedReadingTime.hours} hr ${estimatedReadingTime.minutes} min`
-                    : `~${estimatedReadingTime.minutes} min`
-                : '-',
-        },
-        {
-            label: 'Price',
-            value: !game.is_paid ? 'Free' : game.formatted_current_price || 'Paid',
-        },
-        {
-            label: 'Rating',
-            value: typeof game.rating_score === 'number' ? game.rating_score.toFixed(1) : '-',
-        },
-        {
-            label: 'Review Count',
-            value: typeof game.rating_count === 'number' ? game.rating_count.toLocaleString() : '-',
-        },
-    ]);
+    const facts = $derived.by((): GameFact[] => {
+        const items: GameFact[] = [];
+        const primaryWords = primaryStats?.words;
+        if (typeof primaryWords === 'number' && primaryWords > 0) {
+            const isEnglish = !primaryLanguageLabel || primaryLanguageLabel === 'EN';
+            const englishWords = englishStats?.words;
+            items.push({
+                label: isEnglish ? 'Words' : `Words (${primaryLanguageLabel})`,
+                value: primaryWords.toLocaleString(),
+                hint: !isEnglish && typeof englishWords === 'number' && englishWords > 0 ? ` · EN ${englishWords.toLocaleString()}` : undefined,
+            });
+        }
+        if (estimatedReadingTime) {
+            items.push({
+                label: 'Reading Time',
+                value:
+                    estimatedReadingTime.hours > 0
+                        ? `~${estimatedReadingTime.hours} hr ${estimatedReadingTime.minutes} min`
+                        : `~${estimatedReadingTime.minutes} min`,
+            });
+        }
+        const initialRelease = formatLocalDate(game.initially_published_at);
+        if (initialRelease) items.push({ label: 'Initial Release', value: initialRelease });
+        const latestUpdate = formatLocalDate(game.latest_version?.published_at);
+        if (latestUpdate) items.push({ label: 'Latest Update', value: latestUpdate });
+        if (game.latest_version?.version) items.push({ label: 'Version', value: game.latest_version.version });
+        if (game.game_engine) items.push({ label: 'Engine', value: String(game.game_engine) });
+        return items;
+    });
 
     const visibleSupportedLanguages = $derived(
         (supportedLanguages || []).filter((sl) => sl.is_available).sort((a, b) => a.language.ref_name.localeCompare(b.language.ref_name)),
@@ -327,7 +298,6 @@
     let reviewsLoading = $state(false);
     let versionsLoading = $state(false);
 
-    // Lightbox
     const openLightbox = (index: number) => {
         if (currentScreenshots?.[index]) {
             lightboxIndex = index;
@@ -338,7 +308,6 @@
         isLightboxOpen = false;
     };
 
-    // Handlers
     const handleToggleRatingsView = () => {
         showAllRatings = !showAllRatings;
         selectedRating = null;
@@ -416,7 +385,7 @@
 
     const handleThumbnailUpload = async (file: File) => {
         if (!file.type.startsWith('image/')) {
-            alert('Please upload an image file');
+            toast.error('Please upload an image file');
             return;
         }
 
@@ -427,18 +396,17 @@
         } catch (error: any) {
             console.error('Failed to upload thumbnail', error);
             if (error?.response?.data?.message) {
-                alert(error.response.data.message);
+                toast.error(error.response.data.message);
             } else if (error?.response?.data?.errors?.thumbnail) {
-                alert(error.response.data.errors.thumbnail[0]);
+                toast.error(error.response.data.errors.thumbnail[0]);
             } else {
-                alert('Failed to upload thumbnail. Please try again.');
+                toast.error(getErrorMessage(error, 'Failed to upload thumbnail. Please try again.'));
             }
         } finally {
             isUploadingThumbnail = false;
         }
     };
 
-    // Scroll to review anchor on mount
     $effect(() => {
         if (typeof window === 'undefined') return;
         const hash = window.location.hash;
@@ -447,11 +415,24 @@
                 const el = document.getElementById(hash.slice(1));
                 if (el) {
                     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    el.classList.add('bg-blue-50', 'dark:bg-blue-900/20', 'rounded-lg', 'transition-colors');
-                    setTimeout(() => el.classList.remove('bg-blue-50', 'dark:bg-blue-900/20'), 3000);
+                    el.classList.add('bg-surface-alt', 'rounded-md', 'transition-colors');
+                    setTimeout(() => el.classList.remove('bg-surface-alt'), 3000);
                 }
             }, 500);
         }
+    });
+
+    const sections = $derived.by((): StickyBackBarSection[] => {
+        const items: StickyBackBarSection[] = [];
+        if (canSeeAnalytics && (clickStats || dailyStats)) items.push({ id: 'analytics', label: 'Analytics' });
+        if (game.is_visible && game.game_jams && game.game_jams.length > 0) items.push({ id: 'game-jams', label: 'Game Jams' });
+        if (currentScreenshots && currentScreenshots.length > 0) items.push({ id: 'screenshots', label: 'Screenshots' });
+        if (game.additional_links && game.additional_links.length > 0) items.push({ id: 'downloads', label: 'Downloads' });
+        if (publicLists && publicLists.length > 0) items.push({ id: 'featured-lists', label: 'Lists' });
+        if (currentVersions.length > 0) items.push({ id: 'versions', label: 'Versions' });
+        items.push({ id: 'reviews', label: 'Reviews' });
+        if (similarGames && similarGames.length > 0) items.push({ id: 'similar-games', label: 'Similar' });
+        return items;
     });
 
     const customCssStyleHtml = $derived(
@@ -466,44 +447,15 @@
     {@html customCssStyleHtml}
 {/if}
 
-<div
-    class="sticky top-[4.5rem] z-40 mb-5 flex flex-col gap-3 border-b border-gray-200 bg-gray-100 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-gray-700 dark:bg-gray-900"
->
-    <Link href={route('games.index')} class="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
-        <ChevronLeftIcon class="mr-1 h-5 w-5" />
-        Back to Game List
-    </Link>
-    <nav class="flex w-full flex-wrap gap-x-4 gap-y-2 whitespace-nowrap sm:w-auto sm:flex-nowrap">
-        {#if canSeeAnalytics && (clickStats || dailyStats)}
-            <a href="#analytics" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Analytics</a>
-        {/if}
-        {#if game.is_visible}
-            <a href="#details" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Details</a>
-        {/if}
-        {#if currentScreenshots && currentScreenshots.length > 0}
-            <a href="#screenshots" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Screenshots</a>
-        {/if}
-        {#if game.additional_links && game.additional_links.length > 0}
-            <a href="#downloads" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Downloads</a>
-        {/if}
-        {#if publicLists && publicLists.length > 0}
-            <a href="#featured-lists" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Lists</a>
-        {/if}
-        {#if gameVersions && gameVersions.data.length > 0}
-            <a href="#versions" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Versions</a>
-        {/if}
-        <a href="#reviews" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Reviews</a>
-        {#if similarGames && similarGames.length > 0}
-            <a href="#similar-games" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Similar</a>
-        {/if}
-    </nav>
-</div>
+<StickyBackBar href={route('games.index')} label="Back to Game List" {sections} />
 
 <GameHeader
     {game}
     {isAuthenticated}
     {currentThumbnail}
     {activePlatforms}
+    supportedLanguages={visibleSupportedLanguages}
+    {facts}
     {editPermissions}
     {previewingVisitorView}
     {visitorName}
@@ -519,14 +471,14 @@
 />
 
 {#if canSeeAnalytics && (clickStats || dailyStats)}
-    <Card id="analytics" padding="lg" class="mb-6 scroll-mt-28">
-        <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Analytics</h2>
+    <Card id="analytics" padding="lg" class="mb-6 scroll-mt-32">
+        <h2 class="mb-4 text-title font-semibold text-fg">Analytics</h2>
         <GameStats {clickStats} {dailyStats} />
     </Card>
 {/if}
 
 {#if game.is_visible}
-    <GameDetailsSection {game} {detailItems} {visibleSupportedLanguages} />
+    <GameJamsSection gameJams={game.game_jams ?? []} />
 {/if}
 
 {#if (currentScreenshots && currentScreenshots.length > 0) || (editPermissions.canEdit && !previewingVisitorView)}
@@ -545,52 +497,46 @@
 {/if}
 
 {#if publicLists && publicLists.length > 0}
-    <Card id="featured-lists" padding="lg" class="mb-6 scroll-mt-28">
-        <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+    <Card id="featured-lists" padding="lg" class="mb-6 scroll-mt-32">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-title font-semibold text-fg">
                 Featured in {publicListsCount} Public {publicListsCount === 1 ? 'List' : 'Lists'}
             </h2>
             {#if publicListsCount > publicLists.length}
-                <Link href={route('lists.public', { game: game.id })} class="text-sm text-blue-600 hover:underline dark:text-blue-400">
+                <Link href={route('lists.public', { game: game.id })} class="text-ui text-fg-muted transition-colors hover:text-fg hover:underline">
                     View all {publicListsCount} lists
                 </Link>
             {/if}
         </div>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {#each publicLists as list (list.id)}
-                {@const colors = getPublicListColors(list.type)}
                 <Link
                     href={route('lists.show', list.id)}
-                    class="group block rounded-lg border-l-4 {colors.border} bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-gray-700/50"
+                    class="group block rounded-md border border-l-4 border-border {listTypeBorderClass(
+                        list.type,
+                    )} p-4 transition-colors hover:bg-surface-alt"
                 >
-                    <div class="mb-2 flex items-start justify-between">
-                        <h3 class="font-medium text-gray-900 group-hover:text-blue-600 dark:text-gray-100 dark:group-hover:text-blue-400">
-                            {list.name}
-                        </h3>
-                        <span
-                            class="ml-2 shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-600 dark:text-gray-300"
-                        >
+                    <div class="mb-1.5 flex items-center gap-2">
+                        <Badge tone={listTypeTone(list.type)} size="sm">{formatListType(list.type)}</Badge>
+                        <span class="text-2xs text-fg-faint">
                             {list.entries_count}
                             {list.entries_count === 1 ? 'game' : 'games'}
                         </span>
                     </div>
-                    <div class="mb-2">
-                        <span
-                            class="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold {colors.bg} {colors.text} {colors.darkBg} {colors.darkText}"
-                        >
-                            {list.type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-                        </span>
-                    </div>
+                    <h3 class="text-md font-medium text-fg group-hover:underline">{list.name}</h3>
                     {#if list.description}
-                        <p class="mb-2 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">{list.description}</p>
+                        <p class="mt-1 line-clamp-2 text-ui text-fg-muted">{list.description}</p>
                     {/if}
-                    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <div class="mt-2 flex items-center gap-2 text-xs text-fg-faint">
                         {#if list.user.avatar}
-                            <img src={list.user.avatar} alt={list.user.name} class="h-5 w-5 rounded-full" />
+                            <img src={list.user.avatar} alt="" aria-hidden="true" class="h-5 w-5 rounded-full" />
                         {:else}
-                            <div class="flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-600">
-                                <span class="text-xs font-medium text-gray-600 dark:text-gray-300">{list.user.name.charAt(0).toUpperCase()}</span>
-                            </div>
+                            <span
+                                class="flex h-5 w-5 items-center justify-center rounded-full bg-surface-alt text-2xs font-medium text-fg-muted"
+                                aria-hidden="true"
+                            >
+                                {list.user.name.charAt(0).toUpperCase()}
+                            </span>
                         {/if}
                         <span>by {list.user.name}</span>
                     </div>
@@ -632,13 +578,10 @@
     onPerPageChange={handleVersionsPerPageChange}
 />
 
-<div class="mb-6">
-    <ReviewTextControls />
-</div>
-
 <GameReviewsSection
     reviews={filteredReviews}
     gameId={game.id}
+    hasRatings={(game.rating_count ?? 0) > 0}
     initialUserReview={userReview}
     {isAuthenticated}
     availableRatings={currentAvailableRatings}
@@ -650,7 +593,7 @@
     {copiedReviewId}
     {expandedReviews}
     {revealedSpoilers}
-    {reviewStyles}
+    reviewStyles={reviewStyles.css}
     pagination={reviewsPagination}
     onToggleRatingsView={handleToggleRatingsView}
     onRatingFilterChange={handleRatingFilterChange}
@@ -666,7 +609,7 @@
 />
 
 <GameRecommendationsSection id="similar-games" title="Similar Games" games={similarGames} />
-<GameRecommendationsSection title="More by This Developer" games={developerGames} compact />
+<GameRecommendationsSection title="More by This Developer" games={developerGames} />
 
 {#if isLightboxOpen}
     <ScreenshotsLightbox

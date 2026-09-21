@@ -10,10 +10,12 @@
     import type { NotificationPreferences } from '@/api/user-preferences';
     import { deleteAccount } from '@/api/dashboard';
     import { toast } from '@/utils/toast';
-    import { Link, page, router } from '@inertiajs/svelte';
-    import { SvelteURL } from 'svelte/reactivity';
-    import { Button, Card } from '@/components/ui';
+    import { getErrorMessage } from '@/utils/async-action.svelte';
+    import { useUrlTab } from '@/hooks/useUrlTab.svelte';
+    import { Link } from '@inertiajs/svelte';
+    import { Button, Card, TabBar } from '@/components/ui';
     import type { User, SocialAccount } from '@/types';
+    import type { GameClickStatsMap, GameSummary } from '@/types/my-games';
     interface AdditionRequest {
         id: number;
         game_url: string;
@@ -26,22 +28,6 @@
         rejection_reason?: string;
         game?: { id: number; name: string; slug: string };
         reviewer?: { name: string };
-    }
-    interface GameSummary {
-        id: number;
-        name: string;
-        slug: string;
-        thumb_url?: string | null;
-        has_additional_links?: boolean;
-        platform?: 'itch_io' | 'steam' | 'other';
-    }
-    interface GameClickStats {
-        page_views_total: number;
-        page_views_unique: number;
-        external_project_total: number;
-        external_project_unique: number;
-        custom_link_clicks_total: number;
-        custom_link_clicks_unique: number;
     }
     interface IgnoredGame {
         id: number;
@@ -57,7 +43,7 @@
         socialAccounts: Record<string, SocialAccount>;
         itchioData: { username?: string };
         myGames: GameSummary[];
-        myGamesClickStats: { [gameId: string]: GameClickStats } | null;
+        myGamesClickStats: GameClickStatsMap | null;
         notificationPreferences: NotificationPreferences;
         recentRequests: AdditionRequest[];
         ignoredGames: IgnoredGame[];
@@ -118,26 +104,11 @@
         { id: 'search', label: 'Search Preferences' },
     ];
     const tabs = $derived(allTabs.filter((t) => t.condition !== false));
-
-    function tabFromUrl(): Tab {
-        const url = new SvelteURL(typeof window !== 'undefined' ? window.location.href : page.url, 'http://localhost');
-        const tab = url.searchParams.get('tab') ?? url.hash.slice(1);
-        if (tab === 'my-games' || tab === 'additions' || tab === 'search') return tab;
-        return 'account';
-    }
-    let activeTab = $state<Tab>(tabFromUrl());
-
-    function setTab(tab: Tab) {
-        if (tab === activeTab) return;
-        activeTab = tab;
-        if (typeof window !== 'undefined') {
-            const url = new SvelteURL(window.location.href);
-            if (tab === 'account') url.searchParams.delete('tab');
-            else url.searchParams.set('tab', tab);
-            url.hash = '';
-            router.push({ url: `${url.pathname}${url.search}${url.hash}`, preserveState: true, preserveScroll: true });
-        }
-    }
+    const { activeTab, setTab } = useUrlTab<Tab>(
+        allTabs.map((t) => t.id),
+        'account',
+        { readHash: true },
+    );
 
     const handleExportData = () => {
         if (typeof window !== 'undefined') window.location.href = route('browser-api.user.export');
@@ -153,7 +124,7 @@
             window.location.assign(route('home'));
         } catch (error) {
             deletingAccount = false;
-            toast.error(error instanceof Error ? error.message : 'Failed to delete account.');
+            toast.error(getErrorMessage(error, 'Failed to delete account.'));
         }
     }
 </script>
@@ -162,47 +133,27 @@
 
 <PageHeader title={metaTags?.title || 'Dashboard'} class="mb-6" />
 
-<div class="mb-6 border-b border-gray-200 dark:border-gray-700">
-    <div class="-mb-px flex flex-wrap gap-x-6" aria-label="Dashboard tabs" role="tablist">
-        {#each tabs as tab (tab.id)}
-            <Button
-                type="button"
-                variant="link"
-                tone="info"
-                onclick={() => setTab(tab.id)}
-                class="border-b-2 px-1 py-3 text-sm font-medium transition-colors {activeTab === tab.id
-                    ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'}"
-                aria-selected={activeTab === tab.id}
-                role="tab"
-            >
-                {tab.label}
-            </Button>
-        {/each}
-    </div>
-</div>
+<TabBar {tabs} active={activeTab} onSelect={(tab) => setTab(tab as Tab)} ariaLabel="Dashboard tabs" />
 
 <BugReports initialReports={activeBugReports || []} openReportId={openBugReportId()} />
 
 {#if activeTab === 'account'}
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div class="space-y-6 lg:col-span-3">
-            <Card padding="lg">
-                <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Profile Information</h2>
+            <Card variant="flat" padding="lg">
+                <h2 class="mb-4 text-title font-semibold text-fg">Profile Information</h2>
                 <div class="flex items-center gap-4">
                     {#if user.avatar}
                         <img src={user.avatar} alt={user.name} class="h-16 w-16 rounded-full" />
                     {:else}
-                        <div
-                            class="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-xl font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                        >
+                        <div class="flex h-16 w-16 items-center justify-center rounded-full bg-surface-alt text-xl font-bold text-fg-muted">
                             {user.name?.charAt(0)?.toUpperCase() || '?'}
                         </div>
                     {/if}
                     <div>
-                        <div class="text-lg font-semibold text-gray-900 dark:text-white">{user.name}</div>
+                        <div class="text-lg font-semibold text-fg">{user.name}</div>
                         {#if user.email}
-                            <div class="text-sm text-gray-500 dark:text-gray-400">{user.email}</div>
+                            <div class="text-sm text-fg-faint">{user.email}</div>
                         {/if}
                     </div>
                 </div>
@@ -211,7 +162,7 @@
                         <Button type="button" variant="solid" tone="primary" onclick={handleExportData}>Export My Data</Button>
                         <Link
                             href={route('users.reviews', user.id)}
-                            class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                            class="inline-flex items-center rounded-md border border-border-strong bg-surface px-4 py-2 text-sm font-medium text-fg transition-colors hover:border-fg"
                         >
                             My Reviews
                         </Link>
@@ -223,16 +174,16 @@
         </div>
 
         <div class="space-y-6 lg:col-span-2">
-            <Card padding="lg">
-                <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Connected Accounts</h2>
+            <Card variant="flat" padding="lg">
+                <h2 class="mb-4 text-title font-semibold text-fg">Connected Accounts</h2>
                 <ConnectedAccounts {user} {connectedProviders} {socialAccounts} />
             </Card>
 
-            <Card padding="lg">
-                <h2 class="mb-4 text-lg font-semibold text-red-600 dark:text-red-400">Delete Account</h2>
-                <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
-                    Permanently delete your account, saved lists, reading progress, and reviews posted on FVN.li.
-                    This cannot be undone. You can export your data first.
+            <Card variant="flat" padding="lg">
+                <h2 class="mb-4 text-title font-semibold text-red-600 dark:text-red-400">Delete Account</h2>
+                <p class="mb-4 text-sm text-fg-muted">
+                    Permanently delete your account, saved lists, reading progress, and reviews posted on FVN.li. This cannot be undone. You can
+                    export your data first.
                 </p>
                 <Button type="button" tone="danger" loading={deletingAccount} onclick={handleDeleteAccount}>
                     {deletingAccount ? 'Deleting Account…' : 'Delete Account'}

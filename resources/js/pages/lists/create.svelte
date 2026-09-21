@@ -2,8 +2,10 @@
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import { storeVnList } from '@/api/lists';
     import { router } from '@inertiajs/svelte';
-    import { Button, Card, Checkbox, TextInput, Textarea } from '@/components/ui';
+    import { Button, Card } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
+    import ListFormFields from '@/components/lists/ListFormFields.svelte';
+    import { useAsyncAction } from '@/utils/async-action.svelte';
 
     interface Props {
         metaTags?: {
@@ -19,21 +21,13 @@
         description: '',
         is_public: false,
     });
-    let isLoading = $state(false);
+    const createAction = useAsyncAction();
 
     async function handleSubmit(e: Event) {
         e.preventDefault();
-        isLoading = true;
-
-        try {
-            const data = await storeVnList(formData);
-            router.visit(route('lists.show', data.list.id));
-        } catch (error) {
-            console.error('Error creating list:', error);
-            alert(error instanceof Error ? error.message : 'Failed to create list');
-        } finally {
-            isLoading = false;
-        }
+        const data = await createAction.run(() => storeVnList(formData), { fallbackError: 'Failed to create list' });
+        if (!data) return;
+        router.visit(route('lists.show', data.list.id));
     }
 </script>
 
@@ -42,30 +36,14 @@
 <div class="mx-auto max-w-2xl space-y-8">
     <PageHeader title="Create New List" />
 
-    <Card variant="glass">
+    <Card variant="flat">
         <form onsubmit={handleSubmit} class="space-y-6">
-            <TextInput type="text" id="name" bind:value={formData.name} required label="List Name" placeholder="Enter list name..." />
-
-            <Textarea
-                id="description"
-                bind:value={formData.description}
-                rows={4}
-                label="Description"
-                placeholder="Optional description for your list..."
-                help="Describe what this list is for (optional)"
-            />
-
-            <div>
-                <Checkbox bind:checked={formData.is_public} label="Make this list public" />
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Public lists can be viewed by anyone, private lists are only visible to you
-                </p>
-            </div>
+            <ListFormFields bind:form={formData} />
 
             <div class="flex justify-end space-x-3 pt-4">
                 <Button href={route('lists.index')} variant="outline" tone="neutral">Cancel</Button>
-                <Button type="submit" disabled={isLoading || !formData.name.trim()} loading={isLoading}>
-                    {isLoading ? 'Creating...' : 'Create List'}
+                <Button type="submit" disabled={createAction.isLoading || !formData.name.trim()} loading={createAction.isLoading}>
+                    {createAction.isLoading ? 'Creating...' : 'Create List'}
                 </Button>
             </div>
         </form>

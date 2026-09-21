@@ -99,7 +99,7 @@ describe('Home Page Game Cards', function () {
             ) use ($ignoredGame) {
                 expect($query)->toBe('')
                     ->and($filters)->toBe([])
-                    ->and($perPage)->toBe(4)
+                    ->and($perPage)->toBeIn([6, 12, 18])
                     ->and($page)->toBe(1)
                     ->and($sortDirection)->toBe('desc')
                     ->and($sortField)->toBeIn(['first_visible_at', 'latest_version_published_at', 'trending_score'])
@@ -118,14 +118,16 @@ describe('Home Page Game Cards', function () {
         $firstGame = $props['teasers']['recentlyAdded'][0];
 
         expect($props['ignoredGameIds'])->toBe([$ignoredGame->id])
+            ->and($props['homeView'])->toBe('grid')
             ->and($firstGame['id'])->toBe($game->id)
             ->and($firstGame['is_windows'])->toBeTrue()
             ->and($firstGame['is_mac'])->toBeTrue()
             ->and($firstGame['is_web'])->toBeTrue()
             ->and($firstGame['latest_version_id'])->toBe($version->id)
+            ->and($firstGame['latest_version_number'])->toBe($version->version)
             ->and($firstGame['english_word_count'])->toBe(12345)
             ->and($firstGame['primary_word_count'])->toBe(12345)
-            ->and($firstGame['primary_language_label'])->toBe('EN')
+            ->and($firstGame['primary_language_name'])->toBe('English')
             ->and($firstGame['supported_languages'][0]['iso_code'])->toBe('eng')
             ->and($firstGame['supported_languages'][0]['ref_name'])->toBe('English')
             ->and($firstGame['user_progress'][0]->receive_updates)->toBeTrue()
@@ -185,5 +187,83 @@ describe('Home Page Game Cards', function () {
             ->and($guestGame['id'])->toBe($game->id)
             ->and($guestGame['user_progress'])->toBe([])
             ->and($guestGame['user_list_memberships'])->toBe([]);
+    });
+
+    test('home teasers ship the same count for both layouts and honour the stored layout preference', function () {
+        Cache::flush();
+
+        $games = Game::factory()->count(18)->create(['is_visible' => true]);
+
+        $search = Mockery::mock(MeilisearchService::class);
+        $search
+            ->shouldReceive('searchGames')
+            ->times(3)
+            ->andReturnUsing(fn (string $query, array $filters, int $perPage) => new LengthAwarePaginator(
+                (new Game)->newCollection($games->take($perPage)->all()),
+                $games->count(),
+                $perPage,
+                1,
+            ));
+
+        app()->instance(MeilisearchService::class, $search);
+
+        $gridProps = $this->get(route('home'))->assertOk()->viewData('page')['props'];
+
+        expect($gridProps['homeView'])->toBe('grid')
+            ->and($gridProps['teasers']['recentlyAdded'])->toHaveCount(6)
+            ->and($gridProps['teasers']['recentlyUpdated'])->toHaveCount(6)
+            ->and($gridProps['teasers']['mostPopular'])->toHaveCount(6)
+            ->and($gridProps['metaTags']['structuredData'])->toMatchArray([
+                '@type' => 'WebSite',
+                'name' => 'FVN.li',
+                'url' => url('/') . '/',
+            ]);
+
+        $listProps = $this->withUnencryptedCookie('home_view', 'list')->get(route('home'))->assertOk()->viewData('page')['props'];
+
+        expect($listProps['homeView'])->toBe('list')
+            ->and($listProps['teasers']['recentlyAdded'])->toHaveCount(6);
+
+        $unknownProps = $this->withUnencryptedCookie('home_view', 'carousel')->get(route('home'))->assertOk()->viewData('page')['props'];
+
+        expect($unknownProps['homeView'])->toBe('grid');
+    });
+
+    test('home sections never repeat a game and backfill from deeper in each ranking', function () {
+        Cache::flush();
+
+        $games = Game::factory()->count(14)->create(['is_visible' => true])->values();
+        $ids = $games->pluck('id');
+
+        $rankings = [
+            'first_visible_at' => $ids->slice(0, 6)->values(),
+            'latest_version_published_at' => $ids->slice(3, 9)->values(),
+            'trending_score' => $ids->slice(0, 14)->values(),
+        ];
+
+        $search = Mockery::mock(MeilisearchService::class);
+        $search
+            ->shouldReceive('searchGames')
+            ->times(3)
+            ->andReturnUsing(function (string $query, array $filters, int $perPage, int $page, string $sortField) use ($games, $rankings) {
+                $ranked = $rankings[$sortField]
+                    ->take($perPage)
+                    ->map(fn (int $id) => $games->firstWhere('id', $id)->fresh());
+
+                return new LengthAwarePaginator((new Game)->newCollection($ranked->all()), $ranked->count(), $perPage, 1);
+            });
+
+        app()->instance(MeilisearchService::class, $search);
+
+        $teasers = $this->get(route('home'))->assertOk()->viewData('page')['props']['teasers'];
+
+        $added = collect($teasers['recentlyAdded'])->pluck('id');
+        $updated = collect($teasers['recentlyUpdated'])->pluck('id');
+        $popular = collect($teasers['mostPopular'])->pluck('id');
+
+        expect($added->all())->toBe($ids->slice(0, 6)->values()->all())
+            ->and($updated->all())->toBe($ids->slice(6, 6)->values()->all())
+            ->and($popular->all())->toBe($ids->slice(12, 2)->values()->all())
+            ->and($added->merge($updated)->merge($popular)->duplicates())->toBeEmpty();
     });
 });

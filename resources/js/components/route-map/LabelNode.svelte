@@ -49,13 +49,9 @@
     .prompt {
         font-size: 10px;
         font-style: italic;
-        color: #6b7280;
+        color: var(--text-faint);
         margin-top: 4px;
         white-space: normal;
         word-wrap: break-word;
-    }
-
-    :global(.dark) .prompt {
-        color: #9ca3af;
     }
 </style>

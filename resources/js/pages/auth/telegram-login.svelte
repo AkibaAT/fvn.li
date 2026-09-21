@@ -44,13 +44,13 @@
 <SeoHead {title} />
 
 <div class="flex min-h-[70vh] items-center justify-center">
-    <Card padding="lg" class="w-full max-w-md text-center shadow-md">
+    <Card variant="flat" padding="lg" class="w-full max-w-md text-center">
         <PageHeader {title} align="center" class="mb-6" />
 
         <div class="flex justify-center" bind:this={widgetContainer}></div>
 
         <div class="mt-6">
-            <Link href={route('home')} class="text-blue-600 hover:underline dark:text-blue-400">Cancel and go back</Link>
+            <Link href={route('home')} class="text-fg-muted transition-colors hover:text-fg">Cancel and go back</Link>
         </div>
     </Card>
 </div>

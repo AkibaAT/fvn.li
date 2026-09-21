@@ -3,6 +3,7 @@
     import { submitBugReport } from '@/api';
     import { usePage } from '@inertiajs/svelte';
     import { notify } from '@/components/Toast.svelte';
+    import { useAsyncAction } from '@/utils/async-action.svelte';
     import { Alert, Button, Dialog, TextInput, Textarea } from '@/components/ui';
 
     interface User {
@@ -12,7 +13,7 @@
 
     let isOpen = $state(false);
     let description = $state('');
-    let isSubmitting = $state(false);
+    const submitAction = useAsyncAction();
     let pageInfo = $state({
         url: '',
         title: '',
@@ -52,23 +53,20 @@
             return;
         }
 
-        isSubmitting = true;
-
-        try {
-            const message = await submitBugReport({
-                page_url: pageInfo.url,
-                page_title: pageInfo.title,
-                description: description.trim(),
-                request_parameters: pageInfo.params,
-            });
-            notify(message, 'success');
-            description = '';
-            isOpen = false;
-        } catch (error) {
-            notify(error instanceof Error ? error.message : 'An error occurred while submitting the bug report.', 'error');
-        } finally {
-            isSubmitting = false;
-        }
+        const message = await submitAction.run(
+            () =>
+                submitBugReport({
+                    page_url: pageInfo.url,
+                    page_title: pageInfo.title,
+                    description: description.trim(),
+                    request_parameters: pageInfo.params,
+                }),
+            { fallbackError: 'An error occurred while submitting the bug report.' },
+        );
+        if (!message) return;
+        notify(message, 'success');
+        description = '';
+        isOpen = false;
     }
 
     function closeDialog() {
@@ -81,7 +79,7 @@
     onclick={() => (isOpen = true)}
     variant="ghost"
     tone="neutral"
-    class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+    class="text-fg-muted hover:text-fg"
     aria-label="Report a bug"
     title="Report a bug"
 >
@@ -106,15 +104,15 @@
             readonly
             label="Page URL"
             fieldClass="mb-4"
-            class="bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+            class="bg-surface-alt text-fg-muted"
         />
 
         {#if Object.keys(pageInfo.params).length > 0}
             <div class="mb-4">
-                <p class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Page Parameters</p>
-                <div class="rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700">
+                <p class="mb-1 block text-sm font-medium text-fg-muted">Page Parameters</p>
+                <div class="rounded-lg border border-border bg-surface-alt px-3 py-2 text-sm">
                     {#each Object.entries(pageInfo.params) as [key, value] (key)}
-                        <div class="text-gray-600 dark:text-gray-300">
+                        <div class="text-fg-muted">
                             <span class="font-medium">{key}:</span>
                             {value}
                         </div>
@@ -138,8 +136,8 @@
 
         <div class="flex justify-end gap-3">
             <Button type="button" onclick={closeDialog} variant="outline" tone="neutral">Cancel</Button>
-            <Button type="submit" disabled={isSubmitting || !user} loading={isSubmitting}>
-                {isSubmitting ? 'Submitting...' : 'Submit Report'}
+            <Button type="submit" disabled={submitAction.isLoading || !user} loading={submitAction.isLoading}>
+                {submitAction.isLoading ? 'Submitting...' : 'Submit Report'}
             </Button>
         </div>
     </form>

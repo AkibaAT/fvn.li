@@ -43,10 +43,22 @@ const readAppearance = (): Appearance => {
         return storedAppearance;
     }
 
-    // An unreadable cookie is rewritten so the server stops seeing the stale value.
     setCookie('appearance', 'system');
 
     return 'system';
+};
+
+const themeColors = { light: '#ffffff', dark: '#222836' } as const;
+
+const applyThemeColor = (isDark: boolean) => {
+    const metas = document.head.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
+    metas.forEach((meta, index) => {
+        if (index > 0) meta.remove();
+    });
+
+    const meta = metas[0] ?? document.head.appendChild(Object.assign(document.createElement('meta'), { name: 'theme-color' }));
+    meta.removeAttribute('media');
+    meta.content = isDark ? themeColors.dark : themeColors.light;
 };
 
 const applyTheme = (appearance: Appearance) => {
@@ -57,6 +69,7 @@ const applyTheme = (appearance: Appearance) => {
     const isDark = appearance === 'dark' || (appearance === 'system' && prefersDark());
 
     document.documentElement.classList.toggle('dark', isDark);
+    applyThemeColor(isDark);
 };
 
 const mediaQuery = () => {

@@ -3,9 +3,6 @@
 
     let { metaTags, title }: { metaTags?: MetaTags | null; title?: string } = $props();
 
-    // The Blade root view renders the full document head server-side; emitting
-    // head tags during SSR would duplicate them. In the browser, Svelte keeps
-    // document.title current across client-side navigations.
     const isBrowser = typeof window !== 'undefined';
     const finalBrowserTitle = $derived(metaTags?.browserTitle ?? metaTags?.title ?? title);
 </script>

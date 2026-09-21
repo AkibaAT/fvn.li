@@ -25,8 +25,13 @@
         <meta name="robots" content="noindex, nofollow">
     @endif
 
-    <meta name="theme-color" content="#3B82F6">
-    <meta name="msapplication-TileColor" content="#3B82F6">
+    @if ($appearance === 'light' || $isDark)
+        <meta name="theme-color" content="{{ $isDark ? '#222836' : '#ffffff' }}">
+    @else
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#222836">
+    @endif
+    <meta name="msapplication-TileColor" content="#171b24">
     <meta name="application-name" content="FVN.li">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -54,6 +59,10 @@
 
     @if (!empty($metaTags['noindex']) && $metaTags['noindex'])
         <meta name="robots" content="noindex">
+    @endif
+
+    @if (!empty($metaTags['isAdult']))
+        <meta name="rating" content="adult">
     @endif
 
     @if ($socialTitle)
@@ -125,7 +134,7 @@
     @vite('resources/js/app.ts')
     @routes
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 min-h-screen antialiased">
+<body class="bg-page text-fg min-h-screen antialiased">
 @inertia
 </body>
 </html>

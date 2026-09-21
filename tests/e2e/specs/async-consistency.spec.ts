@@ -44,7 +44,6 @@ test('deleting the last list on a page returns to a populated page with correct 
     await expect(page.getByRole('article', { name: 'Public list', exact: true })).toBeVisible();
     await expect(page).toHaveURL((url) => url.searchParams.get('visibility') === 'public' && url.searchParams.get('page') === '1');
     await expect(page.getByRole('link', { name: 'Public Lists (1)', exact: true })).toBeVisible();
-    await expect(page.getByLabel('Select page number')).toHaveValue('1');
 });
 
 test('visibility changes update both filtered lists immediately', async ({ page }, info) => {
@@ -170,7 +169,7 @@ test('a failed review request shows an error and can retry the same filter', asy
 });
 
 for (const kind of ['character', 'file']) {
-    const openerName = kind === 'character' ? 'View 1 Characters' : 'View File Stats';
+    const openerName = kind === 'character' ? 'View 1 character' : 'View file stats';
     const statsPayload = (name: string) => ({
         success: true,
         data:

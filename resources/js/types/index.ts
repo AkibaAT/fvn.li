@@ -1,5 +1,22 @@
 import type { Config } from 'ziggy-js';
 
+/**
+ * Canonical paginator shape shared by the Pagination component and every page
+ * that builds one. `from`/`to` are optional summaries; the component falls
+ * back to "Page X of Y" when they are absent.
+ */
+export interface PaginationMeta {
+    current_page: number;
+    last_page: number;
+    per_page?: number;
+    total: number;
+    from?: number | null;
+    to?: number | null;
+}
+
+export * from './game';
+export * from './lists';
+
 interface Auth {
     user: User;
 }
@@ -34,29 +51,6 @@ export interface SocialAccount {
     email?: string;
     created_at: string;
     updated_at: string;
-}
-
-// Game related types
-export interface Game {
-    id: number;
-    name: string;
-    slug: string;
-    description?: string;
-    thumbnail?: string;
-    is_nsfw: boolean;
-    is_paid: boolean;
-    has_demo: boolean;
-    rating_score?: number;
-    rating_count?: number;
-    status: string;
-    authors?: string;
-    game_engine?: string;
-    platform?: string; // 'itch_io' | 'steam' | 'other'
-    primary_url?: string | null;
-    effective_name?: string;
-    created_at: string;
-    updated_at: string;
-    [key: string]: unknown;
 }
 
 export interface FilterOptions {

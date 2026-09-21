@@ -34,74 +34,17 @@ export function getGamePlatforms(platforms: PlatformFlags, latestVersion?: Versi
     return platforms;
 }
 
-export function getLanguageFlag(flagCode: string): string {
-    return `https://flagicons.lipis.dev/flags/1x1/${flagCode}.svg`;
+export function getVersionWordCount(version: VersionWithLanguageStats): string | null {
+    const words = version.languageStats?.find((stats) => String(stats.language.iso_code) === 'eng' || String(stats.language.id) === 'eng')?.words;
+    return words ? words.toLocaleString() : null;
 }
 
-export function getVersionWordCount(version: VersionWithLanguageStats): string {
-    return (
-        version.languageStats
-            ?.find((stats) => String(stats.language.iso_code) === 'eng' || String(stats.language.id) === 'eng')
-            ?.words?.toLocaleString() || '-'
-    );
+export function gamesFilterUrl(filters: Record<string, string | number | boolean | Array<string | number>>): string {
+    return route('games.index', { ...filters, noDefaults: true });
 }
 
 export function shouldCollapseReview(reviewHtml?: string): boolean {
     return (reviewHtml?.length || 0) > 900;
-}
-
-export function getPublicListColors(type: string): {
-    border: string;
-    bg: string;
-    text: string;
-    darkBg: string;
-    darkText: string;
-} {
-    return (
-        {
-            reading: {
-                border: 'border-blue-500',
-                bg: 'bg-blue-100',
-                text: 'text-blue-800',
-                darkBg: 'dark:bg-blue-900/20',
-                darkText: 'dark:text-blue-400',
-            },
-            completed: {
-                border: 'border-green-500',
-                bg: 'bg-green-100',
-                text: 'text-green-800',
-                darkBg: 'dark:bg-green-900/20',
-                darkText: 'dark:text-green-400',
-            },
-            plan_to_read: {
-                border: 'border-yellow-500',
-                bg: 'bg-yellow-100',
-                text: 'text-yellow-800',
-                darkBg: 'dark:bg-yellow-900/20',
-                darkText: 'dark:text-yellow-400',
-            },
-            on_hold: {
-                border: 'border-orange-500',
-                bg: 'bg-orange-100',
-                text: 'text-orange-800',
-                darkBg: 'dark:bg-orange-900/20',
-                darkText: 'dark:text-orange-400',
-            },
-            dropped: {
-                border: 'border-red-500',
-                bg: 'bg-red-100',
-                text: 'text-red-800',
-                darkBg: 'dark:bg-red-900/20',
-                darkText: 'dark:text-red-400',
-            },
-        }[type] || {
-            border: 'border-gray-500',
-            bg: 'bg-gray-100',
-            text: 'text-gray-800',
-            darkBg: 'dark:bg-gray-900/20',
-            darkText: 'dark:text-gray-400',
-        }
-    );
 }
 
 export function parseCriteriaRankings(criteriaRankings: unknown): Record<string, { rank?: string; score?: string }> {

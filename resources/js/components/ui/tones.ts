@@ -16,21 +16,21 @@ const listTypeMetadata = {
 } as const satisfies Record<string, { tone: BadgeTone; label: string; icon: Component }>;
 
 const listTypeBorderClasses = {
-    reading: 'border-blue-500',
+    reading: 'border-accent',
     completed: 'border-green-500',
     plan_to_read: 'border-amber-500',
     on_hold: 'border-orange-500',
     dropped: 'border-red-500',
-    default: 'border-gray-500',
+    default: 'border-border-strong',
 } as const;
 
 const listTypeDotClasses = {
-    reading: 'bg-blue-500',
+    reading: 'bg-accent',
     completed: 'bg-green-500',
     plan_to_read: 'bg-amber-500',
     on_hold: 'bg-orange-500',
     dropped: 'bg-red-500',
-    default: 'bg-gray-500',
+    default: 'bg-border-strong',
 } as const;
 
 export function listTypeTone(type: string | undefined): BadgeTone {

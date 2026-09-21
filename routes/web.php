@@ -14,6 +14,7 @@ use App\Http\Controllers\DiscordConfigController;
 use App\Http\Controllers\FeedController;
 use App\Http\Controllers\Games\GamesDisplayController;
 use App\Http\Controllers\Games\GamesSearchController;
+use App\Http\Controllers\Games\GameTagsController;
 use App\Http\Controllers\Games\RouteMapController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MyGamesController;
@@ -147,6 +148,11 @@ Route::get('games/{game:slug}', [GamesDisplayController::class, 'show'])
     ->middleware('track.page.views');
 Route::get('games/{game:slug}/route-map', [RouteMapController::class, 'show'])
     ->name('games.route-map');
+
+Route::get('tags', [GameTagsController::class, 'index'])
+    ->name('tags.index');
+Route::get('tags/{tag:slug}', [GameTagsController::class, 'show'])
+    ->name('tags.show');
 
 // Auth routes
 Route::get('login', [AuthController::class, 'login'])

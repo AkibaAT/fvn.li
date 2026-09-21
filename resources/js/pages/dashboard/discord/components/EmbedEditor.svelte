@@ -1,9 +1,12 @@
 <script lang="ts">
+    import { debounce } from '@/utils/debounce';
     import { onDestroy } from 'svelte';
     import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
     import XMarkIcon from '@/components/icons/XMark.svelte';
     import { previewEmbed } from '@/api/discord';
     import { toast } from '@/utils/toast';
+    import { getErrorMessage } from '@/utils/async-action.svelte';
+    import { Button, Checkbox, Popover, Textarea, TextInput } from '@/components/ui';
 
     interface Props {
         template: Record<string, unknown>;
@@ -28,7 +31,6 @@
     let previewError = $state<string | null>(null);
     let previewInitialized = $state(false);
     let previewRequestSeq = 0;
-    let previewDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
     const variables = [
         { token: '{game.name}', label: 'Game Name', group: 'Game' },
@@ -268,7 +270,7 @@
             }
 
             previewData = null;
-            previewError = e instanceof Error ? e.message : 'Preview failed';
+            previewError = getErrorMessage(e, 'Preview failed');
         } finally {
             if (requestId === previewRequestSeq) {
                 previewLoading = false;
@@ -298,7 +300,7 @@
             return true;
         } catch (error) {
             if (sequence !== jsonSaveSequence) return false;
-            jsonError = error instanceof Error ? error.message : 'Invalid JSON';
+            jsonError = getErrorMessage(error, 'Invalid JSON');
             onvaliditychange(false);
             return false;
         }
@@ -332,21 +334,14 @@
         void notificationType;
         void serverId;
 
-        if (previewDebounceTimer) {
-            clearTimeout(previewDebounceTimer);
-        }
-
-        previewDebounceTimer = setTimeout(() => {
+        const schedulePreview = debounce(() => {
             previewInitialized = true;
             void requestPreview();
         }, 300);
 
-        return () => {
-            if (previewDebounceTimer) {
-                clearTimeout(previewDebounceTimer);
-                previewDebounceTimer = null;
-            }
-        };
+        schedulePreview();
+
+        return () => schedulePreview.cancel();
     });
 
     const previewSrc = $derived(previewData ?? {});
@@ -364,127 +359,93 @@
     <div class="space-y-4">
         <div class="flex items-center justify-between">
             <div class="flex gap-2">
-                <span class="text-sm font-medium text-gray-500 capitalize dark:text-gray-400">{notificationType.replace('_', ' ')} Embed</span>
-                <button
-                    onclick={toggleJsonMode}
-                    class="rounded px-2 py-0.5 text-xs font-medium transition-colors {jsonMode
-                        ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'}"
-                >
+                <span class="text-sm font-medium text-fg-muted capitalize">{notificationType.replace('_', ' ')} Embed</span>
+                <Button onclick={toggleJsonMode} variant={jsonMode ? 'solid' : 'soft'} tone={jsonMode ? 'neutral' : 'primary'} size="xs">
                     {jsonMode ? 'Visual' : 'JSON'}
-                </button>
+                </Button>
             </div>
             <div class="flex gap-2">
-                <div class="relative">
-                    <button
-                        onclick={() => (showVariableMenu = !showVariableMenu)}
-                        class="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
-                    >
-                        Copy Variable
-                    </button>
+                <Popover bind:open={showVariableMenu}>
+                    <Button onclick={() => (showVariableMenu = !showVariableMenu)} variant="soft" size="xs">Copy Variable</Button>
                     {#if showVariableMenu}
-                        <div
-                            class="absolute right-0 z-50 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
-                        >
+                        <div class="absolute right-0 z-50 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-border bg-surface">
                             {#each Object.entries(groupedVariables) as [group, vars] (group)}
-                                <div
-                                    class="border-b border-gray-100 px-3 py-1 text-xs font-semibold text-gray-500 last:border-0 dark:border-gray-700 dark:text-gray-400"
-                                >
+                                <div class="border-b border-border px-3 py-1 text-xs font-semibold text-fg-faint last:border-0">
                                     {group}
                                 </div>
                                 {#each vars as v (v.token)}
                                     <button
                                         onclick={() => copyVariable(v.token)}
-                                        class="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-700"
+                                        class="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-surface-alt"
                                         title="Click to copy: {v.token}"
                                     >
-                                        <span class="text-gray-700 dark:text-gray-300">{v.label}</span>
-                                        <code class="rounded bg-gray-100 px-1 text-gray-500 dark:bg-gray-700 dark:text-gray-400">{v.token}</code>
+                                        <span class="text-fg-muted">{v.label}</span>
+                                        <code class="rounded-sm bg-surface-alt px-1 text-fg-muted">{v.token}</code>
                                     </button>
                                 {/each}
                             {/each}
                         </div>
                     {/if}
-                </div>
-                <button
-                    onclick={previewWithGame}
-                    disabled={previewLoading || !!jsonError}
-                    class="rounded bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-200 disabled:opacity-50 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50"
-                >
+                </Popover>
+                <Button onclick={previewWithGame} variant="soft" size="xs" disabled={previewLoading || !!jsonError}>
                     {previewLoading ? 'Loading...' : 'Preview with Game'}
-                </button>
+                </Button>
             </div>
         </div>
 
         <div class="mb-3 flex flex-wrap gap-2">
-            <span class="text-xs text-gray-500 dark:text-gray-400">Presets:</span>
+            <span class="text-xs text-fg-faint">Presets:</span>
             {#each Object.keys(presets) as name (name)}
-                <button
-                    onclick={() => applyPreset(name)}
-                    class="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
-                >
-                    {name}
-                </button>
+                <Button onclick={() => applyPreset(name)} variant="soft" size="xs">{name}</Button>
             {/each}
         </div>
 
         {#if jsonMode}
-            <textarea
+            <Textarea
+                id="{uid}-json"
                 aria-label="Embed JSON"
                 value={jsonText}
                 oninput={(event) => updateJson(event.currentTarget.value)}
-                aria-invalid={!!jsonError}
-                aria-describedby={jsonError ? `${uid}-json-error` : undefined}
+                error={jsonError || undefined}
                 rows={16}
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white"
-                spellcheck="false"></textarea>
-            {#if jsonError}<p id="{uid}-json-error" role="alert" class="text-sm text-red-600 dark:text-red-400">{jsonError}</p>{/if}
+                class="font-mono"
+                spellcheck="false"
+            />
         {:else}
             <div class="space-y-3">
+                <TextInput
+                    id="{uid}-title"
+                    label="Title"
+                    value={title}
+                    oninput={(e) =>
+                        applyUpdate(() => {
+                            title = (e.target as HTMLInputElement).value;
+                        })}
+                    placeholder={'{game.name}'}
+                />
+                <TextInput
+                    id="{uid}-url"
+                    label="URL"
+                    value={tmplUrl}
+                    oninput={(e) =>
+                        applyUpdate(() => {
+                            tmplUrl = (e.target as HTMLInputElement).value;
+                        })}
+                    placeholder={'{game.url}'}
+                />
+                <Textarea
+                    id="{uid}-desc"
+                    label="Description"
+                    value={desc}
+                    oninput={(e) =>
+                        applyUpdate(() => {
+                            desc = (e.target as HTMLTextAreaElement).value;
+                        })}
+                    rows={3}
+                    placeholder={'{game.description}'}
+                />
                 <div>
-                    <label for="{uid}-title" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Title</label>
-                    <input
-                        id="{uid}-title"
-                        type="text"
-                        value={title}
-                        oninput={(e) =>
-                            applyUpdate(() => {
-                                title = (e.target as HTMLInputElement).value;
-                            })}
-                        placeholder={'{game.name}'}
-                        class="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
-                </div>
-                <div>
-                    <label for="{uid}-url" class="block text-xs font-medium text-gray-700 dark:text-gray-300">URL</label>
-                    <input
-                        id="{uid}-url"
-                        type="text"
-                        value={tmplUrl}
-                        oninput={(e) =>
-                            applyUpdate(() => {
-                                tmplUrl = (e.target as HTMLInputElement).value;
-                            })}
-                        placeholder={'{game.url}'}
-                        class="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
-                </div>
-                <div>
-                    <label for="{uid}-desc" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Description</label>
-                    <textarea
-                        id="{uid}-desc"
-                        value={desc}
-                        oninput={(e) =>
-                            applyUpdate(() => {
-                                desc = (e.target as HTMLTextAreaElement).value;
-                            })}
-                        rows={3}
-                        placeholder={'{game.description}'}
-                        class="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    ></textarea>
-                </div>
-                <div>
-                    <label for="{uid}-color" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Color</label>
+                    <label for="{uid}-color" class="block text-xs font-medium text-fg-muted">Color</label>
                     <div class="mt-1 flex items-center gap-2">
                         <input
                             id="{uid}-color"
@@ -494,54 +455,46 @@
                                 applyUpdate(() => {
                                     tmplColor = (e.target as HTMLInputElement).value;
                                 })}
-                            class="h-8 w-8 cursor-pointer rounded border-0"
+                            class="h-8 w-8 cursor-pointer rounded-sm border-0"
                         />
-                        <input
+                        <TextInput
                             type="text"
                             value={tmplColor}
                             oninput={(e) =>
                                 applyUpdate(() => {
-                                    tmplColor = (e.target as HTMLInputElement).value;
+                                    tmplColor = e.currentTarget.value;
                                 })}
                             aria-label="Color value"
                             placeholder="#5865F2 or 5763719"
-                            class="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                            class="px-2 py-1.5"
+                            fieldClass="flex-1"
                         />
                     </div>
                 </div>
+                <TextInput
+                    id="{uid}-thumbnail"
+                    label="Thumbnail URL"
+                    value={thumbnailUrl}
+                    oninput={(e) =>
+                        applyUpdate(() => {
+                            thumbnailUrl = (e.target as HTMLInputElement).value;
+                        })}
+                    placeholder={'{game.thumbnail}'}
+                />
+                <TextInput
+                    id="{uid}-image"
+                    label="Image URL"
+                    value={imageUrl}
+                    oninput={(e) =>
+                        applyUpdate(() => {
+                            imageUrl = (e.target as HTMLInputElement).value;
+                        })}
+                    placeholder={'{game.screenshot}'}
+                />
                 <div>
-                    <label for="{uid}-thumbnail" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Thumbnail URL</label>
-                    <input
-                        id="{uid}-thumbnail"
-                        type="text"
-                        value={thumbnailUrl}
-                        oninput={(e) =>
-                            applyUpdate(() => {
-                                thumbnailUrl = (e.target as HTMLInputElement).value;
-                            })}
-                        placeholder={'{game.thumbnail}'}
-                        class="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
-                </div>
-                <div>
-                    <label for="{uid}-image" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Image URL</label>
-                    <input
-                        id="{uid}-image"
-                        type="text"
-                        value={imageUrl}
-                        oninput={(e) =>
-                            applyUpdate(() => {
-                                imageUrl = (e.target as HTMLInputElement).value;
-                            })}
-                        placeholder={'{game.screenshot}'}
-                        class="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
-                </div>
-                <div>
-                    <span id="{uid}-footer" class="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Footer</span>
+                    <span id="{uid}-footer" class="mb-2 block text-xs font-medium text-fg-muted">Footer</span>
                     <div class="grid grid-cols-2 gap-2" role="group" aria-labelledby="{uid}-footer">
-                        <input
-                            type="text"
+                        <TextInput
                             value={footerText}
                             aria-label="Footer text"
                             oninput={(e) =>
@@ -549,10 +502,8 @@
                                     footerText = (e.target as HTMLInputElement).value;
                                 })}
                             placeholder="Footer text"
-                            class="rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                         />
-                        <input
-                            type="text"
+                        <TextInput
                             value={footerIconUrl}
                             aria-label="Footer icon URL"
                             disabled={!footerText}
@@ -562,72 +513,55 @@
                                     footerIconUrl = (e.target as HTMLInputElement).value;
                                 })}
                             placeholder="Footer icon URL"
-                            class="rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                         />
                     </div>
                 </div>
                 <div>
                     <div class="mb-2 flex items-center justify-between">
-                        <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Fields</span>
-                        <button onclick={addField} class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
-                            >+ Add Field</button
-                        >
+                        <span class="text-xs font-medium text-fg-muted">Fields</span>
+                        <Button onclick={addField} variant="link" size="xs">+ Add Field</Button>
                     </div>
                     <div class="space-y-2">
                         {#each fields as field, i (i)}
-                            <div class="flex items-start gap-2 rounded-lg border border-gray-200 p-2 dark:border-gray-700">
+                            <div class="flex items-start gap-2 rounded-lg border border-border p-2">
                                 <div class="min-w-0 flex-1 space-y-1">
-                                    <input
-                                        type="text"
+                                    <TextInput
                                         value={field.name}
                                         aria-label="Field {i + 1} name"
                                         placeholder="Field name"
                                         oninput={(e) => updateField(i, 'name', (e.target as HTMLInputElement).value)}
-                                        class="w-full rounded border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                     />
-                                    <input
-                                        type="text"
+                                    <TextInput
                                         value={field.value}
                                         aria-label="Field {i + 1} value"
                                         placeholder="Field value"
                                         oninput={(e) => updateField(i, 'value', (e.target as HTMLInputElement).value)}
-                                        class="w-full rounded border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                     />
                                 </div>
-                                <label class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                                    <input
-                                        type="checkbox"
-                                        checked={field.inline}
-                                        onchange={() => updateField(i, 'inline', !field.inline)}
-                                        class="rounded text-indigo-600"
-                                    />
-                                    Inline
-                                </label>
+                                <Checkbox checked={field.inline} onchange={() => updateField(i, 'inline', !field.inline)} label="Inline" />
                                 <div class="flex flex-col gap-0.5">
-                                    <button
+                                    <Button
                                         onclick={() => moveField(i, -1)}
+                                        variant="ghost"
+                                        size="icon-sm"
                                         disabled={i === 0}
-                                        aria-label="Move field {i + 1} up"
-                                        class="rounded p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                                        ariaLabel="Move field {i + 1} up"
                                     >
                                         <ChevronDownIcon class="h-3 w-3 rotate-180" />
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         onclick={() => moveField(i, 1)}
+                                        variant="ghost"
+                                        size="icon-sm"
                                         disabled={i === fields.length - 1}
-                                        aria-label="Move field {i + 1} down"
-                                        class="rounded p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                                        ariaLabel="Move field {i + 1} down"
                                     >
                                         <ChevronDownIcon class="h-3 w-3" />
-                                    </button>
+                                    </Button>
                                 </div>
-                                <button
-                                    onclick={() => removeField(i)}
-                                    aria-label="Remove field {i + 1}"
-                                    class="rounded p-0.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                                >
+                                <Button onclick={() => removeField(i)} variant="ghost" tone="danger" size="icon-sm" ariaLabel="Remove field {i + 1}">
                                     <XMarkIcon class="h-4 w-4" />
-                                </button>
+                                </Button>
                             </div>
                         {/each}
                     </div>
@@ -638,8 +572,8 @@
 
     <div>
         <div class="sticky top-6">
-            <h3 class="mb-2 text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Live Preview</h3>
-            <div class="rounded-lg border-l-4 bg-[#2b2d31] p-4 shadow-xl" style="border-left-color: {previewColor}">
+            <h3 class="mb-2 text-xs font-medium text-fg-faint uppercase">Live Preview</h3>
+            <div class="rounded-lg border-l-4 bg-[#2b2d31] p-4" style="border-left-color: {previewColor}">
                 {#if previewLoading && !previewData}
                     <div class="text-sm text-[#dbdee1]">Rendering preview...</div>
                 {:else if previewError && !previewData}
@@ -676,14 +610,14 @@
                         </div>
                     {/if}
                     {#if previewImage}
-                        <div class="mb-3 overflow-hidden rounded">
-                            <img src={previewImage} alt="Embed preview" class="max-h-72 w-auto rounded" onerror={() => {}} />
+                        <div class="mb-3 overflow-hidden rounded-sm">
+                            <img src={previewImage} alt="Embed preview" class="max-h-72 w-auto rounded-sm" onerror={() => {}} />
                         </div>
                     {/if}
                     {#if previewFooterText}
                         <div class="flex items-center gap-2 text-xs text-[#dbdee1]">
                             {#if previewFooterIcon}
-                                <div class="h-4 w-4 shrink-0 overflow-hidden rounded-full bg-gray-600">
+                                <div class="h-4 w-4 shrink-0 overflow-hidden rounded-full bg-border">
                                     <img src={previewFooterIcon} alt="" class="h-4 w-4 object-cover" onerror={() => {}} />
                                 </div>
                             {/if}
@@ -692,17 +626,15 @@
                     {/if}
                     {#if previewThumbnail && !previewImage}
                         <div class="mt-2 flex justify-end">
-                            <img src={previewThumbnail} alt="Thumbnail" class="h-16 w-16 rounded object-cover" onerror={() => {}} />
+                            <img src={previewThumbnail} alt="Thumbnail" class="h-16 w-16 rounded-sm object-cover" onerror={() => {}} />
                         </div>
                     {/if}
                 {/if}
             </div>
             {#if previewLoading && previewData}
-                <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">Refreshing preview...</div>
+                <div class="mt-2 text-xs text-fg-faint">Refreshing preview...</div>
             {:else if previewInitialized && !previewError}
-                <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    Preview is rendered with the same backend limits used for live Discord sends.
-                </div>
+                <div class="mt-2 text-xs text-fg-faint">Preview is rendered with the same backend limits used for live Discord sends.</div>
             {/if}
         </div>
     </div>

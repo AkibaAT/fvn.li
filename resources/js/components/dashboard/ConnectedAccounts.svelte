@@ -6,6 +6,7 @@
     import TelegramIcon from '@/components/icons/Telegram.svelte';
     import { disconnectSocialAccount } from '@/api';
     import { getCsrfToken } from '@/utils/csrf';
+    import { useAsyncAction } from '@/utils/async-action.svelte';
     import Itchio from '@/components/icons/Itchio.svelte';
     import Steam from '@/components/icons/Steam.svelte';
     import { Button } from '@/components/ui';
@@ -20,7 +21,7 @@
 
     let { connectedProviders, socialAccounts }: Props = $props();
 
-    let disconnecting = $state(false);
+    const disconnectAction = useAsyncAction();
 
     const PROVIDERS: Record<string, { name: string; iconType: string }> = {
         discord: { name: 'Discord', iconType: 'discord' },
@@ -31,22 +32,21 @@
     };
 
     async function handleDisconnect(provider: string) {
-        if (disconnecting) return;
+        if (disconnectAction.isLoading) return;
         if (!confirm(`Are you sure you want to disconnect your ${PROVIDERS[provider]?.name} account?`)) {
             return;
         }
 
-        disconnecting = true;
-        try {
-            const message = await disconnectSocialAccount(provider);
-            if (!(await refreshPage())) return;
-            toast.success(message || `${PROVIDERS[provider]?.name} account disconnected successfully.`);
-        } catch (error) {
-            console.error('Error disconnecting account:', error);
-            toast.error(error instanceof Error ? error.message : 'An error occurred while disconnecting the account.');
-        } finally {
-            disconnecting = false;
-        }
+        const result = await disconnectAction.run(
+            async () => {
+                const message = await disconnectSocialAccount(provider);
+                if (!(await refreshPage())) return null;
+                return { message };
+            },
+            { fallbackError: 'An error occurred while disconnecting the account.' },
+        );
+        if (!result) return;
+        toast.success(result.message || `${PROVIDERS[provider]?.name} account disconnected successfully.`);
     }
 
     function handleConnect(provider: string) {
@@ -78,11 +78,11 @@
         {#each Object.entries(PROVIDERS) as [provider, config] (provider)}
             {@const isConnected = connectedProviders.includes(provider)}
             {@const accountData = socialAccounts[provider]}
-            <div class="rounded-lg border p-4 transition-colors hover:bg-gray-50/50 dark:border-gray-700 dark:hover:bg-gray-700/30">
+            <div class="rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         {#if config.iconType === 'discord'}
-                            <DiscordIcon class="h-6 w-6 text-indigo-500" />
+                            <DiscordIcon class="h-6 w-6 text-[#5865F2]" />
                         {:else if config.iconType === 'google'}
                             <GoogleIcon class="h-6 w-6" />
                         {:else if config.iconType === 'itchio'}
@@ -90,9 +90,9 @@
                         {:else if config.iconType === 'steam'}
                             <Steam class="h-6 w-6" />
                         {:else if config.iconType === 'telegram'}
-                            <TelegramIcon class="h-6 w-6 text-blue-500" />
+                            <TelegramIcon class="h-6 w-6 text-[#229ED9]" />
                         {/if}
-                        <span class="font-medium text-gray-900 dark:text-white">
+                        <span class="font-medium text-fg">
                             {config.name}
                         </span>
                     </div>
@@ -105,7 +105,7 @@
                                         <img src={accountData.avatar} alt="{config.name} avatar" class="h-6 w-6 rounded-full" />
                                     {/if}
                                     {#if accountData.display_name}
-                                        <span class="text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="text-sm text-fg-muted">
                                             {accountData.display_name}
                                         </span>
                                     {/if}
@@ -118,21 +118,15 @@
                                 tone="danger"
                                 size="icon-sm"
                                 onclick={() => handleDisconnect(provider)}
-                                disabled={disconnecting}
-                                class="ml-2 text-red-500 transition-colors hover:text-red-600"
+                                disabled={disconnectAction.isLoading}
+                                class="ml-2"
                                 title="Unlink {config.name} account"
                             >
                                 <LinkIcon class="h-5 w-5" />
                             </Button>
                         </div>
                     {:else}
-                        <Button
-                            type="button"
-                            variant="link"
-                            tone="primary"
-                            onclick={() => handleConnect(provider)}
-                            class="text-sm font-medium text-blue-700 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                        >
+                        <Button type="button" variant="link" tone="primary" onclick={() => handleConnect(provider)} class="text-sm font-medium">
                             Connect
                         </Button>
                     {/if}

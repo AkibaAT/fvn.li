@@ -9,8 +9,8 @@ const manifest = {
     description: 'Track, discover, and review visual novels',
     start_url: '/',
     display: 'standalone',
-    background_color: '#f8fafc',
-    theme_color: '#3B82F6',
+    background_color: '#edf0f4',
+    theme_color: '#ffffff',
     orientation: 'any',
     categories: ['entertainment', 'games'],
     icons: [

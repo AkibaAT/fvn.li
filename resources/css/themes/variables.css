@@ -1,4 +1,3 @@
-/* Base theme CSS variables */
 :root {
     /* Brand colors */
     --color-itchio: #fa5c5c;
@@ -13,9 +12,6 @@
     --color-platform-mac-dark: #e5e7eb;
     --color-platform-android: #3ddc84;
     --color-platform-web: #4285f4;
-
-    /* Progress colors */
-    --color-progress-primary: #4f46e5;
 
     /* Chart colors */
     --color-chart-primary: #3b82f6;
@@ -44,63 +40,45 @@
     --color-chart-grid-split-line: rgba(148, 163, 184, 0.15);
     --color-chart-axis-line-light: rgba(71, 85, 105, 0.6);
     --color-chart-axis-line-dark: rgba(203, 213, 225, 0.6);
+
+    --page: #edf0f4;
+    --surface: #ffffff;
+    --surface-alt: #e3e8ee;
+    --border: #d5dbe3;
+    --border-strong: #aeb8c6;
+    --border-input: #7d8799;
+    --text: #161c26;
+    --text-muted: #4b5567;
+    --text-faint: #5c6679;
+
+    --accent: #b07a14;
+    --on-accent: var(--text);
+    --accent-fg: #7f5905;
+
+    --color-progress-primary: var(--accent);
+
+    --color-tooltip-background: color-mix(in srgb, var(--surface) 95%, transparent);
+    --color-tooltip-border: var(--border);
+    --color-tooltip-title: var(--text);
+    --color-tooltip-body: var(--text-muted);
 }
 
-/* Light mode UI colors */
-:root {
-    --color-ui-background: #ffffff;
-    --color-ui-text: #111827;
-    --color-ui-border: #e5e7eb;
-
-    /* Tooltip colors */
-    --color-tooltip-background: rgba(255, 255, 255, 0.95);
-    --color-tooltip-border: rgba(229, 231, 235, 1);
-    --color-tooltip-title: #111827;
-    --color-tooltip-body: #111827;
-
-    /* Editor colors */
-    --color-editor-background: #ffffff;
-    --color-editor-text: #111827;
-    --color-editor-toolbar-border: #ddd;
-    --color-editor-toolbar-background: #ffffff;
-    --color-editor-link: #2563eb;
-    --color-editor-menubar-background: #f3f4f6;
-    --color-editor-menubar-text: #1f2937;
-    --color-editor-content-background: #f9fafb;
-    --color-editor-content-text: #111827;
-    --color-editor-content-border: #e5e7eb;
-    --color-editor-blockquote-border: #2563eb;
-    --color-editor-pre-text: #6b7280;
-}
-
-/* Dark mode UI colors */
 .dark {
-    --color-ui-background: #1f2937;
-    --color-ui-text: #f9fafb;
-    --color-ui-border: #4b5563;
+    --page: #171b24;
+    --surface: #222836;
+    --surface-alt: #2c3342;
+    --border: #3a4356;
+    --border-strong: #56617a;
+    --border-input: #6b7690;
+    --text: #eef1f6;
+    --text-muted: #b4bdcd;
+    --text-faint: #96a1b6;
 
-    /* Tooltip colors */
-    --color-tooltip-background: rgba(17, 24, 39, 0.95);
-    --color-tooltip-border: rgba(55, 65, 81, 1);
-    --color-tooltip-title: #e5e7eb;
-    --color-tooltip-body: #e5e7eb;
-
-    /* Editor colors */
-    --color-editor-background: #1f2937;
-    --color-editor-text: #f9fafb;
-    --color-editor-toolbar-border: #4b5563;
-    --color-editor-toolbar-background: #374151;
-    --color-editor-link: #60a5fa;
-    --color-editor-menubar-background: #374151;
-    --color-editor-menubar-text: #f9fafb;
-    --color-editor-content-background: #111827;
-    --color-editor-content-text: #f9fafb;
-    --color-editor-content-border: #4b5563;
-    --color-editor-blockquote-border: #60a5fa;
-    --color-editor-pre-text: #d1d5db;
+    --accent: #f2bb4a;
+    --on-accent: var(--page);
+    --accent-fg: var(--accent);
 }
 
-/* Utility classes for platform colors */
 .text-platform-windows {
     color: var(--color-platform-windows);
 }
@@ -129,7 +107,6 @@
     color: var(--color-platform-web);
 }
 
-/* Utility classes for brand colors */
 .text-itchio {
     color: var(--color-itchio);
 }
@@ -138,7 +115,6 @@
     fill: var(--color-itchio);
 }
 
-/* Utility classes for chart colors */
 .border-chart-primary {
     border-color: var(--color-chart-primary);
 }

@@ -10,7 +10,8 @@
     import Pagination from '@/components/Pagination.svelte';
     import LoadingSpinner from '@/components/LoadingSpinner.svelte';
     import UserReviewForm from '@/components/games/UserReviewForm.svelte';
-    import { Alert, Button, Card, PlatformIcon } from '@/components/ui';
+    import ReviewTextControls from '@/components/ReviewTextControls.svelte';
+    import { Alert, Badge, Button, Card, EmptyState, PlatformIcon, Select } from '@/components/ui';
     import { formatLocalDate } from '@/utils/date-formatting';
     import { shouldCollapseReview } from '@/utils/game-show';
     import type { PaginationMeta, Review } from '@/types/game-show';
@@ -18,6 +19,7 @@
     let {
         reviews,
         gameId,
+        hasRatings,
         initialUserReview,
         isAuthenticated,
         availableRatings,
@@ -42,6 +44,7 @@
     }: {
         reviews: Review[];
         gameId: number;
+        hasRatings: boolean;
         initialUserReview?: {
             id: number;
             rating: number;
@@ -76,44 +79,52 @@
     let reviewFormEditing = $state(false);
     let historyModal = $state<{ raterId: number | null; raterName: string; open: boolean }>({ raterId: null, raterName: '', open: false });
     const hasUserReview = $derived(Boolean(initialUserReview));
+    const hasReviewText = $derived(reviews.some((review) => Boolean(review.review)));
+    const emptyTitle = $derived(
+        selectedRating
+            ? `No ${showAllRatings ? 'ratings' : 'reviews'} with ${selectedRating} star${selectedRating !== 1 ? 's' : ''}`
+            : showAllRatings
+              ? 'No ratings yet'
+              : 'No reviews yet',
+    );
 
     const getReviewAuthorHref = (review: Review) =>
         review.user ? route('users.reviews', review.user.id) : review.rater ? route('raters.show', review.rater.id) : route('ratings.index');
 </script>
 
-<Card id="reviews" padding="lg" class="mb-6">
-    <div class="mb-4 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Reviews</h2>
+<Card id="reviews" variant="flat" padding="lg" class="mb-6 scroll-mt-32">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+            <h2 class="text-title font-semibold text-fg">Reviews</h2>
             {#if availableRatings.length > 0}
-                <select
+                <Select
+                    aria-label="Filter by stars"
                     value={selectedRating || ''}
-                    onchange={(event) =>
-                        onRatingFilterChange((event.target as HTMLSelectElement).value ? Number((event.target as HTMLSelectElement).value) : null)}
-                    class="rounded border border-gray-200 bg-white px-3 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    onchange={(event) => {
+                        const value = (event.currentTarget as HTMLSelectElement).value;
+                        onRatingFilterChange(value ? Number(value) : null);
+                    }}
+                    class="w-auto py-1 text-ui"
                 >
-                    <option value="">Any Stars</option>
+                    <option value="">Any stars</option>
                     {#each availableRatings as rating (rating)}
-                        <option value={rating}>{rating} Stars</option>
+                        <option value={rating}>{rating} {rating === 1 ? 'star' : 'stars'}</option>
                     {/each}
-                </select>
+                </Select>
             {/if}
         </div>
-        <div class="flex flex-wrap items-center justify-end gap-4">
-            {#if isAuthenticated && !hasUserReview && !reviewFormEditing}
-                <Button type="button" variant="link" tone="primary" onclick={() => reviewForm?.startEditing()} class="text-sm">Write a review</Button>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+            {#if hasReviewText}
+                <ReviewTextControls />
             {/if}
-            <Button
-                type="button"
-                variant="link"
-                tone="primary"
-                onclick={onToggleRatingsView}
-                disabled={reviewsLoading}
-                loading={reviewsLoading}
-                size="sm"
-            >
-                {reviewsLoading ? 'Loading...' : `Show ${showAllRatings ? 'reviews only' : 'all ratings'}`}
-            </Button>
+            {#if hasRatings || showAllRatings}
+                <Button type="button" variant="ghost" tone="neutral" size="sm" onclick={onToggleRatingsView} disabled={reviewsLoading}>
+                    {showAllRatings ? 'Show reviews only' : 'Show all ratings'}
+                </Button>
+            {/if}
+            {#if isAuthenticated && !hasUserReview && !reviewFormEditing}
+                <Button type="button" variant="outline" tone="neutral" size="sm" onclick={() => reviewForm?.startEditing()}>Write a review</Button>
+            {/if}
         </div>
     </div>
 
@@ -130,40 +141,42 @@
     {#if reviewsLoading}
         <div class="flex items-center justify-center py-8">
             <LoadingSpinner size="lg" label="Loading reviews" />
-            <span class="ml-2 text-gray-600 dark:text-gray-400">Loading reviews...</span>
+            <span class="ml-2 text-fg-muted">Loading reviews...</span>
         </div>
     {:else if reviewsError}
         <Alert tone="danger">{reviewsError}</Alert>
         <Button type="button" variant="link" onclick={onRefreshReviews}>Retry</Button>
     {:else if reviews.length === 0}
-        <div class="py-8 text-center text-gray-500 dark:text-gray-400">
-            No {showAllRatings ? 'ratings' : 'reviews'} found{selectedRating ? ` with ${selectedRating} star${selectedRating !== 1 ? 's' : ''}` : ''}.
-        </div>
+        <EmptyState
+            title={emptyTitle}
+            description={selectedRating
+                ? 'Try another star filter.'
+                : hasRatings && !showAllRatings
+                  ? 'Ratings without a written review appear under "Show all ratings".'
+                  : undefined}
+            class="py-8"
+        />
     {:else}
         <div class="space-y-6">
             {#each reviews as review (review.id)}
-                <div id="review-{review.id}" class="border-b border-gray-200 pb-6 last:border-0 dark:border-gray-700">
+                <div id="review-{review.id}" class="border-b border-border pb-6 last:border-0">
                     <div class="mb-2 flex items-center justify-between">
                         <div class="flex items-center gap-2">
-                            <span class="font-medium text-gray-900 dark:text-gray-100">
+                            <span class="font-medium text-fg">
                                 <Link href={getReviewAuthorHref(review)} class="flex items-center gap-1 hover:underline">
                                     {#if review.user?.avatar}
                                         <img src={review.user.avatar} alt="" aria-hidden="true" class="h-5 w-5 rounded-full" />
                                     {/if}
                                     {review.user?.name || review.rater?.name}
                                     {#if review.user && review.source_platform === 'fvn_li'}
-                                        <span
-                                            class="ml-1 rounded bg-blue-100 px-1 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                                        >
-                                            FVN.li
-                                        </span>
+                                        <Badge tone="neutral" size="sm" class="ml-1">FVN.li</Badge>
                                     {/if}
                                 </Link>
                             </span>
                             {#if review.rater?.external_platform}
                                 <PlatformIcon platform={review.rater.external_platform} />
                             {/if}
-                            <span class="text-sm text-gray-500 dark:text-gray-400">{formatLocalDate(review.published_at)}</span>
+                            <span class="text-sm text-fg-faint">{formatLocalDate(review.published_at)}</span>
                             {#if review.rater && review.previous_ratings_count}
                                 <Button
                                     type="button"
@@ -175,7 +188,7 @@
                                             raterName: review.rater?.name ?? '',
                                             open: true,
                                         })}
-                                    class="text-sm text-gray-500 dark:text-gray-400"
+                                    class="text-sm"
                                     title="Show this rater's earlier ratings of this game"
                                 >
                                     ({review.previous_ratings_count} previous
@@ -184,7 +197,7 @@
                             {/if}
                         </div>
                         <div class="flex items-center gap-1">
-                            <div class="flex items-center gap-1 text-yellow-400">
+                            <div class="flex items-center gap-1 text-accent">
                                 {#each Array.from({ length: review.rating }) as _, index (index)}
                                     <StarIcon class="h-5 w-5 fill-current" />
                                 {/each}
@@ -197,7 +210,7 @@
                                         variant="ghost"
                                         tone="neutral"
                                         size="icon-sm"
-                                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                                        class="text-fg-muted hover:text-fg"
                                         title="View on itch.io"
                                     >
                                         <ExternalLinkIcon class="h-5 w-5" />
@@ -210,11 +223,11 @@
                                         tone="primary"
                                         size="icon-sm"
                                         onclick={() => onCopyReviewLink(review.id)}
-                                        class="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"
+                                        class="text-fg-faint hover:text-fg"
                                         title={copiedReviewId === review.id ? 'Link copied!' : 'Copy link to review'}
                                     >
                                         {#if copiedReviewId === review.id}
-                                            <CheckIcon class="h-5 w-5 text-green-500" />
+                                            <CheckIcon class="h-5 w-5 text-green-700 dark:text-green-400" />
                                         {:else}
                                             <LinkIcon class="h-5 w-5" />
                                         {/if}
@@ -226,7 +239,7 @@
                                     tone="danger"
                                     size="icon-sm"
                                     onclick={() => onReportReview(review.id, review.user?.name || review.rater?.name || 'Unknown')}
-                                    class="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
+                                    class="text-fg-faint hover:text-red-600 dark:hover:text-red-400"
                                     title="Report review"
                                 >
                                     <FlagIcon class="h-5 w-5" />
@@ -244,18 +257,14 @@
                         {:else}
                             <div>
                                 {#if review.has_spoilers}
-                                    <span
-                                        class="mr-1 inline-block rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                                    >
-                                        Spoilers
-                                    </span>
+                                    <Badge tone="warning" size="sm" class="mb-2">Spoilers</Badge>
                                 {/if}
                                 <div
                                     class="relative overflow-hidden transition-[max-height] duration-300 ease-in-out"
                                     style={!expandedReviews[review.id] && shouldCollapseReview(review.review) ? 'max-height: 200px;' : undefined}
                                 >
                                     <div
-                                        class="prose max-w-none text-gray-600 dark:text-gray-300 dark:prose-invert"
+                                        class="prose max-w-none text-fg-muted dark:prose-invert"
                                         class:fvn-review={Boolean(review.user)}
                                         style={reviewStyles}
                                     >
@@ -263,9 +272,7 @@
                                         {@html review.review}
                                     </div>
                                     {#if !expandedReviews[review.id] && shouldCollapseReview(review.review)}
-                                        <div
-                                            class="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white dark:from-gray-800"
-                                        ></div>
+                                        <div class="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-surface"></div>
                                     {/if}
                                 </div>
                                 {#if shouldCollapseReview(review.review)}
@@ -274,7 +281,7 @@
                                         variant="link"
                                         tone="primary"
                                         onclick={() => onToggleReviewExpanded(review.id)}
-                                        class="mt-1 text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                        class="mt-1 text-sm font-medium"
                                     >
                                         {expandedReviews[review.id] ? 'Show less' : 'Read more'}
                                     </Button>
@@ -287,9 +294,7 @@
         </div>
     {/if}
 
-    <div class="mt-4">
-        <Pagination layout="full" meta={pagination} onChange={onPageChange} {onPerPageChange} loading={reviewsLoading} label="reviews" />
-    </div>
+    <Pagination layout="full" meta={pagination} onChange={onPageChange} {onPerPageChange} loading={reviewsLoading} label="reviews" />
 </Card>
 
 <RatingHistoryDialog

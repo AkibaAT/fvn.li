@@ -1,19 +1,19 @@
 <script lang="ts">
     import { refreshPage } from '@/utils/refreshPage';
+    import { getErrorMessage } from '@/utils/async-action.svelte';
+    import { toast } from '@/utils/toast';
     import { onMount, untrack } from 'svelte';
     import { Button } from '@/components/ui';
     import { updateGameName } from '@/api/game-content';
+    import type { EditableGame } from '@/types/game';
 
-    interface Game {
-        id: number;
+    /** The name editor interpolates `effective_name` directly, so it stays required here. */
+    interface EditableNameGame extends EditableGame {
         effective_name: string;
-        custom_name?: string | null;
-        has_custom_page?: boolean;
-        [key: string]: any;
     }
 
     interface Props {
-        game: Game;
+        game: EditableNameGame;
         class?: string;
         onNameUpdate?: (newName: string) => void;
         previewingVisitorView?: boolean;
@@ -68,7 +68,7 @@
 
         const trimmedName = editName.trim();
         if (!trimmedName) {
-            alert('Name cannot be empty');
+            toast.error('Name cannot be empty');
             return;
         }
 
@@ -95,7 +95,7 @@
         } catch (error) {
             console.error('Save error:', error);
             saveStatus = 'error';
-            alert('Failed to save name. Please try again.');
+            toast.error(getErrorMessage(error, 'Failed to save name. Please try again.'));
         } finally {
             isSaving = false;
         }
@@ -123,14 +123,14 @@
             bind:value={editName}
             onkeydown={handleKeyPress}
             disabled={isSaving}
-            class="min-w-0 flex-1 rounded border-2 border-blue-300 bg-white px-2 py-1 text-3xl font-bold tracking-tight break-words text-gray-900 focus:border-blue-500 focus:outline-none dark:bg-gray-700 dark:text-white"
+            class="min-w-0 flex-1 rounded-md border border-border-input bg-surface-alt px-2 py-1 text-display font-bold break-words text-fg focus:border-fg-muted focus:outline-none"
             use:focusOnMount
             maxlength={255}
         />
         <Button
             type="button"
             variant="solid"
-            tone="success"
+            tone="primary"
             onclick={handleSave}
             disabled={isSaving}
             loading={isSaving}
@@ -139,17 +139,17 @@
         >
             {isSaving ? 'Saving...' : 'Save'}
         </Button>
-        <Button type="button" variant="solid" tone="neutral" onclick={handleCancel} disabled={isSaving} size="sm" class="whitespace-nowrap">
+        <Button type="button" variant="outline" tone="neutral" onclick={handleCancel} disabled={isSaving} size="sm" class="whitespace-nowrap">
             Cancel
         </Button>
         {#if saveStatus === 'saved'}
-            <span class="text-sm whitespace-nowrap text-green-600">Saved</span>
+            <span class="text-sm whitespace-nowrap text-green-700 dark:text-green-400">Saved</span>
         {/if}
         {#if saveStatus === 'error'}
-            <span class="text-sm whitespace-nowrap text-red-600">Error</span>
+            <span class="text-sm whitespace-nowrap text-red-600 dark:text-red-400">Error</span>
         {/if}
     {:else}
-        <h1 class="min-w-0 text-3xl font-bold tracking-tight break-words text-gray-900 dark:text-white">
+        <h1 class="min-w-0 text-display font-bold break-words text-fg">
             {renderedName}
         </h1>
         {#if canEdit && !previewingVisitorView}
@@ -159,7 +159,7 @@
                 tone="primary"
                 size="xs"
                 onclick={handleEdit}
-                class="whitespace-nowrap opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+                class="whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100"
                 title="Edit name"
             >
                 Edit

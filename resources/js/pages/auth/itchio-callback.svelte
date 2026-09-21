@@ -27,15 +27,15 @@
 <SeoHead {title} />
 
 <div class="flex min-h-[60vh] items-center justify-center">
-    <Card padding="lg" class="w-full max-w-md text-center shadow-md">
+    <Card variant="flat" padding="lg" class="w-full max-w-md text-center">
         <PageHeader {title} align="center" class="mb-6" />
 
         {#if !error}
             <div class="flex flex-col items-center justify-center space-y-4">
                 <ItchioIcon class="text-itchio h-12 w-12" />
                 <div class="flex items-center justify-center space-x-3">
-                    <LoadingSpinner class="h-5 w-5 text-blue-500" currentColor label="Completing itch.io authentication" />
-                    <span class="text-gray-700 dark:text-gray-300"> Processing authentication... </span>
+                    <LoadingSpinner class="h-5 w-5 text-fg-muted" currentColor label="Completing itch.io authentication" />
+                    <span class="text-fg-muted"> Processing authentication... </span>
                 </div>
             </div>
         {:else}
@@ -45,7 +45,7 @@
                     <span>{error}</span>
                 </div>
                 <div class="mt-6">
-                    <Link href={route('home')} class="text-blue-600 hover:underline dark:text-blue-400">Go back and try again</Link>
+                    <Link href={route('home')} class="text-fg-muted transition-colors hover:text-fg">Go back and try again</Link>
                 </div>
             </div>
         {/if}

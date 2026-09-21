@@ -7,6 +7,7 @@ export interface MetaTags {
     url?: string;
     type?: string;
     noindex?: boolean;
+    isAdult?: boolean;
     publishedTime?: string;
     modifiedTime?: string;
     author?: string;

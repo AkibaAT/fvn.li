@@ -7,21 +7,49 @@
 
 @source '../views';
 
-/*
-  The default border color has changed to `currentColor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
+@theme inline {
+    --color-page: var(--page);
+    --color-surface: var(--surface);
+    --color-surface-alt: var(--surface-alt);
+    --color-border: var(--border);
+    --color-border-strong: var(--border-strong);
+    --color-fg: var(--text);
+    --color-fg-muted: var(--text-muted);
+    --color-fg-faint: var(--text-faint);
+    --color-border-input: var(--border-input);
+    --color-accent: var(--accent);
+    --color-accent-fg: var(--accent-fg);
+    --color-on-accent: var(--on-accent);
+}
 
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
+@theme {
+    --text-micro: 0.625rem;
+    --text-micro--line-height: 0.875rem;
+    --text-micro--letter-spacing: 0.02em;
+    --text-2xs: 0.6875rem;
+    --text-2xs--line-height: 1rem;
+    --text-ui: 0.8125rem;
+    --text-ui--line-height: 1.25rem;
+    --text-md: 0.9375rem;
+    --text-md--line-height: 1.375rem;
+    --text-md--letter-spacing: -0.01em;
+    --text-title: 1.0625rem;
+    --text-title--line-height: 1.5rem;
+    --text-title--letter-spacing: -0.015em;
+    --text-display: 1.75rem;
+    --text-display--line-height: 1.15;
+    --text-display--letter-spacing: -0.025em;
+
+    --container-page: 1340px;
+}
+
 @layer base {
     *,
     ::after,
     ::before,
     ::backdrop,
     ::file-selector-button {
-        border-color: var(--color-gray-200, currentColor);
+        border-color: var(--border);
     }
 
     button,
@@ -38,22 +66,11 @@
     }
 
     :where(a[href], button, input, select, textarea, summary, [role='button'], [role='tab'], [tabindex]:not([tabindex='-1'])):focus-visible {
-        outline: 3px solid #facc15 !important;
-        outline-offset: 3px !important;
-        box-shadow:
-            0 0 0 1px #111827,
-            0 0 0 6px rgb(37 99 235 / 0.65) !important;
-    }
-
-    .dark :where(a[href], button, input, select, textarea, summary, [role='button'], [role='tab'], [tabindex]:not([tabindex='-1'])):focus-visible {
-        outline-color: #fde047 !important;
-        box-shadow:
-            0 0 0 1px #020617,
-            0 0 0 6px rgb(147 197 253 / 0.75) !important;
+        outline: 2px solid var(--accent) !important;
+        outline-offset: 2px !important;
     }
 }
 
-/* Drag and drop cursor styles */
 @layer utilities {
     .cursor-grab {
         cursor: grab;
@@ -67,7 +84,36 @@
         cursor: grabbing;
     }
 
-    /* Screen reader only - visually hidden but accessible */
+    .popover-elevated {
+        background-color: var(--surface);
+        box-shadow:
+            0 2px 6px -2px rgb(23 31 36 / 0.1),
+            0 12px 32px -8px rgb(23 31 36 / 0.3),
+            0 24px 48px -16px rgb(23 31 36 / 0.16);
+    }
+
+    .dark .popover-elevated {
+        background-color: color-mix(in srgb, var(--surface-alt) 94%, white 6%);
+        box-shadow:
+            0 0 0 1px rgb(255 255 255 / 0.2),
+            0 4px 10px -4px rgb(0 0 0 / 0.5),
+            0 16px 36px -10px rgb(0 0 0 / 0.7);
+    }
+
+    .popover-row-hover:hover,
+    .popover-row-hover:focus-visible {
+        background-color: var(--surface-alt);
+    }
+
+    .dark .popover-row-hover:hover,
+    .dark .popover-row-hover:focus-visible {
+        background-color: rgb(255 255 255 / 0.07);
+    }
+
+    .scrollbar-none {
+        scrollbar-width: none;
+    }
+
     .sr-only {
         position: absolute;
         width: 1px;
@@ -122,11 +168,7 @@
     padding: 0.5rem 0.75rem;
     overflow-wrap: anywhere;
     vertical-align: top;
-    border: 1px solid var(--color-gray-300);
-}
-
-.dark .fvn-review :is(th, td) {
-    border-color: var(--color-gray-600);
+    border: 1px solid var(--border-strong);
 }
 
 .game_description.prose pre {
@@ -135,7 +177,6 @@
     overflow-x: visible;
 }
 
-/* Keep imported creator layouts inside the game description on narrow screens. */
 .game_description {
     min-width: 0;
     max-width: 100%;
@@ -147,7 +188,6 @@
     box-sizing: border-box;
 }
 
-/* TinyMCE Editor Improvements */
 .tox-tinymce {
     min-height: 600px !important;
 }
@@ -169,7 +209,6 @@
     min-height: 170px !important;
 }
 
-/* Ensure editor container has enough space */
 .game-page-editor .tox-tinymce {
     border-radius: 0.5rem;
     box-shadow:
@@ -177,38 +216,26 @@
         0 1px 2px 0 rgba(0, 0, 0, 0.06);
 }
 
-/* Dark mode adjustments */
-.dark .tox-tinymce {
-    border-color: #4b5563;
+.tox-tinymce {
+    border-color: var(--border) !important;
 }
 
-/* Global dark theme form controls */
-.dark input,
-.dark select,
-.dark textarea {
+:root {
+    color-scheme: light;
+}
+
+.dark {
     color-scheme: dark;
 }
 
-/* Media query fallback for system dark mode preference */
-@media (prefers-color-scheme: dark) {
-    input,
-    select,
-    textarea {
-        color-scheme: dark;
-    }
-}
-
-/* Calendar icon pointer cursor */
 input[type='datetime-local']::-webkit-calendar-picker-indicator {
     cursor: pointer;
 }
 
-/* Improve editor content area spacing and readability */
 .tox-edit-area__iframe {
     padding: 0 !important;
 }
 
-/* Better line spacing in the editor content */
 .mce-content-body {
     line-height: 1.8 !important;
     font-size: 16px !important;
@@ -264,7 +291,7 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
 }
 
 .spoiler:focus-visible {
-    outline: 2px solid #3b82f6;
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
 

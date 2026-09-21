@@ -2,11 +2,12 @@
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import ClipboardIcon from '@/components/icons/Clipboard.svelte';
     import UsersIcon from '@/components/icons/Users.svelte';
-    import { SvelteURLSearchParams } from 'svelte/reactivity';
-    import type { User, VnList } from '@/components/VnListCard.svelte';
+    import { untrack } from 'svelte';
+    import type { ListOwner as User, VnList } from '@/types/lists';
     import PublicListResults from '@/components/lists/PublicListResults.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
-    import { Link, router } from '@inertiajs/svelte';
+    import { Button } from '@/components/ui';
+    import { useUrlSyncedFilters } from '@/hooks/useUrlSyncedFilters.svelte';
 
     interface Props {
         lists: {
@@ -24,28 +25,15 @@
     }
 
     let { lists, user, metaTags }: Props = $props();
-    let isLoading = $state(false);
 
-    function handlePageChange(page: number) {
-        isLoading = true;
-        router.get(
-            route('lists.user-public', { user: user.id, page }),
-            {},
-            { preserveState: true, preserveScroll: true, onFinish: () => (isLoading = false) },
-        );
-    }
+    let page = $state(untrack(() => lists.current_page));
+    let perPage = $state(untrack(() => lists.per_page));
 
-    function handlePerPageChange(perPage: number) {
-        isLoading = true;
-        router.get(route('lists.user-public', user.id), { per_page: perPage, page: 1 }, { preserveState: true, onFinish: () => (isLoading = false) });
-    }
-
-    function buildPageUrl(page: number): string {
-        const params = new SvelteURLSearchParams();
-        params.set('per_page', lists.per_page.toString());
-        params.set('page', page.toString());
-        return `/lists/user/${user.id}?${params.toString()}`;
-    }
+    const filterSync = useUrlSyncedFilters({
+        route: untrack(() => route('lists.user-public', user.id)),
+        only: ['lists', 'user', 'metaTags'],
+        getParams: () => ({ per_page: perPage, page }),
+    });
 </script>
 
 <SeoHead {metaTags} title={`${user.name}'s Visual Novel Lists`} />
@@ -53,29 +41,26 @@
 <div class="space-y-8">
     <PageHeader title={`${user.name}'s Visual Novel Lists`}>
         {#snippet actions()}
-            <Link
-                href={route('lists.public')}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
-            >
-                <UsersIcon class="mr-2 h-5 w-5" />
+            <Button href={route('lists.public')} variant="outline" tone="neutral">
+                <UsersIcon class="h-5 w-5" />
                 All Public Lists
-            </Link>
-            <Link
-                href={route('lists.index')}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
-            >
-                <ClipboardIcon class="mr-2 h-5 w-5" />
+            </Button>
+            <Button href={route('lists.index')}>
+                <ClipboardIcon class="h-5 w-5" />
                 My Lists
-            </Link>
+            </Button>
         {/snippet}
     </PageHeader>
 
     <PublicListResults
         {lists}
         emptyMessage="This user has no public lists."
-        {isLoading}
-        onPageChange={handlePageChange}
-        onPerPageChange={handlePerPageChange}
-        {buildPageUrl}
+        isLoading={filterSync.isLoading}
+        onPageChange={(nextPage) => (page = nextPage)}
+        onPerPageChange={(nextPerPage) => {
+            perPage = nextPerPage;
+            page = 1;
+        }}
+        buildPageUrl={filterSync.buildPageUrl}
     />
 </div>

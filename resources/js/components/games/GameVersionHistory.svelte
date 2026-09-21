@@ -1,17 +1,12 @@
 <script lang="ts">
     import ArrowDownTrayIcon from '@/components/icons/ArrowDownTray.svelte';
-    import AndroidIcon from '@/components/icons/Android.svelte';
-    import AppleIcon from '@/components/icons/Apple.svelte';
-    import LinuxIcon from '@/components/icons/Linux.svelte';
-    import WebIcon from '@/components/icons/Web.svelte';
-    import WindowsIcon from '@/components/icons/Windows.svelte';
     import Pagination from '@/components/Pagination.svelte';
     import CharacterStatsModal from '@/components/CharacterStatsModal.svelte';
     import FileStatsModal from '@/components/FileStatsModal.svelte';
-    import LoadingSpinner from '@/components/LoadingSpinner.svelte';
-    import { Button, Card } from '@/components/ui';
+    import { Button, Card, Select } from '@/components/ui';
+    import { usePlatformIcons, type GameCardPlatform } from '@/hooks/usePlatformIcons';
     import { formatLocalDate } from '@/utils/date-formatting';
-    import { getLanguageFlag, getVersionWordCount } from '@/utils/game-show';
+    import { getVersionWordCount } from '@/utils/game-show';
     import type { GameVersion, PaginationMeta, SupportedLanguage } from '@/types/game-show';
 
     let {
@@ -76,6 +71,11 @@
         onPerPageChange: (perPage: number) => void;
     } = $props();
 
+    const { getAllPlatforms, getPlatformIcon } = usePlatformIcons();
+
+    const comparableVersions = $derived(currentVersions.filter((version) => versionCharacterCounts[version.id] > 0));
+    const canCompare = $derived(Boolean(compareFromVersionId && compareToVersionId && compareFromVersionId !== compareToVersionId));
+
     function parseVersionId(value: string): number | null {
         return value === '' ? null : Number(value);
     }
@@ -83,189 +83,166 @@
     function versionOptionLabel(version: GameVersion): string {
         return `${version.version} (${formatLocalDate(version.published_at) ?? '—'})`;
     }
+
+    function versionPlatforms(version: GameVersion): GameCardPlatform[] {
+        return getAllPlatforms().filter((platform) => version[`is_${platform}`]);
+    }
+
+    function versionLanguages(version: GameVersion): SupportedLanguage[] {
+        return (version.supportedLanguages ?? [])
+            .filter((language) => language.is_available)
+            .sort((a, b) => a.language.ref_name.localeCompare(b.language.ref_name));
+    }
 </script>
 
 {#if currentVersions.length > 0}
-    <Card id="versions" padding="lg" class="mb-6 scroll-mt-28">
-        <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Version History</h2>
+    <Card id="versions" variant="flat" padding="lg" class="mb-6 scroll-mt-32">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-title font-semibold text-fg">
+                Version History
+                {#if pagination.total > 1}<span class="ml-1 text-sm font-normal text-fg-faint">{pagination.total}</span>{/if}
+            </h2>
+            {#if latestVersion && (canBrowseLatestDialogue || latestVersionHasRouteMap)}
+                <div class="flex flex-wrap gap-2">
+                    {#if canBrowseLatestDialogue}
+                        <Button href={route('dialogue.browser', { game: gameSlug, versionId: latestVersion.id })} inertia={false} size="sm">
+                            Browse dialogue
+                        </Button>
+                    {/if}
+                    {#if latestVersionHasRouteMap}
+                        <Button href={route('games.route-map', { game: gameSlug })} inertia={false} variant="outline" tone="neutral" size="sm">
+                            Route map
+                        </Button>
+                    {/if}
+                </div>
+            {/if}
+        </div>
 
-        {#if latestVersion && (canBrowseLatestDialogue || latestVersionHasRouteMap)}
-            <div class="mb-4 flex gap-3">
-                {#if canBrowseLatestDialogue}
-                    <a
-                        href={route('dialogue.browser', { game: gameSlug, versionId: latestVersion.id })}
-                        class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-xs font-semibold tracking-widest text-white uppercase transition hover:bg-blue-500 focus:border-blue-700 focus:ring focus:ring-blue-300 focus:outline-none active:bg-blue-700 disabled:opacity-25"
-                    >
-                        Browse Dialogue
-                    </a>
-                {/if}
-                {#if latestVersionHasRouteMap}
-                    <a
-                        href={route('games.route-map', { game: gameSlug })}
-                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold tracking-widest text-gray-700 uppercase transition hover:bg-gray-50 focus:border-gray-500 focus:ring focus:ring-gray-300 focus:outline-none active:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                    >
-                        Route Map
-                    </a>
-                {/if}
+        {#if comparableVersions.length > 1}
+            <div class="mb-4 flex flex-wrap items-end gap-3 rounded-md border border-border bg-surface-alt p-3">
+                <Select
+                    id="compareFromVersionId"
+                    label="Compare from"
+                    value={compareFromVersionId ?? ''}
+                    onchange={(event) => onCompareFromChange(parseVersionId((event.currentTarget as HTMLSelectElement).value))}
+                    class="bg-surface py-1.5 text-ui"
+                    fieldClass="min-w-44 flex-1 sm:flex-none"
+                >
+                    <option value="">Select version…</option>
+                    {#each comparableVersions as version (version.id)}
+                        <option value={version.id}>{versionOptionLabel(version)}</option>
+                    {/each}
+                </Select>
+                <Select
+                    id="compareToVersionId"
+                    label="To"
+                    value={compareToVersionId ?? ''}
+                    onchange={(event) => onCompareToChange(parseVersionId((event.currentTarget as HTMLSelectElement).value))}
+                    class="bg-surface py-1.5 text-ui"
+                    fieldClass="min-w-44 flex-1 sm:flex-none"
+                >
+                    <option value="">Select version…</option>
+                    {#each comparableVersions as version (version.id)}
+                        <option value={version.id}>{versionOptionLabel(version)}</option>
+                    {/each}
+                </Select>
+                <Button type="button" size="sm" onclick={onCompare} disabled={!canCompare}>Compare</Button>
             </div>
         {/if}
 
-        <Card variant="outline" padding="sm" class="my-3">
-            <h3 class="mb-3 text-base font-medium text-gray-900 dark:text-gray-100">Compare Versions</h3>
-            <div class="flex flex-col items-end gap-4 sm:flex-row">
-                <div>
-                    <label for="compareFromVersionId" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-400">From Version</label>
-                    <select
-                        id="compareFromVersionId"
-                        value={compareFromVersionId ?? ''}
-                        onchange={(event) => onCompareFromChange(parseVersionId((event.currentTarget as HTMLSelectElement).value))}
-                        class="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 sm:w-auto dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-                    >
-                        <option value="">Select version...</option>
-                        {#each currentVersions as version (version.id)}
-                            {#if versionCharacterCounts[version.id] > 0}
-                                <option value={version.id}>{versionOptionLabel(version)}</option>
-                            {/if}
-                        {/each}
-                    </select>
-                </div>
-                <div>
-                    <label for="compareToVersionId" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-400">To Version</label>
-                    <select
-                        id="compareToVersionId"
-                        value={compareToVersionId ?? ''}
-                        onchange={(event) => onCompareToChange(parseVersionId((event.currentTarget as HTMLSelectElement).value))}
-                        class="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 sm:w-auto dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-                    >
-                        <option value="">Select version...</option>
-                        {#each currentVersions as version (version.id)}
-                            {#if versionCharacterCounts[version.id] > 0}
-                                <option value={version.id}>{versionOptionLabel(version)}</option>
-                            {/if}
-                        {/each}
-                    </select>
-                </div>
-                <div>
-                    <Button
-                        type="button"
-                        variant="solid"
-                        tone="primary"
-                        onclick={onCompare}
-                        disabled={!compareFromVersionId || !compareToVersionId || compareFromVersionId === compareToVersionId}
-                    >
-                        COMPARE
-                    </Button>
-                </div>
-            </div>
-        </Card>
-
-        <div class="space-y-4">
+        <ul class="divide-y divide-border">
             {#each currentVersions as version (version.id)}
-                <Card variant="outline" padding="sm">
-                    <div class="flex flex-col gap-4 sm:flex-row">
-                        <div class="flex flex-1 flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-                            <div class="flex w-full items-center">
-                                <div class="font-medium text-gray-900 dark:text-gray-100">{formatLocalDate(version.published_at)}</div>
-                            </div>
-                            <div class="flex w-full items-center">
-                                <div class="font-medium text-gray-900 dark:text-gray-100">Version {version.version}</div>
-                            </div>
-                            <div class="flex w-full items-center">
-                                <div class="flex flex-wrap gap-1">
-                                    {#each (version.supportedLanguages || [])
-                                        .filter((language: SupportedLanguage) => language.is_available)
-                                        .sort( (a: SupportedLanguage, b: SupportedLanguage) => a.language.ref_name.localeCompare(b.language.ref_name) ) as supportedLanguage (supportedLanguage.iso_code)}
-                                        <img
-                                            src={getLanguageFlag(supportedLanguage.language.flag_code)}
-                                            alt={supportedLanguage.language.ref_name}
-                                            title={supportedLanguage.language.ref_name}
-                                            class="h-4 w-4 rounded-sm"
-                                        />
-                                    {/each}
-                                </div>
-                            </div>
-                            <div class="flex w-full items-center">
-                                <div class="flex gap-2 text-lg">
-                                    {#if version.is_windows}<WindowsIcon
-                                            class="text-platform-windows h-5 w-5"
-                                            aria-hidden={false}
-                                            aria-label="Windows"
-                                        />{/if}
-                                    {#if version.is_linux}<LinuxIcon
-                                            class="text-platform-linux h-5 w-5"
-                                            aria-hidden={false}
-                                            aria-label="Linux"
-                                        />{/if}
-                                    {#if version.is_mac}<AppleIcon class="text-platform-mac h-5 w-5" aria-hidden={false} aria-label="Mac" />{/if}
-                                    {#if version.is_android}<AndroidIcon
-                                            class="text-platform-android h-5 w-5"
-                                            aria-hidden={false}
-                                            aria-label="Android"
-                                        />{/if}
-                                    {#if version.is_web}<WebIcon class="text-platform-web h-5 w-5" aria-hidden={false} aria-label="Web" />{/if}
-                                </div>
-                            </div>
-                            <div class="flex w-full items-center text-sm whitespace-nowrap sm:w-auto">
-                                <span class="text-gray-700 dark:text-gray-300">Words:</span>
-                                <span class="ml-1 text-gray-900 dark:text-gray-100">{getVersionWordCount(version)}</span>
-                            </div>
+                {@const platforms = versionPlatforms(version)}
+                {@const languages = versionLanguages(version)}
+                {@const wordCount = getVersionWordCount(version)}
+                {@const hasRouteData = versionHasRouteData[version.id] === true || version.has_route_data === true}
+                {@const canDownloadArchive = canDownloadOptimizedArchives && versionOptimizedArchiveAvailability[version.id] === true}
+                {@const statsBusy = characterStatsLoading === version.id || fileStatsLoading === version.id}
+                <li class="py-3 first:pt-0 last:pb-0">
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <div class="min-w-0 flex-1 basis-48">
+                            <span class="text-md font-medium text-fg">{version.version}</span>
+                            <span class="ml-2 text-ui text-fg-faint">{formatLocalDate(version.published_at)}</span>
                         </div>
-                    </div>
-                    <div class="mt-2 flex flex-wrap gap-2">
-                        {#if versionCharacterCounts[version.id] > 0}
-                            <Button
-                                type="button"
-                                variant="link"
-                                tone="primary"
-                                onclick={() => onLoadCharacterStats(version.id)}
-                                disabled={characterStatsLoading === version.id || fileStatsLoading === version.id}
-                                loading={characterStatsLoading === version.id}
-                                class="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400"
-                            >
-                                {#if characterStatsLoading === version.id}
-                                    <LoadingSpinner size="sm" />
-                                    Loading...
-                                {:else}
-                                    View {versionCharacterCounts[version.id]} Characters
+                        {#if platforms.length > 0 || languages.length > 0}
+                            <div class="flex flex-wrap items-center gap-1.5 text-fg-muted">
+                                {#each platforms as platform (platform)}
+                                    {@const meta = getPlatformIcon(platform)}
+                                    {@const Icon = meta.icon}
+                                    <Icon class="h-3.5 w-3.5" aria-hidden={false} aria-label={meta.title} />
+                                {/each}
+                                {#if platforms.length > 0 && languages.length > 0}
+                                    <span class="mx-1 h-3 w-px bg-border" aria-hidden="true"></span>
                                 {/if}
-                            </Button>
+                                {#each languages as supportedLanguage (supportedLanguage.iso_code)}
+                                    <span
+                                        class="fi fi-{supportedLanguage.language.flag_code} rounded-sm"
+                                        role="img"
+                                        aria-label={supportedLanguage.language.ref_name}
+                                        title={supportedLanguage.language.ref_name}
+                                    ></span>
+                                {/each}
+                            </div>
                         {/if}
-                        {#if versionHasRouteData[version.id] === true || version.has_route_data === true}
-                            <a
-                                href={route('games.route-map', { game: gameSlug }) + '?version_id=' + version.id}
-                                class="inline-flex items-center text-sm text-blue-600 hover:underline dark:text-blue-400"
-                            >
-                                Route Map
-                            </a>
-                        {/if}
-                        {#if versionHasFileStats[version.id]}
-                            <Button
-                                type="button"
-                                variant="link"
-                                tone="primary"
-                                onclick={() => onLoadFileStats(version.id)}
-                                disabled={characterStatsLoading === version.id || fileStatsLoading === version.id}
-                                loading={fileStatsLoading === version.id}
-                                class="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400"
-                            >
-                                {#if fileStatsLoading === version.id}
-                                    <LoadingSpinner size="sm" />
-                                    Loading...
-                                {:else}
-                                    View File Stats
-                                {/if}
-                            </Button>
-                        {/if}
-                        {#if canDownloadOptimizedArchives && versionOptimizedArchiveAvailability[version.id] === true}
-                            <a
-                                href={route('my-games.optimized-download', { game: gameSlug, version: version.id })}
-                                class="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline dark:text-blue-400"
-                            >
-                                <ArrowDownTrayIcon class="h-4 w-4" />
-                                Download archive
-                            </a>
+                        {#if wordCount}
+                            <span class="text-ui whitespace-nowrap text-fg-muted tabular-nums">{wordCount} words</span>
                         {/if}
                     </div>
+                    {#if versionCharacterCounts[version.id] > 0 || hasRouteData || versionHasFileStats[version.id] || canDownloadArchive}
+                        <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                            {#if versionCharacterCounts[version.id] > 0}
+                                <Button
+                                    type="button"
+                                    variant="link"
+                                    size="sm"
+                                    class="p-0"
+                                    onclick={() => onLoadCharacterStats(version.id)}
+                                    disabled={statsBusy}
+                                    loading={characterStatsLoading === version.id}
+                                >
+                                    {characterStatsLoading === version.id
+                                        ? 'Loading...'
+                                        : `View ${versionCharacterCounts[version.id]} ${versionCharacterCounts[version.id] === 1 ? 'character' : 'characters'}`}
+                                </Button>
+                            {/if}
+                            {#if versionHasFileStats[version.id]}
+                                <Button
+                                    type="button"
+                                    variant="link"
+                                    size="sm"
+                                    class="p-0"
+                                    onclick={() => onLoadFileStats(version.id)}
+                                    disabled={statsBusy}
+                                    loading={fileStatsLoading === version.id}
+                                >
+                                    {fileStatsLoading === version.id ? 'Loading...' : 'View file stats'}
+                                </Button>
+                            {/if}
+                            {#if hasRouteData}
+                                <Button
+                                    href={route('games.route-map', { game: gameSlug }) + '?version_id=' + version.id}
+                                    inertia={false}
+                                    variant="link"
+                                    size="sm"
+                                    class="p-0"
+                                >
+                                    Route map
+                                </Button>
+                            {/if}
+                            {#if canDownloadArchive}
+                                <Button
+                                    href={route('my-games.optimized-download', { game: gameSlug, version: version.id })}
+                                    inertia={false}
+                                    variant="link"
+                                    size="sm"
+                                    class="p-0"
+                                >
+                                    {#snippet icon()}<ArrowDownTrayIcon class="h-3.5 w-3.5" />{/snippet}
+                                    Download archive
+                                </Button>
+                            {/if}
+                        </div>
+                    {/if}
 
                     <CharacterStatsModal
                         versionId={version.id}
@@ -273,7 +250,6 @@
                         {characterStatsData}
                         statsLoading={characterStatsLoading === version.id}
                         closeCharacterStatsDialog={onCloseCharacterStats}
-                        {getLanguageFlag}
                     />
 
                     <FileStatsModal
@@ -283,12 +259,10 @@
                         statsLoading={fileStatsLoading === version.id}
                         closeFileStatsDialog={onCloseFileStats}
                     />
-                </Card>
+                </li>
             {/each}
-        </div>
+        </ul>
 
-        <div class="mt-4">
-            <Pagination layout="full" meta={pagination} onChange={onPageChange} {onPerPageChange} loading={versionsLoading} label="versions" />
-        </div>
+        <Pagination layout="full" meta={pagination} onChange={onPageChange} {onPerPageChange} loading={versionsLoading} label="versions" />
     </Card>
 {/if}

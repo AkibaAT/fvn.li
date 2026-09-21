@@ -1,10 +1,10 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
-    import clsx from 'clsx';
+    import { cn } from '@/utils/cn';
 
     let { children, class: className }: { children: Snippet; class?: string } = $props();
 </script>
 
-<div class={clsx('mx-auto max-w-7xl px-4 sm:px-6 lg:px-8', className)}>
+<div class={cn('mx-auto w-full max-w-page px-4 sm:px-5 lg:px-7', className)}>
     {@render children()}
 </div>

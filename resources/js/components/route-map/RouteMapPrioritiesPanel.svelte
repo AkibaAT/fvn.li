@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Button } from '@/components/ui';
+    import { Button, Select, TextInput } from '@/components/ui';
     import { formatRoutePreference } from '@/utils/route-map';
     import type { RoutePreference, RouteVariable } from '@/types/route-graph';
 
@@ -32,15 +32,15 @@
     } = $props();
 </script>
 
-<div class="mb-4 border-b border-gray-200 pb-4 dark:border-gray-700">
-    <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Route Priorities</h3>
-    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Earlier preferences win over later ones. Path length is only used as a tiebreaker.</p>
+<div class="mb-4 border-b border-border pb-4">
+    <h3 class="text-sm font-semibold text-fg">Route Priorities</h3>
+    <p class="mt-1 text-xs text-fg-faint">Earlier preferences win over later ones. Path length is only used as a tiebreaker.</p>
 
     <div class="mt-3 space-y-2">
         {#each routePreferences as pref, index (`${pref.variable}:${pref.mode}:${pref.value ?? ''}:${index}`)}
-            <div class="rounded border border-gray-200 px-2 py-1.5 text-xs dark:border-gray-700">
+            <div class="rounded-md border border-border px-2 py-1.5 text-xs">
                 <div class="flex items-center justify-between gap-2">
-                    <span class="font-mono text-gray-700 dark:text-gray-300">
+                    <span class="font-mono text-fg-muted">
                         {formatRoutePreference(pref)}
                     </span>
                     <div class="flex items-center gap-1">
@@ -81,31 +81,34 @@
     </div>
 
     <div class="mt-3 space-y-2">
-        <select
-            class="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+        <Select
+            aria-label="Priority variable"
+            class="px-2 py-1.5 text-xs"
             value={preferenceVariable}
-            onchange={(event) => onPreferenceVariableChange((event.currentTarget as HTMLSelectElement).value)}
+            onchange={(event) => onPreferenceVariableChange(event.currentTarget.value)}
         >
             <option value="">Select variable…</option>
             {#each routePlanningVariables as variable (variable.name)}
                 <option value={variable.name}>{variable.name}</option>
             {/each}
-        </select>
+        </Select>
 
-        <select
-            class="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+        <Select
+            aria-label="Priority mode"
+            class="px-2 py-1.5 text-xs"
             value={preferenceMode}
-            onchange={(event) => onPreferenceModeChange((event.currentTarget as HTMLSelectElement).value as RoutePreference['mode'])}
+            onchange={(event) => onPreferenceModeChange(event.currentTarget.value as RoutePreference['mode'])}
         >
             <option value="maximize">Maximize value</option>
             <option value="minimize">Minimize value</option>
             <option value="equals">Match exact value</option>
-        </select>
+        </Select>
 
         {#if preferenceMode === 'equals'}
-            <input
+            <TextInput
                 type="text"
-                class="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                aria-label="Desired value"
+                class="px-2 py-1.5 text-xs"
                 placeholder="Desired value"
                 value={preferenceValue}
                 oninput={(event) => onPreferenceValueChange(event.currentTarget.value)}
@@ -116,7 +119,7 @@
             <Button
                 type="button"
                 variant="solid"
-                tone="success"
+                tone="primary"
                 size="xs"
                 class="flex-1"
                 onclick={onAddPreference}

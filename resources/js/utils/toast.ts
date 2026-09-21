@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-type ToastType = 'success' | 'error' | 'info' | 'warning';
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface ToastMessage {
     id: number;

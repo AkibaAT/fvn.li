@@ -22,12 +22,12 @@
     import RuleBuilder from './components/RuleBuilder.svelte';
     import EmbedEditor from './components/EmbedEditor.svelte';
     import VnOverrideManager from './components/VnOverrideManager.svelte';
+    import LoadState from './components/LoadState.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
-    import { Alert, Badge, Button, Card, Switch } from '@/components/ui';
+    import { Badge, Button, Card, Switch, TabBar, TextInput } from '@/components/ui';
     import type { BadgeTone } from '@/components/ui/Badge.svelte';
     import ChannelPicker from './components/ChannelPicker.svelte';
-    import { page, router } from '@inertiajs/svelte';
-    import { SvelteURL } from 'svelte/reactivity';
+    import { useUrlTab } from '@/hooks/useUrlTab.svelte';
 
     interface Props {
         server: number;
@@ -36,18 +36,18 @@
     let { server: serverId }: Props = $props();
 
     type Tab = 'general' | 'routing' | 'ignored' | 'overrides' | 'embeds' | 'history';
-    const activeTab = $derived.by(() => {
-        const tab = new SvelteURL(page.url, 'http://localhost').searchParams.get('tab');
-        return tabs.find((item) => item.id === tab)?.id ?? 'general';
-    });
-
-    function setTab(tab: Tab) {
-        if (tab === activeTab) return;
-        const url = new SvelteURL(window.location.href);
-        if (tab === 'general') url.searchParams.delete('tab');
-        else url.searchParams.set('tab', tab);
-        router.push({ url: `${url.pathname}${url.search}${url.hash}`, preserveState: true, preserveScroll: true });
-    }
+    const tabs: { id: Tab; label: string }[] = [
+        { id: 'general', label: 'General' },
+        { id: 'routing', label: 'Routing Rules' },
+        { id: 'ignored', label: 'Ignored VNs' },
+        { id: 'overrides', label: 'VN Overrides' },
+        { id: 'embeds', label: 'Embeds' },
+        { id: 'history', label: 'History' },
+    ];
+    const { activeTab, setTab } = useUrlTab<Tab>(
+        tabs.map((t) => t.id),
+        'general',
+    );
 
     let server = $state<DiscordServer | null>(null);
     let channels = $state<DiscordChannel[]>([]);
@@ -209,15 +209,6 @@
                 return 'neutral';
         }
     }
-
-    const tabs: { id: Tab; label: string }[] = [
-        { id: 'general', label: 'General' },
-        { id: 'routing', label: 'Routing Rules' },
-        { id: 'ignored', label: 'Ignored VNs' },
-        { id: 'overrides', label: 'VN Overrides' },
-        { id: 'embeds', label: 'Embeds' },
-        { id: 'history', label: 'History' },
-    ];
 </script>
 
 <SeoHead title={`${server?.discord_server_name || 'Server'} - Discord Configuration`} />
@@ -230,66 +221,36 @@
         backLabel="Back to Discord Servers"
     >
         {#snippet actions()}
-            <button
-                onclick={sendTestNotification}
-                disabled={sendingTest || !config.notification_channel_id}
-                class="inline-flex items-center gap-2 rounded-lg border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-900/30"
-            >
+            <Button onclick={sendTestNotification} variant="outline" disabled={sendingTest || !config.notification_channel_id}>
                 {sendingTest ? 'Sending test...' : 'Send Test Notification'}
-            </button>
-            <button
-                onclick={() => saveConfig()}
-                disabled={saving}
-                class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
-            >
+            </Button>
+            <Button onclick={() => saveConfig()} loading={saving}>
                 {#if saving}
-                    <LoadingSpinner size="sm" currentColor isBusy={false} />
                     Saving...
                 {:else}
                     <CheckIcon class="h-4 w-4" />
                     Save All
                 {/if}
-            </button>
+            </Button>
         {/snippet}
     </PageHeader>
 
-    {#if loading}
-        <div class="flex items-center justify-center py-20">
-            <LoadingSpinner size="lg" class="text-indigo-600 dark:text-indigo-400" currentColor label="Loading Discord server settings" />
-        </div>
-    {:else if error}
-        <Alert title="Failed to load server" tone="danger">
-            <p>{error}</p>
-            {#snippet actions()}
-                <Button type="button" tone="danger" size="sm" onclick={() => window.location.reload()}>Retry</Button>
-            {/snippet}
-        </Alert>
-    {:else}
-        <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
-            <div class="-mb-px flex flex-wrap gap-x-6" aria-label="Server config tabs" role="tablist">
-                {#each tabs as tab (tab.id)}
-                    <button
-                        onclick={() => setTab(tab.id)}
-                        role="tab"
-                        aria-selected={activeTab === tab.id}
-                        class="border-b-2 px-1 py-3 text-sm font-medium transition-colors {activeTab === tab.id
-                            ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
-                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'}"
-                    >
-                        {tab.label}
-                    </button>
-                {/each}
+    <LoadState {loading} {error} errorTitle="Failed to load server">
+        {#snippet loadingContent()}
+            <div class="flex items-center justify-center py-20">
+                <LoadingSpinner size="lg" class="text-fg-muted" currentColor label="Loading Discord server settings" />
             </div>
-        </div>
+        {/snippet}
+        <TabBar {tabs} active={activeTab} onSelect={(tab) => setTab(tab as Tab)} ariaLabel="Server config tabs" />
 
         {#if activeTab === 'general'}
-            <Card variant="glass" padding="lg">
-                <h2 class="mb-6 text-lg font-semibold text-gray-900 dark:text-white">General Settings</h2>
+            <Card variant="flat" padding="lg">
+                <h2 class="mb-6 text-title font-semibold text-fg">General Settings</h2>
                 <div class="space-y-6">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="font-medium text-gray-700 dark:text-gray-300">Server Active</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Enable or disable notifications for this server</div>
+                            <div class="font-medium text-fg">Server Active</div>
+                            <div class="text-sm text-fg-muted">Enable or disable notifications for this server</div>
                         </div>
                         <Switch
                             checked={Boolean(server?.is_active)}
@@ -309,10 +270,8 @@
                     </div>
 
                     <div>
-                        <label for="notification-channel" class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                            >Default Notification Channel</label
-                        >
-                        <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">Select the channel where notifications will be sent by default</p>
+                        <label for="notification-channel" class="block text-sm font-medium text-fg-muted">Default Notification Channel</label>
+                        <p class="mb-2 text-xs text-fg-muted">Select the channel where notifications will be sent by default</p>
                         {#if channels.length > 0}
                             <ChannelPicker
                                 id="notification-channel"
@@ -326,16 +285,15 @@
                                 onselect={selectNotificationChannel}
                             />
                         {:else}
-                            <input
+                            <TextInput
                                 id="notification-channel"
-                                type="text"
                                 value={config.notification_channel_id || ''}
                                 placeholder="Enter Discord channel ID"
+                                fieldClass="mt-1"
                                 onchange={(e) => {
                                     const val = (e.target as HTMLInputElement).value.trim();
                                     saveConfig({ notification_channel_id: val || null } as Partial<ServerConfig>);
                                 }}
-                                class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                             />
                             <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
                                 Channel sync has not run yet. Paste a channel ID manually for now.
@@ -344,8 +302,8 @@
                     </div>
 
                     <div>
-                        <label for="ping-role" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Ping Role ID</label>
-                        <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">Role to ping when notifications are sent (optional)</p>
+                        <label for="ping-role" class="block text-sm font-medium text-fg-muted">Ping Role ID</label>
+                        <p class="mb-2 text-xs text-fg-muted">Role to ping when notifications are sent (optional)</p>
                         {#if roles.length > 0}
                             <ChannelPicker
                                 id="ping-role"
@@ -360,16 +318,14 @@
                                 onselect={selectPingRole}
                             />
                         {:else}
-                            <input
+                            <TextInput
                                 id="ping-role"
-                                type="text"
                                 value={config.ping_role_id || ''}
                                 placeholder="Enter Discord role ID"
                                 onchange={(e) => {
                                     const val = (e.target as HTMLInputElement).value.trim();
                                     saveConfig({ ping_role_id: val || null } as Partial<ServerConfig>);
                                 }}
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                             />
                             <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
                                 Role sync is not available. Paste a role ID manually for now.
@@ -379,10 +335,8 @@
 
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="font-medium text-gray-700 dark:text-gray-300">Include Game Description</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">
-                                Add the description to generated embeds. Custom embeds control their own layout.
-                            </div>
+                            <div class="font-medium text-fg">Include Game Description</div>
+                            <div class="text-sm text-fg-muted">Add the description to generated embeds. Custom embeds control their own layout.</div>
                         </div>
                         <Switch
                             checked={config.include_game_description}
@@ -395,10 +349,8 @@
 
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="font-medium text-gray-700 dark:text-gray-300">Include Thumbnail</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">
-                                Add the thumbnail to generated embeds. Custom embeds control their own layout.
-                            </div>
+                            <div class="font-medium text-fg">Include Thumbnail</div>
+                            <div class="text-sm text-fg-muted">Add the thumbnail to generated embeds. Custom embeds control their own layout.</div>
                         </div>
                         <Switch
                             checked={config.include_thumbnail}
@@ -411,10 +363,8 @@
 
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="font-medium text-gray-700 dark:text-gray-300">Include Ratings</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">
-                                Add ratings to generated embeds. Custom embeds control their own layout.
-                            </div>
+                            <div class="font-medium text-fg">Include Ratings</div>
+                            <div class="text-sm text-fg-muted">Add ratings to generated embeds. Custom embeds control their own layout.</div>
                         </div>
                         <Switch
                             checked={config.include_ratings}
@@ -442,8 +392,8 @@
 
         {#if activeTab === 'embeds'}
             <div class="space-y-6">
-                <Card variant="glass" padding="lg">
-                    <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">New Game Embed</h2>
+                <Card variant="flat" padding="lg">
+                    <h2 class="mb-4 text-title font-semibold text-fg">New Game Embed</h2>
                     <EmbedEditor
                         template={config.new_game_embed || {}}
                         notificationType="new_game"
@@ -452,8 +402,8 @@
                         onchange={handleNewGameEmbedChange}
                     />
                 </Card>
-                <Card variant="glass" padding="lg">
-                    <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Update Embed</h2>
+                <Card variant="flat" padding="lg">
+                    <h2 class="mb-4 text-title font-semibold text-fg">Update Embed</h2>
                     <EmbedEditor
                         template={config.update_embed || {}}
                         notificationType="update"
@@ -466,37 +416,27 @@
         {/if}
 
         {#if activeTab === 'history'}
-            <Card variant="glass" padding="lg">
-                <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Notification History</h2>
+            <Card variant="flat" padding="lg">
+                <h2 class="mb-4 text-title font-semibold text-fg">Notification History</h2>
                 {#if server?.notification_history && server.notification_history.length > 0}
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <table class="min-w-full divide-y divide-border">
                             <thead>
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-                                        >Game</th
-                                    >
-                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-                                        >Type</th
-                                    >
-                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-                                        >Status</th
-                                    >
-                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-                                        >Channel</th
-                                    >
-                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-                                        >Sent At</th
-                                    >
+                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase">Game</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase">Type</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase">Status</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase">Channel</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase">Sent At</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <tbody class="divide-y divide-border">
                                 {#each server.notification_history as entry (entry.id)}
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                        <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                    <tr class="hover:bg-surface-alt">
+                                        <td class="px-4 py-3 text-sm text-fg">
                                             {entry.game?.name || `Game #${entry.game_id}`}
                                         </td>
-                                        <td class="px-4 py-3 text-sm text-gray-600 capitalize dark:text-gray-400">
+                                        <td class="px-4 py-3 text-sm text-fg-muted capitalize">
                                             {entry.notification_type?.replace('_', ' ')}
                                         </td>
                                         <td class="px-4 py-3 text-sm">
@@ -504,13 +444,13 @@
                                                 {entry.delivery_status}
                                             </Badge>
                                             {#if entry.error_message}
-                                                <div class="mt-1 text-xs text-red-500">{entry.error_message}</div>
+                                                <div class="mt-1 text-xs text-red-600 dark:text-red-400">{entry.error_message}</div>
                                             {/if}
                                         </td>
-                                        <td class="px-4 py-3 font-mono text-sm text-gray-600 dark:text-gray-400">
+                                        <td class="px-4 py-3 font-mono text-sm text-fg-muted">
                                             {entry.channel_id}
                                         </td>
-                                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <td class="px-4 py-3 text-sm text-fg-muted">
                                             {formatLocalDateTime(entry.sent_at)}
                                         </td>
                                     </tr>
@@ -519,9 +459,9 @@
                         </table>
                     </div>
                 {:else}
-                    <div class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No notification history yet</div>
+                    <div class="py-8 text-center text-sm text-fg-muted">No notification history yet</div>
                 {/if}
             </Card>
         {/if}
-    {/if}
+    </LoadState>
 </div>

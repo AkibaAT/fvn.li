@@ -47,6 +47,54 @@ test('game social meta tags format numeric string word counts without crashing',
     expect($metaTags->description)->toContain('12,345 words');
 });
 
+test('game structured data offers free games at zero price and describes the application', function () {
+    $game = Game::factory()->create([
+        'name' => 'Free Novel',
+        'authors' => 'Solo Dev',
+        'is_paid' => false,
+        'is_nsfw' => false,
+        'is_visible' => true,
+    ]);
+
+    $metaTags = app(GameSocialMetaBuilder::class)->build($game, new LengthAwarePaginator([], 0, 5));
+    [$videoGame, $breadcrumbs] = $metaTags->structuredData['@graph'];
+
+    expect($metaTags->browserTitle)->toBe('Free Novel by Solo Dev – Furry Visual Novel')
+        ->and($metaTags->isAdult)->toBeFalse()
+        ->and($videoGame['name'])->toBe('Free Novel')
+        ->and($videoGame['applicationCategory'])->toBe('GameApplication')
+        ->and($videoGame['offers']['price'])->toBe(0)
+        ->and($videoGame['offers']['priceCurrency'])->toBe('USD')
+        ->and($breadcrumbs['@type'])->toBe('BreadcrumbList')
+        ->and($breadcrumbs['itemListElement'][1]['item'])->toBe(route('games.show', $game));
+});
+
+test('game structured data prices paid games in their own currency and flags adult games', function () {
+    $game = Game::factory()->create([
+        'name' => 'A Very Long Visual Novel Title That Keeps Going',
+        'authors' => 'Studio',
+        'is_paid' => true,
+        'min_price' => 1500,
+        'currency' => 'JPY',
+        'is_nsfw' => true,
+        'is_visible' => true,
+    ]);
+
+    $metaTags = app(GameSocialMetaBuilder::class)->build($game, new LengthAwarePaginator([], 0, 5));
+    $offer = $metaTags->structuredData['@graph'][0]['offers'];
+
+    expect($metaTags->browserTitle)->toBe('A Very Long Visual Novel Title That Keeps Going')
+        ->and($metaTags->isAdult)->toBeTrue()
+        ->and($offer['price'])->toEqual(1500)
+        ->and($offer['priceCurrency'])->toBe('JPY');
+});
+
+test('adult game pages carry the adult rating meta tag', function () {
+    $game = Game::factory()->create(['is_nsfw' => true, 'is_visible' => true]);
+
+    expect($this->get(route('games.show', $game))->getContent())->toContain('<meta name="rating" content="adult">');
+});
+
 test('game show exposes itch screenshots as effective screenshots in original view mode', function () {
     $game = Game::factory()->create([
         'is_visible' => true,
@@ -373,7 +421,10 @@ test('game show exposes rich version review progress analytics and recommendatio
         ->and($response->json('props.userReview.rating'))->toBe(5)
         ->and($response->json('props.publicListsCount'))->toBe(1)
         ->and($response->json('props.similarGames.0.name'))->toBe('Similar Game')
-        ->and($response->json('props.developerGames.0.name'))->toBe('Developer Game');
+        ->and($response->json('props.similarGames.0'))->toHaveKeys(['effective_name', 'is_nsfw', 'tags', 'supported_languages', 'english_word_count'])
+        ->and($response->json('props.similarGames.0'))->not->toHaveKey('description')
+        ->and($response->json('props.developerGames.0.name'))->toBe('Developer Game')
+        ->and($response->json('props.developerGames.0'))->toHaveKeys(['effective_name', 'is_nsfw', 'tags', 'supported_languages']);
 });
 
 test('game show caches empty similar-game results', function () {

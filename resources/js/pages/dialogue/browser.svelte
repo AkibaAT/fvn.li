@@ -15,8 +15,10 @@
         type DuplicateItem,
     } from '@/api';
     import { renderTrustedMarksOnly } from '@/utils/safe-highlight';
+    import { debounce } from '@/utils/debounce';
     import { page, router } from '@inertiajs/svelte';
-    import { Alert, Button, Card } from '@/components/ui';
+    import { Alert, Badge, Button, Card, Select, TextInput } from '@/components/ui';
+    import StatTile from '@/components/admin/StatTile.svelte';
 
     type InitialProps = {
         initial: {
@@ -66,18 +68,17 @@
     let duplicatesLimit = $state(Math.min(50, Math.max(5, Number(qp.get('duplicatesLimit')) || 10)));
 
     // Debounce search query
-    let debounceTimer: ReturnType<typeof setTimeout>;
+    const commitDebouncedQuery = debounce((value: string) => {
+        if (value !== debouncedQ) {
+            currentPage = 1;
+        }
+        debouncedQ = value;
+    }, 300);
     $effect(() => {
         // Track q dependency
         const currentQ = q;
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            if (currentQ !== debouncedQ) {
-                currentPage = 1;
-            }
-            debouncedQ = currentQ;
-        }, 300);
-        return () => clearTimeout(debounceTimer);
+        commitDebouncedQuery(currentQ);
+        return () => commitDebouncedQuery.cancel();
     });
 
     let previousFilters: string | undefined;
@@ -300,7 +301,7 @@
     };
 </script>
 
-<div class="bg-gray-100 dark:bg-gray-900">
+<div class="bg-page">
     <div class="mx-auto max-w-7xl">
         <PageHeader
             title={`Dialogue Browser - ${gameName}`}
@@ -312,14 +313,13 @@
         <Card padding="lg" class="mb-6">
             <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
-                    <label for="version-select" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"> Version </label>
-                    <select
+                    <Select
                         id="version-select"
+                        label="Version"
                         bind:value={versionId}
                         onchange={(e) => {
                             versionId = (e.target as HTMLSelectElement).value ? Number((e.target as HTMLSelectElement).value) : null;
                         }}
-                        class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                     >
                         <option value="">Select Version</option>
                         {#each versions as v (v.id)}
@@ -328,33 +328,22 @@
                                 {v.published_at ? ` (${formatLocalDate(v.published_at)})` : ''}
                             </option>
                         {/each}
-                    </select>
+                    </Select>
                 </div>
 
                 <div>
-                    <label for="character-select" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"> Character </label>
-                    <select
-                        id="character-select"
-                        bind:value={selectedCharacterId}
-                        disabled={!versionId}
-                        class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                    >
+                    <Select id="character-select" label="Character" bind:value={selectedCharacterId} disabled={!versionId}>
                         <option value="">All Characters</option>
                         <option value="narrator">Narrator</option>
                         <option value="menu_choice">Menu Choices</option>
                         {#each characters as c (c.id)}
                             <option value={c.character_id}>{c.name}</option>
                         {/each}
-                    </select>
+                    </Select>
                 </div>
 
                 <div>
-                    <label for="language-select" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"> Language </label>
-                    <select
-                        id="language-select"
-                        bind:value={language}
-                        class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                    >
+                    <Select id="language-select" label="Language" bind:value={language}>
                         {#if languages.length === 0}
                             <option value={language}>{language.toUpperCase()}</option>
                         {/if}
@@ -363,42 +352,33 @@
                                 {`${l.name}${l.flag ? ` (${l.flag})` : ''}`}
                             </option>
                         {/each}
-                    </select>
+                    </Select>
                 </div>
             </div>
 
             <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                    <label for="context-select" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"> Context </label>
-                    <select
-                        id="context-select"
-                        bind:value={selectedContext}
-                        disabled={!versionId}
-                        class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                    >
+                    <Select id="context-select" label="Context" bind:value={selectedContext} disabled={!versionId}>
                         <option value="">All Contexts</option>
                         {#each contexts as c (c)}
                             <option value={c}>{c}</option>
                         {/each}
-                    </select>
+                    </Select>
                 </div>
 
                 <div>
-                    <label for="search-input" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"> Search </label>
-                    <div class="relative mt-1 flex rounded-md shadow-sm">
-                        <input
-                            id="search-input"
-                            type="text"
-                            bind:value={q}
-                            oninput={(e) => {
-                                if ((e.target as HTMLInputElement).value) showDuplicates = false;
-                                exactMatch = false;
-                            }}
-                            placeholder="Search dialogue..."
-                            disabled={showDuplicates}
-                            class="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                        />
-                    </div>
+                    <TextInput
+                        id="search-input"
+                        label="Search"
+                        type="text"
+                        bind:value={q}
+                        oninput={(e) => {
+                            if ((e.target as HTMLInputElement).value) showDuplicates = false;
+                            exactMatch = false;
+                        }}
+                        placeholder="Search dialogue..."
+                        disabled={showDuplicates}
+                    />
                 </div>
             </div>
 
@@ -413,105 +393,86 @@
                         onclick={() => {
                             showDuplicates = !showDuplicates;
                         }}
-                        class="rounded-lg"
+                        class="rounded-md"
                     >
                         <CopyIcon class="mr-1 h-4 w-4" />
                         {showDuplicates ? 'Hide Duplicates' : 'Show Duplicates'}
                     </Button>
 
-                    <div class="flex items-center space-x-2">
-                        <select
-                            value={perPage}
-                            onchange={(e) => onChangePerPage(Number((e.target as HTMLSelectElement).value))}
-                            class="rounded-lg border border-gray-300 bg-white px-3 py-1 text-sm text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                            <option value={25}>25 per page</option>
-                            <option value={50}>50 per page</option>
-                            <option value={100}>100 per page</option>
-                        </select>
-                    </div>
+                    <Select
+                        aria-label="Results per page"
+                        value={perPage}
+                        onchange={(e) => onChangePerPage(Number(e.currentTarget.value))}
+                        class="w-auto py-1"
+                    >
+                        <option value={25}>25 per page</option>
+                        <option value={50}>50 per page</option>
+                        <option value={100}>100 per page</option>
+                    </Select>
                 </div>
                 {#if !canSearch}
-                    <span class="text-sm text-gray-500 dark:text-gray-400"> Select a game and version to search </span>
+                    <span class="text-sm text-fg-muted"> Select a game and version to search </span>
                 {/if}
             </div>
 
             {#if showDuplicates}
-                <div class="mt-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-700/30">
-                    <h3 class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">Duplicate Line Settings</h3>
+                <div class="mt-4 rounded-lg bg-surface-alt p-4">
+                    <h3 class="mb-3 text-sm font-medium text-fg">Duplicate Line Settings</h3>
                     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <div>
-                            <label for="min-line-length" class="mb-1 block text-xs text-gray-500 dark:text-gray-400"> Minimum Line Length </label>
-                            <input
-                                id="min-line-length"
-                                type="number"
-                                bind:value={minLineLength}
-                                min="3"
-                                max="50"
-                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                            />
-                        </div>
-                        <div>
-                            <label for="min-duplicates" class="mb-1 block text-xs text-gray-500 dark:text-gray-400"> Minimum Duplicates </label>
-                            <input
-                                id="min-duplicates"
-                                type="number"
-                                bind:value={minDuplicateCount}
-                                min="2"
-                                max="20"
-                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                            />
-                        </div>
-                        <div>
-                            <label for="max-results" class="mb-1 block text-xs text-gray-500 dark:text-gray-400"> Maximum Results </label>
-                            <input
-                                id="max-results"
-                                type="number"
-                                bind:value={duplicatesLimit}
-                                min="5"
-                                max="50"
-                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                            />
-                        </div>
+                        <TextInput
+                            id="min-line-length"
+                            type="number"
+                            label="Minimum Line Length"
+                            bind:value={minLineLength}
+                            min="3"
+                            max="50"
+                            class="py-1.5"
+                        />
+                        <TextInput
+                            id="min-duplicates"
+                            type="number"
+                            label="Minimum Duplicates"
+                            bind:value={minDuplicateCount}
+                            min="2"
+                            max="20"
+                            class="py-1.5"
+                        />
+                        <TextInput
+                            id="max-results"
+                            type="number"
+                            label="Maximum Results"
+                            bind:value={duplicatesLimit}
+                            min="5"
+                            max="50"
+                            class="py-1.5"
+                        />
                     </div>
                 </div>
             {/if}
         </Card>
 
         <Card padding="lg" class="mb-6">
-            <h3 class="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">Version Statistics</h3>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+            <h3 class="mb-4 text-md font-semibold text-fg">Version Statistics</h3>
+            <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
                 <Card variant="soft" padding="sm">
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Total Lines</div>
-                    <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                        {summary.totalLines.toLocaleString()}
-                    </div>
+                    <StatTile label="Total Lines" value={summary.totalLines.toLocaleString()} />
                 </Card>
                 <Card variant="soft" padding="sm">
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Total Words</div>
-                    <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                        {summary.totalWords.toLocaleString()}
-                    </div>
+                    <StatTile label="Total Words" value={summary.totalWords.toLocaleString()} />
                 </Card>
                 <Card variant="soft" padding="sm">
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Characters</div>
-                    <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                        {summary.uniqueCharacters.toLocaleString()}
-                    </div>
+                    <StatTile label="Characters" value={summary.uniqueCharacters.toLocaleString()} />
                 </Card>
                 <Card variant="soft" padding="sm">
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Avg Words/Line</div>
-                    <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                        {summary.avgWordsPerLine.toFixed(1)}
-                    </div>
+                    <StatTile label="Avg Words/Line" value={summary.avgWordsPerLine.toFixed(1)} />
                 </Card>
-            </div>
+            </dl>
         </Card>
 
         {#if versionId && wordFrequency.length > 0}
             <Card padding="lg" class="mb-6">
-                <h3 class="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">Common Words & Phrases</h3>
-                <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                <h3 class="mb-4 text-md font-semibold text-fg">Common Words & Phrases</h3>
+                <p class="mb-4 text-sm text-fg-muted">
                     The most frequently used words and phrases in the dialogue. Larger bubbles indicate higher frequency.
                 </p>
                 <div class="flex justify-center">
@@ -533,17 +494,17 @@
         <Card padding="lg">
             {#if showDuplicates}
                 <div class="mb-4">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                    <h3 class="text-md font-semibold text-fg">
                         Top Duplicated Lines {gameId ? 'in Selected Game' : 'Across All Games'}
                     </h3>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    <p class="mt-1 text-sm text-fg-muted">
                         Showing lines that appear at least {minDuplicateCount} times, with a minimum length of {minLineLength} characters.
                     </p>
                 </div>
             {/if}
 
             {#if loading}
-                <div class="p-6 text-gray-600 dark:text-gray-300">Loading...</div>
+                <div class="p-6 text-fg-muted">Loading...</div>
             {:else}
                 {#if showDuplicates}
                     <div class="space-y-6">
@@ -555,25 +516,21 @@
                             {#each duplicates as dupe (dupe.text_id)}
                                 <Card variant="outline" padding="sm">
                                     <div class="mb-3 flex items-center justify-between">
-                                        <div class="font-medium text-gray-900 dark:text-gray-100">
+                                        <div class="font-medium text-fg">
                                             Appears {dupe.usage_count} times
                                         </div>
-                                        <div class="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                                        <Badge variant="outline" tone="neutral" size="lg">
                                             {dupe.text_content?.length || 0} characters
-                                        </div>
+                                        </Badge>
                                     </div>
-                                    <div
-                                        class="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                                    >
+                                    <div class="mb-3 rounded-lg border border-border bg-surface-alt p-3 text-fg">
                                         {dupe.text_content}
                                     </div>
                                     <div class="mt-3">
-                                        <div class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Examples:</div>
+                                        <div class="mb-2 text-sm font-medium text-fg-muted">Examples:</div>
                                         <div class="space-y-2">
                                             {#each dupe.examples ?? [] as ex, _idx (ex.game_name)}
-                                                <div
-                                                    class="rounded-lg border border-gray-200 bg-white p-2 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                                                >
+                                                <div class="rounded-lg border border-border bg-surface p-2 text-xs text-fg-muted">
                                                     <div class="flex justify-between">
                                                         <span class="font-medium">{ex.game_name} ({ex.version})</span>
                                                         <span
@@ -583,9 +540,9 @@
                                                         >
                                                     </div>
                                                     {#if ex.context}
-                                                        <div class="mt-1 text-gray-500 dark:text-gray-400">Context: {ex.context}</div>
+                                                        <div class="mt-1 text-fg-faint">Context: {ex.context}</div>
                                                     {/if}
-                                                    <div class="mt-1 text-gray-500 dark:text-gray-400">{ex.file_path}:{ex.line_number}</div>
+                                                    <div class="mt-1 text-fg-faint">{ex.file_path}:{ex.line_number}</div>
                                                 </div>
                                             {/each}
                                         </div>
@@ -598,7 +555,7 @@
 
                 {#if !showDuplicates && q.trim()}
                     <div class="mb-4">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                        <h3 class="text-md font-semibold text-fg">
                             Search Results: {pagination.total} matches for "{q}"
                         </h3>
                     </div>
@@ -609,24 +566,24 @@
                         <div class="space-y-3">
                             {#each searchResults as line (line.id)}
                                 <Card variant="outline" padding="sm">
-                                    <div class="mb-3 text-gray-900 dark:text-gray-100">
+                                    <div class="mb-3 text-fg">
                                         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                                         {@html renderTrustedMarksOnly(line.highlighted_text)}
                                     </div>
-                                    <div class="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                    <div class="flex flex-wrap gap-2 text-xs text-fg-faint">
                                         {#if line.character_name}
-                                            <span class="rounded-full bg-green-100 px-2 py-1 text-green-800 dark:bg-green-900/50 dark:text-green-200">
+                                            <Badge variant="outline" tone="neutral" size="lg">
                                                 {line.character_name}
-                                            </span>
+                                            </Badge>
                                         {/if}
                                         {#if line.context}
-                                            <span class="rounded-full bg-blue-100 px-2 py-1 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                                            <Badge variant="outline" tone="neutral" size="lg">
                                                 {line.context}
-                                            </span>
+                                            </Badge>
                                         {/if}
                                     </div>
                                     {#if line.file_path}
-                                        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                        <div class="mt-2 text-xs text-fg-faint">
                                             <span class="font-medium">
                                                 {line.game?.name}({line.version?.version}) -{line.file_path}
                                                 {line.line_number ? `:${line.line_number}` : ''}
@@ -634,7 +591,7 @@
                                         </div>
                                     {/if}
                                     {#if line.first_seen_version}
-                                        <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        <div class="mt-1 text-xs text-fg-faint">
                                             First seen in version {line.first_seen_version.version}{line.first_seen_version.published_at
                                                 ? ` (${formatLocalDate(line.first_seen_version.published_at)})`
                                                 : ''}
@@ -664,10 +621,8 @@
                 {/if}
 
                 {#if !q.trim() && !showDuplicates}
-                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-700/30">
-                        <p class="text-gray-500 dark:text-gray-400">
-                            Enter a search term to find dialogue or use the "Show Duplicates" button to see repeated lines
-                        </p>
+                    <div class="rounded-lg border border-border bg-surface-alt p-8 text-center">
+                        <p class="text-fg-muted">Enter a search term to find dialogue or use the "Show Duplicates" button to see repeated lines</p>
                     </div>
                 {/if}
             {/if}

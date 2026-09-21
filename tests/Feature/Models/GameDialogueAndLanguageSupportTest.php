@@ -174,7 +174,7 @@ it('returns loaded and queried language support for the latest version', functio
         ->and(Game::factory()->make()->isLanguageAvailable('eng'))->toBeFalse();
 });
 
-it('reports primary and english word counts and language labels', function () {
+it('reports primary and english word counts', function () {
     dialogueLanguage('eng', 'English', 'en');
     dialogueLanguage('jpn', 'Japanese', 'ja');
     $game = Game::factory()->create(['source_language_id' => 'jpn']);
@@ -187,16 +187,13 @@ it('reports primary and english word counts and language labels', function () {
 
     expect($loaded->getEnglishWordCount())->toBe(120)
         ->and($loaded->getPrimaryWordCount())->toBe(340)
-        ->and($loaded->getPrimaryLanguageLabel())->toBe('JA')
         ->and($loaded->getLatestCharacterStats('eng'))->toHaveCount(0);
 
     $preloaded = Game::factory()->make(['english_word_count' => 777]);
-    $fallback = Game::factory()->make(['source_language_id' => 'zzz']);
     $englishSource = $game->fresh(['latestVersion.languageStats']);
     $englishSource->source_language_id = 'eng';
 
     expect($preloaded->getEnglishWordCount())->toBe(777)
-        ->and($fallback->getPrimaryLanguageLabel())->toBe('ZZ')
         ->and($englishSource->getPrimaryWordCount())->toBe(120)
         ->and(Game::factory()->make()->getEnglishWordCount())->toBeNull()
         ->and(Game::factory()->make(['source_language_id' => 'jpn'])->getPrimaryWordCount())->toBeNull();

@@ -2,8 +2,9 @@
     import { refreshPage } from '@/utils/refreshPage';
     import { Link } from '@inertiajs/svelte';
     import { unignoreGame, updateExcludedTags, updateLanguagePreferences } from '@/api/user-preferences';
+    import { getErrorMessage, useAsyncAction } from '@/utils/async-action.svelte';
     import { toast } from '@/utils/toast';
-    import { Button, Card } from '@/components/ui';
+    import { Badge, Button, Card, TextInput } from '@/components/ui';
 
     interface IgnoredGame {
         id: number;
@@ -34,10 +35,10 @@
 
     let languageDraft = $state<string[] | null>(null);
     const selectedLanguages = $derived(languageDraft ?? languagePreferencesInitial);
-    let savingLanguages = $state(false);
+    const saveLanguagesAction = useAsyncAction();
     let excludedTagDraft = $state<number[] | null>(null);
     const excludedTags = $derived(excludedTagDraft ?? excludedTagPreferencesInitial);
-    let savingExcludedTags = $state(false);
+    const saveExcludedTagsAction = useAsyncAction();
     let tagSearch = $state('');
     const ignoredGames = $derived(ignoredGamesInitial);
     const ignoredGamesCount = $derived(ignoredGamesCountInitial);
@@ -54,7 +55,7 @@
             toast.success('Game removed from ignore list');
         } catch (error) {
             console.error('Failed to unignore game:', error);
-            toast.error(error instanceof Error ? error.message : 'Failed to remove game from ignore list');
+            toast.error(getErrorMessage(error, 'Failed to remove game from ignore list'));
         } finally {
             removingGameIds = removingGameIds.filter((id) => id !== gameId);
         }
@@ -65,19 +66,17 @@
     };
 
     const saveLanguagePreferences = async () => {
-        if (savingLanguages) return;
-        savingLanguages = true;
-        try {
-            await updateLanguagePreferences(selectedLanguages);
-            if (!(await refreshPreferences(['languagePreferences']))) return;
-            languageDraft = null;
-            toast.success('Language preferences saved');
-        } catch (error) {
-            console.error('Failed to save language preferences:', error);
-            toast.error(error instanceof Error ? error.message : 'Failed to save language preferences');
-        } finally {
-            savingLanguages = false;
-        }
+        if (saveLanguagesAction.isLoading) return;
+        const saved = await saveLanguagesAction.run(
+            async () => {
+                await updateLanguagePreferences(selectedLanguages);
+                return refreshPreferences(['languagePreferences']);
+            },
+            { fallbackError: 'Failed to save language preferences' },
+        );
+        if (!saved) return;
+        languageDraft = null;
+        toast.success('Language preferences saved');
     };
 
     const toggleExcludedTag = (tagId: number) => {
@@ -85,19 +84,17 @@
     };
 
     const saveExcludedTags = async () => {
-        if (savingExcludedTags) return;
-        savingExcludedTags = true;
-        try {
-            await updateExcludedTags(excludedTags);
-            if (!(await refreshPreferences(['excludedTagPreferences']))) return;
-            excludedTagDraft = null;
-            toast.success('Excluded tags saved');
-        } catch (error) {
-            console.error('Failed to save excluded tags:', error);
-            toast.error(error instanceof Error ? error.message : 'Failed to save excluded tags');
-        } finally {
-            savingExcludedTags = false;
-        }
+        if (saveExcludedTagsAction.isLoading) return;
+        const saved = await saveExcludedTagsAction.run(
+            async () => {
+                await updateExcludedTags(excludedTags);
+                return refreshPreferences(['excludedTagPreferences']);
+            },
+            { fallbackError: 'Failed to save excluded tags' },
+        );
+        if (!saved) return;
+        excludedTagDraft = null;
+        toast.success('Excluded tags saved');
     };
 
     const filteredTags = $derived(
@@ -108,13 +105,11 @@
 </script>
 
 <div class="space-y-6">
-    <p class="text-sm text-gray-600 dark:text-gray-400">
-        Customize how search results are filtered for you. These preferences apply across the site by default.
-    </p>
+    <p class="text-sm text-fg-muted">Customize how search results are filtered for you. These preferences apply across the site by default.</p>
 
-    <Card padding="lg">
-        <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Language Preferences</h2>
-        <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
+    <Card variant="flat" padding="lg">
+        <h2 class="mb-4 text-title font-semibold text-fg">Language Preferences</h2>
+        <p class="mb-3 text-sm text-fg-muted">
             Set your preferred languages to auto-filter the games list. When set, the games page will show only games available in these languages by
             default.
         </p>
@@ -125,12 +120,10 @@
                     variant={selectedLanguages.includes(iso) ? 'solid' : 'soft'}
                     tone={selectedLanguages.includes(iso) ? 'primary' : 'neutral'}
                     onclick={() => toggleLanguagePreference(iso)}
-                    disabled={savingLanguages}
-                    class="rounded-full px-3 py-1 text-sm transition-colors {selectedLanguages.includes(iso)
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
+                    disabled={saveLanguagesAction.isLoading}
+                    class="rounded-full px-3 py-1 text-sm transition-colors"
                 >
-                    <span class="fi fi-{lang.flag_code} mr-1 rounded-xs"></span>
+                    <span class="fi fi-{lang.flag_code} mr-1 rounded-sm"></span>
                     {lang.ref_name}
                 </Button>
             {/each}
@@ -141,33 +134,26 @@
                 variant="solid"
                 tone="primary"
                 onclick={saveLanguagePreferences}
-                disabled={savingLanguages}
-                loading={savingLanguages}
+                disabled={saveLanguagesAction.isLoading}
+                loading={saveLanguagesAction.isLoading}
             >
-                {savingLanguages ? 'Saving...' : 'Save Preferences'}
+                {saveLanguagesAction.isLoading ? 'Saving...' : 'Save Preferences'}
             </Button>
         </div>
     </Card>
 
-    <Card padding="lg">
+    <Card variant="flat" padding="lg">
         <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Excluded Tags</h2>
+            <h2 class="text-title font-semibold text-fg">Excluded Tags</h2>
             {#if excludedTags.length > 0}
-                <span class="rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                    >{excludedTags.length} excluded</span
-                >
+                <Badge tone="danger">{excludedTags.length} excluded</Badge>
             {/if}
         </div>
-        <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
+        <p class="mb-3 text-sm text-fg-muted">
             Select tags to exclude from game search results by default. Games with any of these tags will be hidden unless you explicitly include
             them.
         </p>
-        <input
-            type="text"
-            bind:value={tagSearch}
-            placeholder="Search tags..."
-            class="mb-3 w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-        />
+        <TextInput type="text" bind:value={tagSearch} placeholder="Search tags..." aria-label="Search tags" fieldClass="mb-3" />
         <div class="flex max-h-64 flex-wrap gap-2 overflow-y-auto">
             {#each filteredTags as [tagId, label] (tagId)}
                 <Button
@@ -175,10 +161,8 @@
                     variant={excludedTags.includes(Number(tagId)) ? 'solid' : 'soft'}
                     tone={excludedTags.includes(Number(tagId)) ? 'danger' : 'neutral'}
                     onclick={() => toggleExcludedTag(Number(tagId))}
-                    disabled={savingExcludedTags}
-                    class="rounded-full px-3 py-1 text-sm transition-colors {excludedTags.includes(Number(tagId))
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
+                    disabled={saveExcludedTagsAction.isLoading}
+                    class="rounded-full px-3 py-1 text-sm transition-colors"
                 >
                     {label}
                 </Button>
@@ -190,22 +174,21 @@
                 variant="solid"
                 tone="primary"
                 onclick={saveExcludedTags}
-                disabled={savingExcludedTags}
-                loading={savingExcludedTags}
+                disabled={saveExcludedTagsAction.isLoading}
+                loading={saveExcludedTagsAction.isLoading}
             >
-                {savingExcludedTags ? 'Saving...' : 'Save Preferences'}
+                {saveExcludedTagsAction.isLoading ? 'Saving...' : 'Save Preferences'}
             </Button>
             {#if excludedTags.length > 0}
                 <Button
                     type="button"
                     variant="soft"
                     tone="neutral"
-                    disabled={savingExcludedTags}
+                    disabled={saveExcludedTagsAction.isLoading}
                     onclick={() => {
                         excludedTagDraft = [];
                         saveExcludedTags();
                     }}
-                    class="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
                 >
                     Clear All
                 </Button>
@@ -213,21 +196,19 @@
         </div>
     </Card>
 
-    <Card padding="lg">
+    <Card variant="flat" padding="lg">
         <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Ignored Games</h2>
-            <span class="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-                >{ignoredGamesCount} game{ignoredGamesCount !== 1 ? 's' : ''}</span
-            >
+            <h2 class="text-title font-semibold text-fg">Ignored Games</h2>
+            <Badge tone="neutral">{ignoredGamesCount} game{ignoredGamesCount !== 1 ? 's' : ''}</Badge>
         </div>
-        <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
+        <p class="mb-3 text-sm text-fg-muted">
             Games you've ignored won't appear in search results by default. You can manage your ignored games here.
         </p>
         {#if ignoredGames.length > 0}
             <div class="space-y-2">
                 {#each ignoredGames as game (game.id)}
-                    <div class="flex items-center justify-between rounded-lg bg-gray-50 p-2 dark:bg-gray-700/50">
-                        <Link href={route('games.show', game.slug)} class="truncate text-sm text-blue-600 hover:underline dark:text-blue-400"
+                    <div class="flex items-center justify-between rounded-lg border border-border bg-surface-alt p-2">
+                        <Link href={route('games.show', game.slug)} class="truncate text-sm text-fg-muted hover:text-fg hover:underline"
                             >{game.name}</Link
                         >
                         <Button
@@ -243,8 +224,8 @@
             </div>
         {:else}
             <div class="py-6 text-center">
-                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">No ignored games</div>
-                <div class="text-xs text-gray-400 dark:text-gray-500">
+                <div class="text-sm font-medium text-fg-muted">No ignored games</div>
+                <div class="text-xs text-fg-faint">
                     You haven't ignored any games yet. Click the ignore button on any game card to hide it from search results.
                 </div>
             </div>

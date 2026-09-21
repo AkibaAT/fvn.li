@@ -1,13 +1,13 @@
 <script lang="ts">
     import SeoHead from '@/components/seo/SeoHead.svelte';
-    import ReviewTextControls, { useReviewTextStyles } from '@/components/ReviewTextControls.svelte';
-    import RatingRow from '@/components/ratings/RatingRow.svelte';
+    import ReviewTextControls, { useReviewStyleString } from '@/components/ReviewTextControls.svelte';
+    import RatingList from '@/components/ratings/RatingList.svelte';
     import type { RatingRowData } from '@/components/ratings/types';
-    import { SvelteURLSearchParams } from 'svelte/reactivity';
-    import Pagination from '@/components/Pagination.svelte';
-    import { Link, router } from '@inertiajs/svelte';
-    import { Button, Card } from '@/components/ui';
+    import { untrack } from 'svelte';
+    import { Button } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
+    import { useUrlSyncedFilters } from '@/hooks/useUrlSyncedFilters.svelte';
+    import { buildPageMeta } from '@/utils/pagination';
 
     interface ReviewGame {
         id: number;
@@ -52,11 +52,18 @@
 
     let { reviewUser, reviews, stats, filters, metaTags }: Props = $props();
 
-    let isLoading = $state(false);
-    const reviewStylesObj = useReviewTextStyles();
-    const reviewStyle = $derived(
-        `max-width: ${reviewStylesObj.maxWidth}; font-size: ${reviewStylesObj.fontSize}; line-height: ${reviewStylesObj.lineHeight}; margin: ${reviewStylesObj.margin};`,
-    );
+    let page = $state(untrack(() => filters.page ?? 1));
+    let perPage = $state(untrack(() => filters.perPage ?? reviews.per_page ?? 10));
+    let sortField = $state(untrack(() => filters.sortField ?? 'published_at'));
+    let sortDirection = $state(untrack(() => filters.sortDirection ?? 'desc'));
+
+    const filterSync = useUrlSyncedFilters({
+        route: untrack(() => route('users.reviews', reviewUser.id)),
+        only: ['reviewUser', 'reviews', 'stats', 'filters', 'metaTags'],
+        getParams: () => ({ page, perPage, sortField, sortDirection }),
+    });
+
+    const reviewStyle = useReviewStyleString();
     const rows = $derived(
         reviews.data
             .map((review): RatingRowData | null =>
@@ -81,33 +88,20 @@
             .filter((row): row is RatingRowData => row !== null),
     );
 
-    function navigate(params: Record<string, string | number>) {
-        isLoading = true;
-        router.get(
-            route('users.reviews', reviewUser.id),
-            { ...filters, ...params },
-            { preserveState: true, preserveScroll: true, onFinish: () => (isLoading = false) },
-        );
-    }
+    const reviewsMeta = $derived(buildPageMeta(reviews, reviews.data));
 
     function handlePageChange(p: number) {
-        navigate({ page: p });
+        page = p;
     }
     function handlePerPageChange(pp: number) {
-        navigate({ perPage: pp, page: 1 });
+        perPage = pp;
+        page = 1;
     }
     function toggleSort(field: string) {
-        const newDirection = filters.sortField === field && filters.sortDirection === 'desc' ? 'asc' : 'desc';
-        navigate({ sortField: field, sortDirection: newDirection, page: 1 });
-    }
-
-    function buildPageUrl(p: number): string {
-        const params = new SvelteURLSearchParams();
-        params.set('page', p.toString());
-        params.set('perPage', reviews.per_page.toString());
-        params.set('sortField', filters.sortField);
-        params.set('sortDirection', filters.sortDirection);
-        return `/users/${reviewUser.id}/reviews?${params.toString()}`;
+        const newDirection = sortField === field && sortDirection === 'desc' ? 'asc' : 'desc';
+        sortField = field;
+        sortDirection = newDirection;
+        page = 1;
     }
 
     function sortIcon(field: string): string {
@@ -136,23 +130,17 @@
             </span>
         {/snippet}
         {#snippet actions()}
-            <Link
-                href={route('lists.user-public', reviewUser.id)}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-                >View Lists</Link
-            >
+            <Button href={route('lists.user-public', reviewUser.id)} variant="solid" tone="primary">View Lists</Button>
         {/snippet}
     </PageHeader>
 
-    <div class="flex gap-2">
+    <div class="flex items-center gap-2">
         <Button
             type="button"
             variant={filters.sortField === 'published_at' ? 'solid' : 'soft'}
             tone={filters.sortField === 'published_at' ? 'primary' : 'neutral'}
             onclick={() => toggleSort('published_at')}
-            class="rounded-md px-3 py-1.5 text-sm transition-colors {filters.sortField === 'published_at'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300'}"
+            size="sm"
         >
             Date{sortIcon('published_at')}
         </Button>
@@ -161,42 +149,28 @@
             variant={filters.sortField === 'rating' ? 'solid' : 'soft'}
             tone={filters.sortField === 'rating' ? 'primary' : 'neutral'}
             onclick={() => toggleSort('rating')}
-            class="rounded-md px-3 py-1.5 text-sm transition-colors {filters.sortField === 'rating'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300'}"
+            size="sm"
         >
             Rating{sortIcon('rating')}
         </Button>
+        {#if rows.length > 0}
+            <ReviewTextControls class="ml-auto" />
+        {/if}
     </div>
 
-    <ReviewTextControls />
-
     {#if rows.length === 0}
-        <div class="py-12 text-center text-gray-500 dark:text-gray-400">No reviews yet.</div>
+        <div class="py-12 text-center text-fg-muted">No reviews yet.</div>
     {:else}
-        <Card padding="none" class="shadow">
-            <div class="divide-y divide-gray-200 dark:divide-gray-700">
-                {#each rows as row (row.id)}<RatingRow {row} {reviewStyle} />{/each}
-            </div>
-            <div class="p-4">
-                <Pagination
-                    layout="full"
-                    meta={{
-                        current_page: reviews.current_page,
-                        last_page: reviews.last_page,
-                        total: reviews.total,
-                        from: reviews.data.length ? (reviews.current_page - 1) * reviews.per_page + 1 : 0,
-                        to: reviews.data.length ? (reviews.current_page - 1) * reviews.per_page + reviews.data.length : 0,
-                        per_page: reviews.per_page,
-                    }}
-                    onChange={handlePageChange}
-                    onPerPageChange={handlePerPageChange}
-                    loading={isLoading}
-                    label="reviews"
-                    perPageOptions={[10, 25, 50]}
-                    {buildPageUrl}
-                />
-            </div>
-        </Card>
+        <RatingList
+            {rows}
+            reviewStyle={reviewStyle.css}
+            meta={reviewsMeta}
+            onChange={handlePageChange}
+            onPerPageChange={handlePerPageChange}
+            loading={filterSync.isLoading}
+            label="reviews"
+            perPageOptions={[10, 25, 50]}
+            buildPageUrl={filterSync.buildPageUrl}
+        />
     {/if}
 </div>

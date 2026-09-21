@@ -6,9 +6,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Game;
 use App\Models\Tag;
+use App\Services\GamesSearchResultHydrator;
 use App\Services\HomePageCacheService;
 use App\Services\MeilisearchService;
 use App\Support\Seo\MetaTags;
+use App\Support\ViewPreference;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -17,13 +19,20 @@ use Inertia\Response;
 
 class HomeController extends Controller
 {
+    private const TEASER_LIMIT = 6;
+
+    private const TEASER_SECTIONS = [
+        'recentlyAdded' => 'first_visible_at',
+        'recentlyUpdated' => 'latest_version_published_at',
+        'mostPopular' => 'trending_score',
+    ];
+
     public function __construct(
         private MeilisearchService $meilisearchService
     ) {}
 
     public function home(): Response
     {
-        // Cache stats indefinitely - cleared by observers when data changes
         $stats = Cache::rememberForever('home.stats', function () {
             return [
                 'totalGames' => Game::where('is_visible', true)->count(),
@@ -42,15 +51,12 @@ class HomeController extends Controller
         }
 
         $teaserVersion = HomePageCacheService::getTeaserVersion();
-        $cacheKey = "home.teasers.v{$teaserVersion}." . md5(implode(',', $ignoredGameIds));
+        $cacheKey = "home.teasers.distinct.v{$teaserVersion}." . Tag::publicCacheVariant() . '.' . md5(implode(',', $ignoredGameIds));
 
-        $sharedTeasers = Cache::remember($cacheKey, now()->addDay(), function () use ($ignoredGameIds) {
-            return [
-                'recentlyAdded' => $this->getGameTeasers('first_visible_at', 'desc', 4, $ignoredGameIds),
-                'recentlyUpdated' => $this->getGameTeasers('latest_version_published_at', 'desc', 4, $ignoredGameIds),
-                'mostPopular' => $this->getGameTeasers('trending_score', 'desc', 4, $ignoredGameIds),
-            ];
-        });
+        $view = ViewPreference::mode(ViewPreference::HOME_COOKIE);
+
+        $sharedTeasers = Cache::remember($cacheKey, now()->addDay(), fn () => $this->getDistinctTeasers($ignoredGameIds));
+
         $teasers = $this->withCurrentUserTeaserData($sharedTeasers);
 
         $metaTags = new MetaTags(
@@ -61,6 +67,13 @@ class HomeController extends Controller
                 $stats['totalRatings']
             ),
             image: asset(config('social.images.home', config('social.images.default'))),
+            url: route('home'),
+            structuredData: [
+                '@type' => 'WebSite',
+                'name' => 'FVN.li',
+                'alternateName' => 'Furry Visual Novel Database',
+                'url' => url('/') . '/',
+            ],
         );
 
         return Inertia::render('home', [
@@ -68,92 +81,46 @@ class HomeController extends Controller
             'teasers' => $teasers,
             'metaTags' => $metaTags->toArray(),
             'ignoredGameIds' => $ignoredGameIds,
+            'homeView' => $view,
         ]);
     }
 
-    private function getGameTeasers(string $sortField, string $sortDirection = 'desc', int $limit = 4, array $ignoredGameIds = []): array
+    /**
+     * @param  array<int, int>  $ignoredGameIds
+     * @return array<string, array<int, Game>>
+     */
+    private function getDistinctTeasers(array $ignoredGameIds): array
     {
-        $paginator = $this->meilisearchService->searchGames(
-            query: '',
-            filters: [],
-            perPage: $limit,
-            page: 1,
-            sortField: $sortField,
-            sortDirection: $sortDirection,
-            ignoredGameIds: $ignoredGameIds
-        );
+        $teasers = [];
+        $shownIds = [];
+        $candidateLimit = self::TEASER_LIMIT;
 
-        $games = $paginator->items();
+        foreach (self::TEASER_SECTIONS as $section => $sortField) {
+            $picked = collect($this->meilisearchService->searchGames(
+                query: '',
+                filters: [],
+                perPage: $candidateLimit,
+                page: 1,
+                sortField: $sortField,
+                sortDirection: 'desc',
+                ignoredGameIds: $ignoredGameIds
+            )->items())
+                ->reject(fn (Game $game) => isset($shownIds[$game->id]))
+                ->take(self::TEASER_LIMIT)
+                ->values();
 
-        if ($paginator->count() > 0) {
-            $paginator->getCollection()->load([
-                'tags' => Tag::constrainToPopular(),
-                'sourceLanguage',
-                'latestVersion.supportedLanguages.language',
-                'latestVersion.languageStats',
-            ]);
-
-            // Enhance models with data from loaded relationships only (no additional queries)
-            foreach ($games as $game) {
-                if ($game->latestVersion) {
-                    $game->is_windows = $game->latestVersion->is_windows ?? false;
-                    $game->is_linux = $game->latestVersion->is_linux ?? false;
-                    $game->is_mac = $game->latestVersion->is_mac ?? false;
-                    $game->is_android = $game->latestVersion->is_android ?? false;
-                    $game->is_web = $game->latestVersion->is_web ?? false;
-                    $game->latest_version_id = $game->latestVersion->id;
-                    $game->latest_version_published_at = $game->latestVersion->published_at;
-                } else {
-                    $game->is_windows = false;
-                    $game->is_linux = false;
-                    $game->is_mac = false;
-                    $game->is_android = false;
-                    $game->is_web = false;
-                    $game->latest_version_id = null;
-                    $game->latest_version_published_at = null;
-                }
-
-                if ($game->latestVersion && $game->latestVersion->supportedLanguages) {
-                    $game->supported_languages = $game->latestVersion->supportedLanguages
-                        ->where('is_available', true)
-                        ->map(function ($supportedLanguage) {
-                            return [
-                                'iso_code' => $supportedLanguage->iso_code,
-                                'is_available' => $supportedLanguage->is_available,
-                                'ref_name' => $supportedLanguage->language?->ref_name,
-                                'flag_code' => $supportedLanguage->language?->flag_code,
-                            ];
-                        })
-                        ->values();
-                } else {
-                    $game->supported_languages = collect();
-                }
-
-                if ($game->latestVersion) {
-                    $englishStats = $game->latestVersion->languageStats
-                        ->where('iso_code', 'eng')
-                        ->first();
-                    $game->english_word_count = $englishStats?->words;
-
-                    $sourceLanguageId = $game->source_language_id ?? 'eng';
-                    if ($sourceLanguageId !== 'eng') {
-                        $primaryStats = $game->latestVersion->languageStats
-                            ->where('iso_code', $sourceLanguageId)
-                            ->first();
-                        $game->primary_word_count = $primaryStats?->words;
-                    } else {
-                        $game->primary_word_count = $game->english_word_count;
-                    }
-                    $game->primary_language_label = $game->getPrimaryLanguageLabel();
-                } else {
-                    $game->english_word_count = null;
-                    $game->primary_word_count = null;
-                    $game->primary_language_label = 'EN';
-                }
+            foreach ($picked as $game) {
+                $shownIds[$game->id] = true;
             }
+
+            $teasers[$section] = $picked;
+            $candidateLimit += self::TEASER_LIMIT;
         }
 
-        return $games;
+        $models = (new Game)->newCollection(collect($teasers)->flatten(1)->all());
+        app(GamesSearchResultHydrator::class)->hydrateModels($models);
+
+        return array_map(fn ($games) => $games->all(), $teasers);
     }
 
     private function withCurrentUserTeaserData(array $teasers): array

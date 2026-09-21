@@ -1,15 +1,15 @@
 <script lang="ts">
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import MagnifyingGlassIcon from '@/components/icons/MagnifyingGlass.svelte';
+    import ClipboardIcon from '@/components/icons/Clipboard.svelte';
     import XMarkIcon from '@/components/icons/XMark.svelte';
     import { untrack } from 'svelte';
-    import { SvelteURLSearchParams } from 'svelte/reactivity';
-    import type { VnList } from '@/components/VnListCard.svelte';
+    import type { VnList } from '@/types/lists';
     import PublicListResults from '@/components/lists/PublicListResults.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
-    import { Link, router } from '@inertiajs/svelte';
-    import { shouldIntercept } from '@inertiajs/core';
-    import { Alert, Button, Card } from '@/components/ui';
+    import { Link } from '@inertiajs/svelte';
+    import { Alert, Button, Card, Select, TabLinks, TextInput } from '@/components/ui';
+    import { useUrlSyncedFilters } from '@/hooks/useUrlSyncedFilters.svelte';
 
     interface FilterGame {
         id: number;
@@ -30,19 +30,22 @@
     let {
         lists,
         metaTags,
-        type = 'all',
+        type: initialType = 'all',
         search: initialSearch = '',
         sort: initialSort = 'default',
-        filterGame = null,
+        filterGame: initialFilterGame = null,
         counts = { all: 0, plan_to_read: 0, reading: 0, completed: 0, on_hold: 0, dropped: 0, custom: 0 },
     }: Props = $props();
 
-    let isLoading = $state(false);
     let localLists = $state(untrack(() => lists.data));
     let localCounts = $state(untrack(() => counts));
     let searchInput = $state(untrack(() => initialSearch));
     let currentSearch = $state(untrack(() => initialSearch));
     let currentSort = $state(untrack(() => initialSort));
+    let type = $state(untrack(() => initialType));
+    let activeGame = $state<FilterGame | null>(untrack(() => initialFilterGame));
+    let page = $state(untrack(() => lists.current_page));
+    let perPage = $state(untrack(() => lists.per_page));
 
     $effect(() => {
         localLists = lists.data;
@@ -50,114 +53,63 @@
         searchInput = initialSearch;
         currentSearch = initialSearch;
         currentSort = initialSort;
+        type = initialType;
+        activeGame = initialFilterGame;
+        page = lists.current_page;
+        perPage = lists.per_page;
     });
 
     const typeLabel = (t: string) => t.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
-    function navigateWithParams(params: Record<string, any>) {
-        isLoading = true;
-        router.get(route('lists.public'), params, { preserveState: true, preserveScroll: true, onFinish: () => (isLoading = false) });
-    }
-
-    function handleTabChange(newType: string) {
-        navigateWithParams({
-            type: newType,
-            per_page: lists.per_page,
-            page: 1,
-            search: currentSearch || undefined,
-            sort: currentSort !== 'default' ? currentSort : undefined,
-            game: filterGame?.id || undefined,
-        });
-    }
-
-    function handlePageChange(page: number) {
-        navigateWithParams({
-            type,
-            per_page: lists.per_page,
-            page,
-            search: currentSearch || undefined,
-            sort: currentSort !== 'default' ? currentSort : undefined,
-            game: filterGame?.id || undefined,
-        });
-    }
-
-    function handlePerPageChange(perPage: number) {
-        navigateWithParams({
+    const filterSync = useUrlSyncedFilters({
+        route: route('lists.public'),
+        only: ['lists', 'type', 'search', 'sort', 'filterGame', 'counts', 'metaTags'],
+        getParams: () => ({
             type,
             per_page: perPage,
-            page: 1,
-            search: currentSearch || undefined,
-            sort: currentSort !== 'default' ? currentSort : undefined,
-            game: filterGame?.id || undefined,
-        });
-    }
+            page,
+            search: currentSearch,
+            sort: currentSort === 'default' ? undefined : currentSort,
+            game: activeGame?.id,
+        }),
+    });
 
     function handleSearch(e: Event) {
         e.preventDefault();
         currentSearch = searchInput;
-        navigateWithParams({
-            type,
-            per_page: lists.per_page,
-            page: 1,
-            search: searchInput || undefined,
-            sort: currentSort !== 'default' ? currentSort : undefined,
-            game: filterGame?.id || undefined,
-        });
-    }
-
-    function handleSortChange(newSort: string) {
-        currentSort = newSort;
-        navigateWithParams({
-            type,
-            per_page: lists.per_page,
-            page: 1,
-            search: currentSearch || undefined,
-            sort: newSort !== 'default' ? newSort : undefined,
-            game: filterGame?.id || undefined,
-        });
+        page = 1;
     }
 
     function clearSearch() {
         searchInput = '';
         currentSearch = '';
-        navigateWithParams({
-            type,
-            per_page: lists.per_page,
-            page: 1,
-            sort: currentSort !== 'default' ? currentSort : undefined,
-            game: filterGame?.id || undefined,
-        });
+        page = 1;
     }
 
     function clearGameFilter() {
-        navigateWithParams({
-            type,
-            per_page: lists.per_page,
+        activeGame = null;
+        page = 1;
+    }
+
+    function tabHref(tabType: string): string {
+        return route('lists.public', {
+            type: tabType,
+            per_page: perPage,
             page: 1,
             search: currentSearch || undefined,
             sort: currentSort !== 'default' ? currentSort : undefined,
+            game: activeGame?.id || undefined,
         });
     }
 
-    function buildPageUrl(page: number): string {
-        const params = new SvelteURLSearchParams();
-        if (type && type !== 'all') params.set('type', type);
-        if (currentSearch) params.set('search', currentSearch);
-        if (currentSort && currentSort !== 'default') params.set('sort', currentSort);
-        if (filterGame?.id) params.set('game', filterGame.id.toString());
-        params.set('per_page', lists.per_page.toString());
-        params.set('page', page.toString());
-        return `/lists/public?${params.toString()}`;
-    }
-
     const tabs = $derived([
-        { key: 'all', label: 'All Lists', count: localCounts.all },
-        { key: 'plan_to_read', label: typeLabel('plan_to_read'), count: localCounts.plan_to_read },
-        { key: 'reading', label: typeLabel('reading'), count: localCounts.reading },
-        { key: 'completed', label: typeLabel('completed'), count: localCounts.completed },
-        { key: 'on_hold', label: typeLabel('on_hold'), count: localCounts.on_hold },
-        { key: 'dropped', label: typeLabel('dropped'), count: localCounts.dropped },
-        { key: 'custom', label: 'Custom', count: localCounts.custom },
+        { key: 'all', label: 'All Lists', count: localCounts.all, href: tabHref('all') },
+        { key: 'plan_to_read', label: typeLabel('plan_to_read'), count: localCounts.plan_to_read, href: tabHref('plan_to_read') },
+        { key: 'reading', label: typeLabel('reading'), count: localCounts.reading, href: tabHref('reading') },
+        { key: 'completed', label: typeLabel('completed'), count: localCounts.completed, href: tabHref('completed') },
+        { key: 'on_hold', label: typeLabel('on_hold'), count: localCounts.on_hold, href: tabHref('on_hold') },
+        { key: 'dropped', label: typeLabel('dropped'), count: localCounts.dropped, href: tabHref('dropped') },
+        { key: 'custom', label: 'Custom', count: localCounts.custom, href: tabHref('custom') },
     ]);
 </script>
 
@@ -166,24 +118,18 @@
 <div class="space-y-8">
     <PageHeader title="Public Visual Novel Lists">
         {#snippet actions()}
-            <Link
-                href={route('lists.index')}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
-                >My Lists</Link
-            >
+            <Button href={route('lists.index')} variant="outline" tone="neutral">
+                <ClipboardIcon class="h-5 w-5" />
+                My Lists
+            </Button>
         {/snippet}
     </PageHeader>
 
-    <Card variant="glass" padding="md" class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <Card variant="flat" padding="md" class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form onsubmit={handleSearch} class="flex max-w-md flex-1 gap-2">
             <div class="relative flex-1">
-                <input
-                    type="text"
-                    bind:value={searchInput}
-                    placeholder="Search by user or VN name..."
-                    class="w-full rounded-lg border border-gray-300 bg-white py-2 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
-                />
-                <MagnifyingGlassIcon class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <TextInput type="text" bind:value={searchInput} placeholder="Search by user or VN name..." class="pr-4 pl-10" />
+                <MagnifyingGlassIcon class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-fg-faint" />
                 {#if currentSearch}
                     <Button
                         type="button"
@@ -198,38 +144,41 @@
                     </Button>
                 {/if}
             </div>
-            <Button type="submit" variant="solid" tone="primary" disabled={isLoading}>Search</Button>
+            <Button type="submit" variant="solid" tone="primary" disabled={filterSync.isLoading}>Search</Button>
         </form>
         <div class="flex items-center gap-2">
-            <label for="sort" class="text-sm text-gray-600 dark:text-gray-400">Sort by:</label>
-            <select
+            <label for="sort" class="text-sm text-fg-muted">Sort by:</label>
+            <Select
                 id="sort"
                 value={currentSort}
-                onchange={(e) => handleSortChange((e.target as HTMLSelectElement).value)}
-                disabled={isLoading}
-                class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                onchange={(e) => {
+                    currentSort = (e.target as HTMLSelectElement).value;
+                    page = 1;
+                }}
+                disabled={filterSync.isLoading}
+                class="w-auto"
             >
                 <option value="default">Default</option>
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
                 <option value="most_entries">Most Games</option>
                 <option value="recently_updated">Recently Updated</option>
-            </select>
+            </Select>
         </div>
     </Card>
 
     {#if currentSearch}
-        <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+        <div class="flex items-center gap-2 text-sm text-fg-muted">
             <span>Showing results for:</span>
-            <span class="rounded-full bg-blue-100 px-3 py-1 font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">"{currentSearch}"</span>
+            <span class="rounded-full bg-surface-alt px-3 py-1 font-medium text-fg">"{currentSearch}"</span>
             <Button type="button" variant="link" tone="primary" onclick={clearSearch}>Clear</Button>
         </div>
     {/if}
 
-    {#if filterGame}
+    {#if activeGame}
         <Alert tone="note" layout="inline" role="status">
             Showing lists containing:
-            <Link href={route('games.show', filterGame.slug)} class="font-medium hover:underline">{filterGame.name}</Link>
+            <Link href={route('games.show', activeGame.slug)} class="font-medium hover:underline">{activeGame.name}</Link>
             {#snippet actions()}
                 <Button type="button" variant="ghost" tone="info" size="icon-sm" onclick={clearGameFilter} title="Clear filter">
                     <XMarkIcon class="h-4 w-4" />
@@ -238,40 +187,27 @@
         </Alert>
     {/if}
 
-    <Card variant="glass" padding="lg">
-        <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
-            {#each tabs as tab (tab.key)}
-                <a
-                    href={route('lists.public', {
-                        type: tab.key,
-                        per_page: lists.per_page,
-                        page: 1,
-                        search: currentSearch || undefined,
-                        sort: currentSort !== 'default' ? currentSort : undefined,
-                        game: filterGame?.id || undefined,
-                    })}
-                    onclick={(e: MouseEvent) => {
-                        if (!shouldIntercept(e)) return;
-                        e.preventDefault();
-                        handleTabChange(tab.key);
-                    }}
-                    class="rounded-t-lg px-4 py-2 text-sm font-medium transition-colors {type === tab.key
-                        ? 'border-b-2 border-blue-600 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
-                >
-                    {tab.label} ({tab.count})
-                </a>
-            {/each}
-        </div>
+    <Card variant="flat" padding="lg">
+        <TabLinks
+            {tabs}
+            active={type}
+            onSelect={(tab) => {
+                type = tab;
+                page = 1;
+            }}
+        />
     </Card>
 
     <PublicListResults
         lists={{ ...lists, data: localLists }}
         showUser
         emptyMessage="There are no public lists available for this category."
-        {isLoading}
-        onPageChange={handlePageChange}
-        onPerPageChange={handlePerPageChange}
-        {buildPageUrl}
+        isLoading={filterSync.isLoading}
+        onPageChange={(nextPage) => (page = nextPage)}
+        onPerPageChange={(nextPerPage) => {
+            perPage = nextPerPage;
+            page = 1;
+        }}
+        buildPageUrl={filterSync.buildPageUrl}
     />
 </div>

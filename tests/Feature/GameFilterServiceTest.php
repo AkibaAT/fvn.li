@@ -36,7 +36,7 @@ test('filter options exclude tags used by fewer than the minimum game count', fu
 });
 
 test('game jam changes clear cached filter options', function () {
-    $cacheKey = 'react-game-filter-options:min-' . Tag::minPublicGameCount();
+    $cacheKey = 'react-game-filter-options:' . Tag::publicCacheVariant();
     Cache::put($cacheKey, ['gameJams' => []], 3600);
 
     GameJam::create([
@@ -56,7 +56,7 @@ test('game jam associations clear cached filter options', function () {
         'url' => 'https://itch.io/jam/linked-production-jam',
     ]);
 
-    $cacheKey = 'react-game-filter-options:min-' . Tag::minPublicGameCount();
+    $cacheKey = 'react-game-filter-options:' . Tag::publicCacheVariant();
     Cache::put($cacheKey, ['gameJams' => []], 3600);
 
     $game->pendingGameJamId = [$jam->id];

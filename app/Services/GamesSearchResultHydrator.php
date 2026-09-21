@@ -11,25 +11,134 @@ use Illuminate\Support\Facades\DB;
 
 class GamesSearchResultHydrator
 {
+    private const LIST_HIDDEN = [
+        'description',
+        'full_description',
+        'custom_description',
+        'custom_css',
+        'custom_assets',
+        'screenshots',
+        'uploads',
+        'additional_links',
+        'steam_genres',
+        'steam_user_tags',
+        'discord_tags',
+        'discord_channel_id',
+        'discord_message_id',
+        'discord_likes',
+        'discord_dislikes',
+        'discord_updated_at',
+        'abbreviations',
+        'content_type',
+        'is_stats_extraction_disabled',
+        'trending_score_calculated_at',
+        'custom_page_updated_at',
+        'custom_page_updated_by',
+        'custom_name',
+        'url',
+        'min_price',
+        'currency',
+        'sale_discount_percent',
+    ];
+
+    public static function stripForList(mixed $game): void
+    {
+        if (! method_exists($game, 'makeHidden')) {
+            return;
+        }
+
+        $game->makeHidden(self::LIST_HIDDEN);
+
+        if (method_exists($game, 'relationLoaded')) {
+            foreach (['latestVersion', 'sourceLanguage'] as $relation) {
+                if ($game->relationLoaded($relation)) {
+                    $game->unsetRelation($relation);
+                }
+            }
+        }
+    }
+
+    public static function hydrateWordCounts(mixed $game): void
+    {
+        if (! $game->latestVersion) {
+            $game->english_word_count = null;
+            $game->primary_word_count = null;
+            $game->primary_language_name = 'English';
+
+            return;
+        }
+
+        $englishStats = $game->latestVersion->languageStats
+            ->where('iso_code', 'eng')
+            ->first();
+        $game->english_word_count = $englishStats?->words;
+
+        $sourceLanguageId = $game->source_language_id ?? 'eng';
+        if ($sourceLanguageId !== 'eng') {
+            $primaryStats = $game->latestVersion->languageStats
+                ->where('iso_code', $sourceLanguageId)
+                ->first();
+            $game->primary_word_count = $primaryStats?->words;
+        } else {
+            $game->primary_word_count = $game->english_word_count;
+        }
+
+        $game->primary_language_name = $sourceLanguageId === 'eng'
+            ? 'English'
+            : ($game->sourceLanguage?->ref_name ?? strtoupper($sourceLanguageId));
+    }
+
+    private static function orderTagsByPopularity(mixed $game): void
+    {
+        if (! method_exists($game, 'relationLoaded') || ! $game->relationLoaded('tags')) {
+            return;
+        }
+
+        $counts = Tag::popularGameCounts();
+
+        $game->setRelation('tags', $game->tags
+            ->sortBy([
+                fn (Tag $a, Tag $b) => ($counts[$b->id] ?? 0) <=> ($counts[$a->id] ?? 0),
+                fn (Tag $a, Tag $b) => strcasecmp($a->name, $b->name),
+            ])
+            ->values());
+    }
+
     public function hydrate(mixed $games): void
     {
         if ($games->count() <= 0) {
             return;
         }
 
-        // Meilisearch fallbacks can paginate a base Collection, which cannot eager-load.
         $collection = $games->getCollection();
         if ($collection instanceof EloquentCollection) {
-            $collection->load([
-                'tags' => Tag::constrainToPopular(),
-                'sourceLanguage',
-                'latestVersion.supportedLanguages.language',
-                'latestVersion.languageStats',
-            ]);
+            $this->hydrateModels($collection);
+
+            return;
         }
+
+        foreach ($collection as $game) {
+            $this->hydrateGame($game);
+            self::stripForList($game);
+        }
+    }
+
+    public function hydrateModels(EloquentCollection $games): void
+    {
+        if ($games->isEmpty()) {
+            return;
+        }
+
+        $games->load([
+            'tags' => Tag::constrainToPopular(),
+            'sourceLanguage',
+            'latestVersion.supportedLanguages.language',
+            'latestVersion.languageStats',
+        ]);
 
         foreach ($games as $game) {
             $this->hydrateGame($game);
+            self::stripForList($game);
         }
     }
 
@@ -78,6 +187,7 @@ class GamesSearchResultHydrator
             $game->is_web = $game->latestVersion->is_web ?? false;
             $game->latest_version_id = $game->latestVersion->id;
             $game->latest_version_published_at = $game->latestVersion->published_at;
+            $game->latest_version_number = $game->latestVersion->version;
         } else {
             $game->is_windows = false;
             $game->is_linux = false;
@@ -86,6 +196,7 @@ class GamesSearchResultHydrator
             $game->is_web = false;
             $game->latest_version_id = null;
             $game->latest_version_published_at = null;
+            $game->latest_version_number = null;
         }
 
         $game->supported_languages = $game->latestVersion && $game->latestVersion->supportedLanguages
@@ -100,29 +211,7 @@ class GamesSearchResultHydrator
                 ->values()
             : collect();
 
-        if (! $game->latestVersion) {
-            $game->english_word_count = null;
-            $game->primary_word_count = null;
-            $game->primary_language_label = 'EN';
-
-            return;
-        }
-
-        $englishStats = $game->latestVersion->languageStats
-            ->where('iso_code', 'eng')
-            ->first();
-        $game->english_word_count = $englishStats?->words;
-
-        $sourceLanguageId = $game->source_language_id ?? 'eng';
-        if ($sourceLanguageId !== 'eng') {
-            $primaryStats = $game->latestVersion->languageStats
-                ->where('iso_code', $sourceLanguageId)
-                ->first();
-            $game->primary_word_count = $primaryStats?->words;
-        } else {
-            $game->primary_word_count = $game->english_word_count;
-        }
-
-        $game->primary_language_label = $game->getPrimaryLanguageLabel();
+        self::hydrateWordCounts($game);
+        self::orderTagsByPopularity($game);
     }
 }

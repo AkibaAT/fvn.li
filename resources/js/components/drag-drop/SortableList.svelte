@@ -59,7 +59,7 @@
             {#if activeItem && overlay}
                 {@render overlay(activeItem)}
             {:else if activeItem}
-                <div class="rounded-lg bg-white text-gray-700 shadow-xl ring-1 ring-black/5 dark:bg-gray-800 dark:text-gray-300">
+                <div class="rounded-lg border border-border-strong bg-surface text-fg">
                     {@render renderChild(activeItem, -1, false, () => {})}
                 </div>
             {/if}

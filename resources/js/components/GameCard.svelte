@@ -1,32 +1,29 @@
 <script lang="ts">
-    import { refreshPage } from '@/utils/refreshPage';
-    import NoSymbolIcon from '@/components/icons/NoSymbol.svelte';
-    import NoSymbolSolidIcon from '@/components/icons/NoSymbolSolid.svelte';
     import { untrack } from 'svelte';
     import GameCardUserSection from './GameCardUserSection.svelte';
     import GameImage from './game-card/GameImage.svelte';
-    import GameTitle from './game-card/GameTitle.svelte';
-    import GameMetadata from './game-card/GameMetadata.svelte';
-    import GamePlatformPill from './game-card/GamePlatformPill.svelte';
-    import { toggleIgnoredGame } from '@/api';
-    import GameLanguageSection from './game-card/GameLanguageSection.svelte';
-    import GameTagSection from './game-card/GameTagSection.svelte';
-    import GameStatusBadge from './game-card/GameStatusBadge.svelte';
-    import GameContentBadge from './game-card/GameContentBadge.svelte';
-    import StorePlatformBadge from './game-card/StorePlatformBadge.svelte';
-    import { Button, Card } from '@/components/ui';
+    import GameFlags from './games/GameFlags.svelte';
+    import GameIgnoreButton from './games/GameIgnoreButton.svelte';
+    import GameTagList from './games/GameTagList.svelte';
+    import LanguageGlyphs from './games/glyphs/LanguageGlyphs.svelte';
+    import PlatformGlyphs from './games/glyphs/PlatformGlyphs.svelte';
+    import StoreGlyph from './games/glyphs/StoreGlyph.svelte';
+    import { Card, Rating } from '@/components/ui';
     import { useGameCard, type GameCardProps } from '@/hooks/useGameCard.svelte';
-    import { usePlatformIcons } from '@/hooks/usePlatformIcons';
-    import { useStorePlatformIcons } from '@/hooks/useStorePlatformIcons';
-    import type { Game } from '@/types';
-    import { page } from '@inertiajs/svelte';
-    import { toast } from '@/utils/toast';
+    import { formatLatestDate, formatReleaseDates, formatWordCount, formatWordCountBreakdown } from '@/utils/game-card-display';
 
-    let props: GameCardProps = $props();
+    interface Props extends GameCardProps {
+        compact?: boolean;
+    }
 
+    let props: Props = $props();
+
+    const card = untrack(() => useGameCard(props));
     const {
         thumbnailUrl,
         authorsInlineHtml,
+        supportedPlatforms,
+        storePlatform,
         handleTag,
         handlePlatform,
         handleLanguage,
@@ -37,146 +34,103 @@
         handleDemoToggle,
         handleSaleToggle,
         orderedTags,
-    } = untrack(() => useGameCard(props));
+    } = card;
 
-    const {
-        game,
-        selectedTags,
-        selectedPlatforms,
-        selectedLanguages,
-        selectedStatuses,
-        nsfw,
-        showPaid,
-        showDemo,
-        showSale,
-        ignoredGameIds,
-        fixedHeight = false,
-    } = $derived(props);
-    const { getSupportedPlatforms, getPlatformIcon } = usePlatformIcons();
-    const { getStorePlatformIcon, getStorePlatformFromString } = useStorePlatformIcons();
-    const auth = $derived((page as any).props?.auth);
+    const auth = $derived(card.auth);
+    const isIgnored = $derived(card.isIgnored);
 
-    const isIgnored = $derived(ignoredGameIds?.includes(game.id) || false);
-    let tagsExpanded = $state(false);
-    let languagesExpanded = $state(false);
-    let isTogglingIgnore = $state(false);
+    const { game, compact, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, nsfw, showPaid, showDemo, showSale } =
+        $derived(props);
 
-    const supportedPlatforms = $derived(getSupportedPlatforms(game));
-    const storePlatform = $derived(game.platform ? getStorePlatformFromString(game.platform) : 'itch_io');
-
-    const handleIgnoreToggle = async (e: MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        if (!auth?.user || isTogglingIgnore) return;
-
-        isTogglingIgnore = true;
-        try {
-            await toggleIgnoredGame(game.id);
-            if (!(await refreshPage())) return;
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Failed to update ignore list');
-        } finally {
-            isTogglingIgnore = false;
-        }
-    };
-
-    const showFooterBadges = $derived(
-        game.is_nsfw || Boolean((game as Game).is_on_sale) || game.is_paid || game.has_demo || Boolean(game.status),
-    );
+    const wordCountLabel = $derived(formatWordCount(game, { compact: true, withLanguage: false }));
+    const wordCountTitle = $derived(formatWordCountBreakdown(game) ?? formatWordCount(game) ?? undefined);
+    const dateLabel = $derived(formatLatestDate(game));
+    const datesTitle = $derived(formatReleaseDates(game) ?? undefined);
+    const rowSpanClass = $derived(compact ? 'row-span-4' : auth?.user ? 'row-span-9 max-sm:row-span-7' : 'row-span-8 max-sm:row-span-6');
 </script>
 
 <Card
-    variant="glass"
+    variant="flat"
     padding="none"
     hover
-    class="group relative flex {fixedHeight && !tagsExpanded && !languagesExpanded
-        ? 'h-[43rem]'
-        : 'h-full'} flex-col overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
+    class="group relative grid grid-rows-subgrid content-start gap-x-0 gap-y-1.5 px-3 pt-3 pb-3.5 {rowSpanClass}"
+    data-game-card
 >
-    {#if auth?.user}
-        <Button
-            onclick={handleIgnoreToggle}
-            disabled={isTogglingIgnore}
-            variant="ghost"
-            tone={isIgnored ? 'danger' : 'neutral'}
-            size="icon-md"
-            class="absolute top-2 right-2 z-10 rounded-full bg-white/90 p-2 shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800"
-            title={isIgnored ? 'Remove from ignore list' : 'Add to ignore list'}
-            aria-label={isIgnored ? 'Remove from ignore list' : 'Add to ignore list'}
-        >
-            {#if isIgnored}
-                <NoSymbolSolidIcon class="h-5 w-5 text-red-600 dark:text-red-400" />
-            {:else}
-                <NoSymbolIcon class="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            {/if}
-        </Button>
+    {#if auth?.user && !compact}
+        <GameIgnoreButton gameId={game.id} {isIgnored} class="absolute top-4 right-4 z-10" />
     {/if}
 
-    <GameImage {game} {thumbnailUrl} aspectClass="aspect-[315/250]" />
+    <div class="relative mb-2">
+        <GameImage {game} {thumbnailUrl} />
 
-    <div class="flex flex-1 flex-col p-4">
-        <div class="grid flex-1 auto-rows-min gap-y-3">
-            <GameTitle {game} {authorsInlineHtml} />
-
-            <GameMetadata {game} />
-
-            {#if storePlatform}
-                <div class="flex items-center gap-2">
-                    <StorePlatformBadge
-                        platform={storePlatform}
-                        iconMeta={getStorePlatformIcon(storePlatform)}
-                        isActive={props.selectedStorePlatforms?.includes(storePlatform)}
-                        onclick={handleStorePlatform}
-                    />
-                </div>
-            {/if}
-
-            <div class="h-8 border-t border-gray-100 pt-2 dark:border-gray-700/50">
-                <div class="flex h-6 flex-nowrap items-center gap-1 overflow-hidden">
-                    {#each supportedPlatforms as platform (platform)}
-                        {@const isActive = selectedPlatforms?.includes(platform)}
-                        <GamePlatformPill {platform} {isActive} iconMeta={getPlatformIcon(platform)} onclick={handlePlatform} />
-                    {/each}
-                </div>
-            </div>
-
-            <GameLanguageSection
-                languages={game.supported_languages}
-                {selectedLanguages}
-                {languagesExpanded}
-                setLanguagesExpanded={(value) => (languagesExpanded = value)}
-                {handleLanguage}
+        <div class="absolute bottom-2 left-2 flex flex-wrap gap-1">
+            <GameFlags
+                {game}
+                {selectedStatuses}
+                {nsfw}
+                {showPaid}
+                {showDemo}
+                {showSale}
+                onStatusClick={handleStatus}
+                onNsfwToggle={handleNsfwToggle}
+                onPaidToggle={handlePaidToggle}
+                onDemoToggle={handleDemoToggle}
+                onSaleToggle={handleSaleToggle}
+                class="bg-surface shadow-sm"
             />
-
-            <GameTagSection {orderedTags} {selectedTags} {tagsExpanded} setTagsExpanded={(value) => (tagsExpanded = value)} {handleTag} />
-
-            {#if showFooterBadges}
-                <div class="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-700/50">
-                    <GameStatusBadge {game} isActive={selectedStatuses?.includes(String(game.status))} onclick={handleStatus} />
-                    <GameContentBadge
-                        {game}
-                        {nsfw}
-                        {showPaid}
-                        {showDemo}
-                        {showSale}
-                        onNsfwToggle={handleNsfwToggle}
-                        onPaidToggle={handlePaidToggle}
-                        onDemoToggle={handleDemoToggle}
-                        onSaleToggle={handleSaleToggle}
-                    />
-                </div>
-            {/if}
-
-            {#if !fixedHeight}
-                <GameCardUserSection
-                    gameId={game.id}
-                    gameName={game.name}
-                    isPaid={game.is_paid}
-                    userProgress={game.user_progress?.[0] ?? null}
-                    listMemberships={game.user_list_memberships ?? []}
-                />
-            {/if}
         </div>
+
+        {#if storePlatform && !compact}
+            <StoreGlyph
+                {storePlatform}
+                overlay
+                active={props.selectedStorePlatforms?.includes(storePlatform)}
+                onclick={handleStorePlatform}
+                class="absolute right-2 bottom-2"
+            />
+        {/if}
     </div>
+
+    <h2 class="line-clamp-2 text-md leading-snug font-semibold break-words text-fg">
+        <a href={route('games.show', game.slug)} class="hover:underline" aria-label="View details for {game.effective_name}">
+            {game.effective_name}
+        </a>
+    </h2>
+
+    <div class="truncate text-ui leading-snug text-fg-muted [&_a:hover]:underline">
+        {#if game.authors}
+            <span class="sr-only">Authors: </span>
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+            {@html authorsInlineHtml}
+        {/if}
+    </div>
+
+    {#if compact}
+        <Rating score={game.rating_score} count={game.rating_count} class="pt-1" />
+    {:else}
+        <div class="flex items-center justify-between gap-2 pt-1.5 max-sm:flex-col max-sm:items-start max-sm:gap-0.5">
+            <span class="min-w-0 truncate text-ui leading-snug {wordCountLabel ? 'text-fg-muted' : 'text-fg-faint'}" title={wordCountTitle}>
+                {wordCountLabel ?? '—'}
+            </span>
+            <Rating score={game.rating_score} count={game.rating_count} class="shrink-0" />
+        </div>
+
+        <div class="truncate text-xs leading-snug text-fg-faint max-sm:hidden" title={datesTitle}>{dateLabel ?? ''}</div>
+
+        <PlatformGlyphs platforms={supportedPlatforms} {selectedPlatforms} onPlatformClick={handlePlatform} class="pt-1.5" />
+
+        <LanguageGlyphs languages={game.supported_languages ?? []} {selectedLanguages} onLanguageClick={handleLanguage} />
+
+        <GameTagList tags={orderedTags} {selectedTags} onTagClick={handleTag} limit={5} class="content-start max-sm:hidden" />
+
+        {#if auth?.user}
+            <GameCardUserSection
+                gameId={game.id}
+                gameName={game.name}
+                isPaid={game.is_paid}
+                userProgress={game.user_progress?.[0] ?? null}
+                listMemberships={game.user_list_memberships ?? []}
+            />
+        {/if}
+    {/if}
 </Card>

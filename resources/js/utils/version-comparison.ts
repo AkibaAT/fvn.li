@@ -6,15 +6,14 @@ export function formatBytes(bytes: number): string {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
 
-// Zero renders as a dash so unchanged cells stay visually quiet in the comparison tables.
 export function formatCount(num: number): string {
     return num === 0 ? '-' : num.toLocaleString();
 }
 
 export function getDiffColor(diff: number): string {
-    if (diff > 0) return 'text-green-400';
-    if (diff < 0) return 'text-red-400';
-    return 'text-gray-400';
+    if (diff > 0) return 'text-green-700 dark:text-green-400';
+    if (diff < 0) return 'text-red-700 dark:text-red-400';
+    return 'text-fg-faint';
 }
 
 export function formatDiff(diff: number): string {
@@ -24,5 +23,5 @@ export function formatDiff(diff: number): string {
 
 export function formatBytesDiff(diff: number): string {
     if (diff === 0) return '-';
-    return (diff > 0 ? '+' : '') + formatBytes(Math.abs(diff));
+    return (diff > 0 ? '+' : '-') + formatBytes(Math.abs(diff));
 }

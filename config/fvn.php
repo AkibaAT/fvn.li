@@ -16,4 +16,15 @@ return [
 
     'min_tag_game_count' => (int) env('MIN_TAG_GAME_COUNT', 5),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Hidden Tags
+    |--------------------------------------------------------------------------
+    |
+    | Tag slugs that apply to the whole catalogue and are never shown publicly.
+    |
+    */
+
+    'hidden_tag_slugs' => ['furry', 'fvn', 'furry-visual-novel'],
+
 ];

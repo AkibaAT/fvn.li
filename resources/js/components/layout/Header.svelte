@@ -6,33 +6,14 @@
     import Navigation from '@/components/layout/Navigation.svelte';
     import UserMenu from '@/components/layout/UserMenu.svelte';
     import AppearanceDropdown from '@/components/AppearanceDropdown.svelte';
-    import { onMount } from 'svelte';
+    import SearchBar from '@/components/layout/SearchBar.svelte';
 
     let showMobileSearch = $state(false);
-    let SearchBarComponent = $state<any>(null);
     let MobileSearchComponent = $state<any>(null);
-
-    async function loadSearchBar() {
-        SearchBarComponent ??= (await import('@/components/layout/SearchBar.svelte')).default;
-    }
 
     async function loadMobileSearch() {
         MobileSearchComponent ??= (await import('@/components/layout/MobileSearch.svelte')).default;
     }
-
-    onMount(() => {
-        const mediaQuery = window.matchMedia('(min-width: 1024px)');
-        const updateSearchBar = () => {
-            if (mediaQuery.matches) void loadSearchBar();
-        };
-
-        updateSearchBar();
-        mediaQuery.addEventListener('change', updateSearchBar);
-
-        return () => {
-            mediaQuery.removeEventListener('change', updateSearchBar);
-        };
-    });
 
     function toggleMobileSearch() {
         if (!showMobileSearch) void loadMobileSearch();
@@ -44,39 +25,32 @@
     }
 </script>
 
-<header
-    class="sticky top-0 z-50 border-b border-gray-200/50 bg-white/80 shadow-sm backdrop-blur-xl dark:border-zinc-800 dark:bg-[#0a0f1e]/80"
-    aria-label="Main navigation"
->
-    <Container>
-        <div class="flex items-center justify-between py-4">
+<header class="sticky top-0 z-50 h-14 border-b border-border bg-surface" aria-label="Main navigation">
+    <Container class="h-full">
+        <div class="flex h-full items-center gap-3">
             <Logo />
 
             <Navigation />
 
-            <div class="mx-8 hidden max-w-lg flex-1 lg:flex" role="search">
-                {#if SearchBarComponent}
-                    <SearchBarComponent />
-                {/if}
+            <div class="ml-2 hidden w-full max-w-100 flex-1 lg:flex" role="search">
+                <SearchBar />
             </div>
 
-            <div class="flex items-center space-x-2 lg:hidden">
+            <div class="ml-auto flex items-center gap-2">
                 <button
                     onclick={toggleMobileSearch}
                     aria-expanded={showMobileSearch}
                     aria-controls="mobile-search-bar"
                     aria-label={showMobileSearch ? 'Hide search' : 'Show search'}
-                    class="cursor-pointer rounded-lg bg-gray-100 p-2 text-gray-700 transition-colors duration-200 hover:bg-gray-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-border bg-surface text-fg-muted transition-colors hover:text-fg lg:hidden"
                 >
                     {#if showMobileSearch}
-                        <XMarkIcon class="h-5 w-5" />
+                        <XMarkIcon class="h-4 w-4" />
                     {:else}
                         <MagnifyingGlassIcon class="h-4 w-4" />
                     {/if}
                 </button>
-            </div>
 
-            <div class="flex items-center space-x-3">
                 <UserMenu />
                 <AppearanceDropdown />
             </div>

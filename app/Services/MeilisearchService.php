@@ -190,6 +190,8 @@ class MeilisearchService
             $search->where('game_count', '>=', $filters['min_game_count']);
         }
 
+        $search->query(fn ($query) => $query->whereNotIn('slug', Tag::hiddenSlugs()));
+
         return $search->paginate($perPage, 'page', $page);
     }
 

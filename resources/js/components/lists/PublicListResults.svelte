@@ -1,7 +1,9 @@
 <script lang="ts">
     import Pagination from '@/components/Pagination.svelte';
     import VnListCard from '@/components/VnListCard.svelte';
-    import type { VnList } from '@/components/VnListCard.svelte';
+    import { EmptyState } from '@/components/ui';
+    import { buildPageMeta } from '@/utils/pagination';
+    import type { VnList } from '@/types/lists';
 
     let {
         lists,
@@ -29,22 +31,12 @@
         {/each}
     </div>
 {:else}
-    <div class="py-12 text-center">
-        <h2 class="mb-2 text-lg font-medium text-gray-900 dark:text-white">No public lists found</h2>
-        <p class="text-gray-600 dark:text-gray-400">{emptyMessage}</p>
-    </div>
+    <EmptyState title="No public lists found" description={emptyMessage} />
 {/if}
 
 <Pagination
     layout="full"
-    meta={{
-        current_page: lists.current_page,
-        last_page: lists.last_page,
-        total: lists.total,
-        from: lists.data.length ? (lists.current_page - 1) * lists.per_page + 1 : 0,
-        to: lists.data.length ? (lists.current_page - 1) * lists.per_page + lists.data.length : 0,
-        per_page: lists.per_page,
-    }}
+    meta={buildPageMeta(lists, lists.data)}
     onChange={onPageChange}
     {onPerPageChange}
     loading={isLoading}

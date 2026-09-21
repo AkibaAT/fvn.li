@@ -26,8 +26,8 @@
 </script>
 
 {#if disabled}
-    <div {@attach attachment} class="rounded-lg bg-gray-100 {containerSizeClasses[size]} dark:bg-gray-700 {className}">
-        <BarsIcon class="{sizeClasses[size]} text-gray-300 dark:text-gray-600" />
+    <div {@attach attachment} class="rounded-md bg-surface-alt {containerSizeClasses[size]} {className}">
+        <BarsIcon class="{sizeClasses[size]} text-fg-faint" />
     </div>
 {:else}
     <Button
@@ -36,7 +36,7 @@
         variant="soft"
         tone="neutral"
         size="icon-sm"
-        class="cursor-move rounded-lg {containerSizeClasses[size]} {className}"
+        class="cursor-move rounded-md {containerSizeClasses[size]} {className}"
         aria-label="Drag to reorder"
         title="Drag to reorder"
         {disabled}

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import type { Snippet } from 'svelte';
     import { Card, Checkbox, Select } from '@/components/ui';
 
     type Props = {
@@ -12,6 +13,7 @@
         showStars?: boolean;
         onFilterChange: () => void;
         embedded?: boolean;
+        actions?: Snippet;
     };
 
     let {
@@ -25,6 +27,7 @@
         showStars = false,
         onFilterChange,
         embedded = false,
+        actions,
     }: Props = $props();
 
     function updateSort(event: Event) {
@@ -46,7 +49,7 @@
         <Checkbox label="Reviews only" bind:checked={showOnlyReviews} onchange={onFilterChange} />
         <Checkbox label="Listed games only" bind:checked={showOnlyVisibleGames} onchange={onFilterChange} />
         {#if showPlatform}
-            <div class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <div class="inline-flex items-center gap-2 text-sm text-fg-muted">
                 <span>Platform:</span>
                 <Select bind:value={platform} onchange={onFilterChange} class="py-1">
                     <option value="">Any</option>
@@ -57,17 +60,17 @@
             </div>
         {/if}
         {#if showStars}
-            <div class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <div class="inline-flex items-center gap-2 text-sm text-fg-muted">
                 <span>Stars:</span>
                 <Select value={stars} onchange={updateStars} class="py-1">
                     <option value="">Any</option>
                     {#each [5, 4, 3, 2, 1] as rating (rating)}
-                        <option value={rating}>{rating} Stars</option>
+                        <option value={rating}>{rating} {rating === 1 ? 'star' : 'stars'}</option>
                     {/each}
                 </Select>
             </div>
         {/if}
-        <div class="ml-auto inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <div class="ml-auto inline-flex items-center gap-2 text-sm text-fg-muted">
             <span>Sort by:</span>
             <Select value={`${sortField}:${sortDirection}`} onchange={updateSort} class="py-1">
                 <option value="published_at:desc">Newest</option>
@@ -75,6 +78,7 @@
                 <option value="rating:desc">Rating: High to Low</option>
                 <option value="rating:asc">Rating: Low to High</option>
             </Select>
+            {@render actions?.()}
         </div>
     </div>
 {/snippet}
@@ -82,5 +86,5 @@
 {#if embedded}
     {@render controls()}
 {:else}
-    <Card padding="sm" class="shadow">{@render controls()}</Card>
+    <Card variant="flat" padding="sm">{@render controls()}</Card>
 {/if}

@@ -1,6 +1,7 @@
 <script lang="ts">
-    import { Button, Dialog, Textarea } from '@/components/ui';
+    import { Alert, Button, Dialog, Radio, Textarea } from '@/components/ui';
     import { submitReviewReport, type ReviewReportReason } from '@/api';
+    import { getErrorMessage } from '@/utils/async-action.svelte';
 
     interface Props {
         ratingId: number;
@@ -40,7 +41,7 @@
                 details = '';
             }, 2000);
         } catch (error) {
-            message = { type: 'error', text: error instanceof Error ? error.message : 'Failed to submit report' };
+            message = { type: 'error', text: getErrorMessage(error, 'Failed to submit report') };
         } finally {
             isSubmitting = false;
         }
@@ -52,26 +53,24 @@
 </script>
 
 <Dialog open={isOpen} onClose={closeDialog} title="Report Review" size="sm">
-    <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+    <p class="mb-4 text-sm text-fg-muted">
         Report the review by <strong>{reviewerName}</strong> for violating community guidelines.
     </p>
 
     <form onsubmit={handleSubmit}>
         <fieldset class="mb-4">
-            <legend class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Reason *</legend>
+            <legend class="mb-2 block text-ui font-medium text-fg-muted">Reason *</legend>
             <div class="space-y-2">
                 {#each REPORT_REASONS as r (r.value)}
-                    <label class="flex cursor-pointer items-center gap-2">
-                        <input
-                            type="radio"
+                    <div>
+                        <Radio
                             name="reason"
                             value={r.value}
+                            label={r.label}
                             checked={reason === r.value}
-                            onchange={(e) => (reason = (e.target as HTMLInputElement).value)}
-                            class="text-blue-600 focus:ring-blue-500 dark:border-gray-600"
+                            onchange={(e) => (reason = (e.currentTarget as HTMLInputElement).value)}
                         />
-                        <span class="text-sm text-gray-700 dark:text-gray-300">{r.label}</span>
-                    </label>
+                    </div>
                 {/each}
             </div>
         </fieldset>
@@ -87,9 +86,14 @@
         />
 
         {#if message}
-            <div class="mb-3 text-sm {message.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">
+            <Alert
+                tone={message.type === 'success' ? 'success' : 'danger'}
+                layout="inline"
+                role={message.type === 'success' ? 'status' : 'alert'}
+                class="mb-3"
+            >
                 {message.text}
-            </div>
+            </Alert>
         {/if}
 
         <div class="flex items-center gap-2">

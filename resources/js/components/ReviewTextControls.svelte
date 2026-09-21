@@ -1,8 +1,4 @@
 <script lang="ts" module>
-    /**
-     * Hook to get the review styles for use in other components.
-     * Call this from Svelte components using $effect to stay reactive.
-     */
     export function getReviewTextStyles(): {
         maxWidth: string;
         fontSize: string;
@@ -29,10 +25,6 @@
         };
     }
 
-    /**
-     * Svelte 5 reactive hook for review text styles.
-     * Returns a reactive object that updates when localStorage changes.
-     */
     export function useReviewTextStyles() {
         let styles = $state(getReviewTextStyles());
 
@@ -69,14 +61,26 @@
             },
         };
     }
+
+    export function useReviewStyleString() {
+        const styles = useReviewTextStyles();
+
+        return {
+            get css() {
+                return `max-width: ${styles.maxWidth}; font-size: ${styles.fontSize}; line-height: ${styles.lineHeight}; margin: ${styles.margin};`;
+            },
+        };
+    }
 </script>
 
 <script lang="ts">
-    import { Button, Card } from '@/components/ui';
+    import CogIcon from '@/components/icons/Cog.svelte';
+    import { Button, Popover } from '@/components/ui';
 
     let { class: className = '' }: { class?: string } = $props();
 
-    // Flag to prevent localStorage writes when responding to storage events
+    let popoverOpen = $state(false);
+
     let isUpdatingFromStorage = false;
 
     let reviewWidth = $state<number | null>(
@@ -106,7 +110,6 @@
             : null,
     );
 
-    // Listen for storage changes from other tabs
     $effect(() => {
         let storageTimeoutId: number | null = null;
 
@@ -185,84 +188,66 @@
         }
     }
 
-    const widthGradient = $derived(
-        `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(((reviewWidth || 100) - 50) / 50) * 100}%, #e5e7eb ${(((reviewWidth || 100) - 50) / 50) * 100}%, #e5e7eb 100%)`,
-    );
-    const fontSizeGradient = $derived(
-        `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(((reviewFontSize || 100) - 75) / 75) * 100}%, #e5e7eb ${(((reviewFontSize || 100) - 75) / 75) * 100}%, #e5e7eb 100%)`,
-    );
-    const lineHeightGradient = $derived(
-        `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(((reviewLineHeight || 150) - 100) / 200) * 100}%, #e5e7eb ${(((reviewLineHeight || 150) - 100) / 200) * 100}%, #e5e7eb 100%)`,
-    );
+    const sliders = $derived([
+        {
+            label: 'Width',
+            ariaLabel: 'Review text width',
+            min: 50,
+            max: 100,
+            value: reviewWidth || 100,
+            set: (value: number) => (reviewWidth = value),
+        },
+        {
+            label: 'Font size',
+            ariaLabel: 'Review font size',
+            min: 75,
+            max: 150,
+            value: reviewFontSize || 100,
+            set: (value: number) => (reviewFontSize = value),
+        },
+        {
+            label: 'Line height',
+            ariaLabel: 'Review line height',
+            min: 100,
+            max: 300,
+            value: reviewLineHeight || 150,
+            set: (value: number) => (reviewLineHeight = value),
+        },
+    ]);
 </script>
 
-<Card padding="lg" class={className}>
-    <div class="mb-6 flex items-center justify-between">
-        <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Review Text Controls</h3>
-        <Button type="button" variant="ghost" tone="neutral" size="sm" onclick={resetToDefault}>Reset to Default</Button>
+{#snippet controls()}
+    <div class="grid gap-4">
+        {#each sliders as slider (slider.label)}
+            <div class="flex items-center gap-3">
+                <span class="w-24 shrink-0 text-ui font-medium text-fg">{slider.label}</span>
+                <input
+                    type="range"
+                    aria-label={slider.ariaLabel}
+                    min={slider.min}
+                    max={slider.max}
+                    value={slider.value}
+                    oninput={(e) => slider.set(parseInt((e.target as HTMLInputElement).value))}
+                    class="h-4 min-w-0 flex-1 cursor-pointer accent-accent"
+                />
+                <span class="w-12 shrink-0 text-right text-ui text-fg-muted tabular-nums">{slider.value}%</span>
+            </div>
+        {/each}
     </div>
-    <div class="grid grid-cols-1 gap-6">
-        <div class="flex items-center justify-between">
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Width</span>
-            <div class="flex items-center gap-3">
-                <span class="text-sm text-gray-500 dark:text-gray-400">50%</span>
-                <input
-                    type="range"
-                    aria-label="Review text width"
-                    min="50"
-                    max="100"
-                    value={reviewWidth || 100}
-                    oninput={(e) => (reviewWidth = parseInt((e.target as HTMLInputElement).value))}
-                    class="h-2 w-24 cursor-pointer appearance-none rounded-lg bg-gray-200 dark:bg-gray-700"
-                    style:background={widthGradient}
-                />
-                <span class="text-sm text-gray-500 dark:text-gray-400">100%</span>
-                <span class="ml-3 min-w-[3.5rem] text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    {reviewWidth || 100}%
-                </span>
-            </div>
-        </div>
+{/snippet}
 
-        <div class="flex items-center justify-between">
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Font Size</span>
-            <div class="flex items-center gap-3">
-                <span class="text-sm text-gray-500 dark:text-gray-400">75%</span>
-                <input
-                    type="range"
-                    aria-label="Review font size"
-                    min="75"
-                    max="150"
-                    value={reviewFontSize || 100}
-                    oninput={(e) => (reviewFontSize = parseInt((e.target as HTMLInputElement).value))}
-                    class="h-2 w-24 cursor-pointer appearance-none rounded-lg bg-gray-200 dark:bg-gray-700"
-                    style:background={fontSizeGradient}
-                />
-                <span class="text-sm text-gray-500 dark:text-gray-400">150%</span>
-                <span class="ml-3 min-w-[3.5rem] text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    {reviewFontSize || 100}%
-                </span>
+<Popover bind:open={popoverOpen} class={className}>
+    <Button type="button" variant="ghost" tone="neutral" size="sm" aria-expanded={popoverOpen} onclick={() => (popoverOpen = !popoverOpen)}>
+        {#snippet icon()}<CogIcon class="h-4 w-4" />{/snippet}
+        Text settings
+    </Button>
+    {#if popoverOpen}
+        <div class="popover-elevated absolute top-full right-0 z-30 mt-1 w-72 rounded-lg border border-border p-4">
+            <div class="mb-3 flex items-center justify-between">
+                <h3 class="text-ui font-semibold text-fg">Review text</h3>
+                <Button type="button" variant="link" tone="neutral" size="sm" onclick={resetToDefault}>Reset</Button>
             </div>
+            {@render controls()}
         </div>
-
-        <div class="flex items-center justify-between">
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Line Height</span>
-            <div class="flex items-center gap-3">
-                <span class="text-sm text-gray-500 dark:text-gray-400">100%</span>
-                <input
-                    type="range"
-                    aria-label="Review line height"
-                    min="100"
-                    max="300"
-                    value={reviewLineHeight || 150}
-                    oninput={(e) => (reviewLineHeight = parseInt((e.target as HTMLInputElement).value))}
-                    class="h-2 w-24 cursor-pointer appearance-none rounded-lg bg-gray-200 dark:bg-gray-700"
-                    style:background={lineHeightGradient}
-                />
-                <span class="text-sm text-gray-500 dark:text-gray-400">300%</span>
-                <span class="ml-3 min-w-[3.5rem] text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    {reviewLineHeight || 150}%
-                </span>
-            </div>
-        </div>
-    </div>
-</Card>
+    {/if}
+</Popover>

@@ -1,7 +1,7 @@
 <script lang="ts">
     import ArrowUpTrayIcon from '@/components/icons/ArrowUpTray.svelte';
     import PanelLeftIcon from '@/components/icons/PanelLeft.svelte';
-    import { Button } from '@/components/ui';
+    import { Button, Checkbox, Select, TextInput } from '@/components/ui';
 
     type GameVersionOption = {
         id: number;
@@ -60,7 +60,8 @@
 <div class="mb-4 flex flex-wrap items-center gap-3">
     {#if gameVersions && gameVersions.length > 1}
         <select
-            class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+            aria-label="Game version"
+            class="cursor-pointer rounded-md border border-border-input bg-surface-alt px-3 py-1.5 text-sm text-fg transition-colors focus:border-fg-muted focus:outline-none"
             value={selectedVersionId}
             onchange={(e) => {
                 const target = e.target as HTMLSelectElement;
@@ -79,13 +80,11 @@
     {/if}
 
     {#if visibleLanguages.length > 1}
-        <select
-            class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+        <Select
+            aria-label="Language"
+            class="w-auto py-1.5"
             value={selectedLanguage ?? ''}
-            onchange={(e) => {
-                const target = e.target as HTMLSelectElement;
-                onChangeLanguage(target.value || null);
-            }}
+            onchange={(e) => onChangeLanguage(e.currentTarget.value || null)}
             disabled={isLoading}
         >
             <option value="">Original</option>
@@ -94,33 +93,31 @@
                     {lang.toUpperCase()}
                 </option>
             {/each}
-        </select>
+        </Select>
     {/if}
 
-    <div class="relative">
-        <input
-            type="text"
-            placeholder="Search nodes..."
-            value={searchQuery}
-            oninput={(e) => onSearch(e.currentTarget.value)}
-            class="w-48 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-        />
-    </div>
+    <TextInput
+        type="text"
+        placeholder="Search nodes..."
+        aria-label="Search nodes"
+        value={searchQuery}
+        oninput={(e) => onSearch(e.currentTarget.value)}
+        class="py-1.5"
+        fieldClass="w-48"
+    />
 
     {#if canInspectFullRouteMap}
-        <label
-            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+        <div
+            class="rounded-md border border-border-input bg-surface-alt px-3 py-1.5 transition-colors hover:border-fg-muted"
             title="Show labels that are present in the script but unreachable from start"
         >
-            <input
-                type="checkbox"
-                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900"
+            <Checkbox
+                label="Show unreachable"
                 checked={includeUnreachable}
                 disabled={isLoading}
-                onchange={(e) => onToggleUnreachable((e.currentTarget as HTMLInputElement).checked)}
+                onchange={(e) => onToggleUnreachable(e.currentTarget.checked)}
             />
-            <span>Show unreachable</span>
-        </label>
+        </div>
     {/if}
 
     <Button
@@ -138,11 +135,9 @@
         <Button
             type="button"
             variant="outline"
-            tone={seenCount > 0 ? 'success' : 'neutral'}
+            tone="neutral"
             size="icon-sm"
-            class="rounded-lg border px-2 py-1.5 transition-colors {seenCount > 0
-                ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
-                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'}"
+            class={seenCount > 0 ? 'border-green-600 text-green-700 dark:border-green-500 dark:text-green-400' : ''}
             onclick={() => document.getElementById('save-upload')?.click()}
             disabled={isUploadingSave}
             loading={isUploadingSave}
@@ -165,29 +160,29 @@
         />
 
         {#if seenCount > 0}
-            <span class="text-xs text-emerald-600 dark:text-emerald-400">
+            <span class="text-xs text-green-700 dark:text-green-400">
                 {seenCount}/{totalNodes} seen
             </span>
             <Button type="button" variant="link" tone="neutral" size="xs" onclick={onClearSeenData} title="Clear seen data">clear</Button>
         {/if}
 
         {#if saveUploadError}
-            <span class="text-xs text-red-500 dark:text-red-400">{saveUploadError}</span>
+            <span class="text-xs text-red-600 dark:text-red-400">{saveUploadError}</span>
         {/if}
     </div>
 
     <div class="flex gap-3 text-xs">
-        <span class="text-gray-500 dark:text-gray-400">
+        <span class="text-fg-faint">
             {totalNodes} nodes, {totalEdges} edges
         </span>
 
         {#if endingsCount > 0}
-            <span class="text-gray-500 dark:text-gray-400">&middot;</span>
-            <span class="text-red-500 dark:text-red-400">{endingsCount} endings</span>
+            <span class="text-fg-faint">&middot;</span>
+            <span class="text-red-600 dark:text-red-400">{endingsCount} endings</span>
         {/if}
 
         {#if isLoading}
-            <span class="text-xs text-gray-400">Loading...</span>
+            <span class="text-xs text-fg-faint">Loading...</span>
         {/if}
     </div>
 </div>

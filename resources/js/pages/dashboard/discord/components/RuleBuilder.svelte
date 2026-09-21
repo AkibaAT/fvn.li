@@ -4,6 +4,7 @@
     import PlusIcon from '@/components/icons/Plus.svelte';
     import TrashIcon from '@/components/icons/Trash.svelte';
     import XMarkIcon from '@/components/icons/XMark.svelte';
+    import { Badge, Button, Popover, Radio, Select, Switch, TextInput } from '@/components/ui';
     import ChannelPicker from './ChannelPicker.svelte';
     interface RuleCondition {
         field: string;
@@ -209,30 +210,14 @@
             })
             .join(' AND ');
     }
-
-    $effect(() => {
-        if (valuePickerKey === null) return;
-
-        const handleClickOutside = (event: MouseEvent) => {
-            const picker = document.getElementById(`${uid}-picker-${valuePickerKey}`);
-            if (!picker?.contains(event.target as Node)) {
-                valuePickerKey = null;
-                valueSearch = '';
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    });
 </script>
 
 <div class="space-y-4">
     <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Routing Rules</h3>
+        <h3 class="text-title font-semibold text-fg">Routing Rules</h3>
         <button
             onclick={addRule}
-            class="inline-flex items-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
+            class="inline-flex items-center gap-2 rounded-md border border-dashed border-border-strong px-4 py-2 text-sm font-medium text-fg-muted transition-colors hover:border-fg hover:text-fg"
         >
             <PlusIcon class="h-4 w-4" />
             Add Rule
@@ -240,29 +225,15 @@
     </div>
 
     {#if !rules || rules.length === 0}
-        <div class="rounded-lg border border-dashed border-gray-300 py-8 text-center dark:border-gray-600">
-            <p class="text-sm text-gray-500 dark:text-gray-400">No routing rules configured. All notifications will go to the default channel.</p>
+        <div class="rounded-lg border border-dashed border-border-strong py-8 text-center">
+            <p class="text-sm text-fg-muted">No routing rules configured. All notifications will go to the default channel.</p>
         </div>
     {:else}
         <div class="space-y-3">
             {#each rules as rule (rule.id)}
-                <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                <div class="rounded-lg border border-border bg-surface">
                     <div class="flex items-center gap-3 p-4">
-                        <button
-                            onclick={() => toggleRule(rule.id)}
-                            class="relative h-6 w-11 shrink-0 rounded-full transition-colors {rule.enabled
-                                ? 'bg-blue-600'
-                                : 'bg-gray-300 dark:bg-gray-600'}"
-                            role="switch"
-                            aria-checked={rule.enabled}
-                            aria-label="Enable rule {rule.name}"
-                        >
-                            <span
-                                class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform {rule.enabled
-                                    ? 'left-[22px]'
-                                    : 'left-0.5'}"
-                            ></span>
-                        </button>
+                        <Switch checked={rule.enabled} onchange={() => toggleRule(rule.id)} ariaLabel={`Enable rule ${rule.name}`} class="shrink-0" />
 
                         <button
                             type="button"
@@ -272,130 +243,116 @@
                             aria-controls="{uid}-rule-{rule.id}"
                         >
                             <span class="min-w-0 flex-1">
-                                <span class="font-medium text-gray-900 dark:text-white">{rule.name}</span>
-                                <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">Priority: {rule.priority}</span>
+                                <span class="font-medium text-fg">{rule.name}</span>
+                                <span class="ml-2 text-xs text-fg-faint">Priority: {rule.priority}</span>
                             </span>
 
-                            <span class="hidden text-xs text-gray-500 sm:block dark:text-gray-400">
+                            <span class="hidden text-xs text-fg-faint sm:block">
                                 {summarizeConditions(rule.conditions)}
                             </span>
 
-                            <span
-                                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium
-                                {rule.action.type === 'ignore'
-                                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}"
-                            >
+                            <Badge tone={rule.action.type === 'ignore' ? 'danger' : 'neutral'}>
                                 {rule.action.type === 'ignore'
                                     ? 'Ignore'
                                     : '#' + (channels.find((c) => c.id === rule.action.channel_id)?.name || 'default')}
-                            </span>
+                            </Badge>
                         </button>
 
-                        <button
+                        <Button
                             onclick={() => {
                                 if (confirm('Delete this rule?')) removeRule(rule.id);
                             }}
-                            aria-label="Delete rule {rule.name}"
-                            class="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                            variant="ghost"
+                            tone="danger"
+                            size="icon-sm"
+                            ariaLabel="Delete rule {rule.name}"
                         >
                             <TrashIcon class="h-4 w-4" />
-                        </button>
+                        </Button>
 
-                        <ChevronDownIcon class="h-5 w-5 shrink-0 text-gray-400 transition-transform {expandedRule === rule.id ? 'rotate-180' : ''}" />
+                        <ChevronDownIcon class="h-5 w-5 shrink-0 text-fg-faint transition-transform {expandedRule === rule.id ? 'rotate-180' : ''}" />
                     </div>
 
                     {#if expandedRule === rule.id}
-                        <div id="{uid}-rule-{rule.id}" class="space-y-4 border-t border-gray-100 p-4 dark:border-gray-700">
-                            <div>
-                                <label for="{uid}-name-{rule.id}" class="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400"
-                                    >Rule Name</label
-                                >
-                                <input
-                                    id="{uid}-name-{rule.id}"
-                                    type="text"
-                                    value={rule.name}
-                                    oninput={(e) => updateRule(rule.id, { name: (e.target as HTMLInputElement).value })}
-                                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                />
-                            </div>
+                        <div id="{uid}-rule-{rule.id}" class="space-y-4 border-t border-border p-4">
+                            <TextInput
+                                id="{uid}-name-{rule.id}"
+                                label="Rule Name"
+                                value={rule.name}
+                                oninput={(e) => updateRule(rule.id, { name: (e.target as HTMLInputElement).value })}
+                            />
 
                             <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label for="{uid}-priority-{rule.id}" class="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400"
-                                        >Priority (lower = first)</label
-                                    >
-                                    <input
-                                        id="{uid}-priority-{rule.id}"
-                                        type="number"
-                                        value={rule.priority}
-                                        oninput={(e) => updateRule(rule.id, { priority: parseInt((e.target as HTMLInputElement).value) || 0 })}
-                                        class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                    />
-                                </div>
+                                <TextInput
+                                    id="{uid}-priority-{rule.id}"
+                                    label="Priority (lower = first)"
+                                    type="number"
+                                    value={rule.priority}
+                                    oninput={(e) => updateRule(rule.id, { priority: parseInt((e.target as HTMLInputElement).value) || 0 })}
+                                />
                             </div>
 
                             <div>
                                 <div class="mb-2 flex items-center justify-between">
-                                    <span id="{uid}-conditions-{rule.id}" class="text-xs font-medium text-gray-500 dark:text-gray-400"
-                                        >Conditions (all must match)</span
-                                    >
-                                    <button
-                                        onclick={() => addCondition(rule.id)}
-                                        class="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">+ Add Condition</button
-                                    >
+                                    <span id="{uid}-conditions-{rule.id}" class="text-xs font-medium text-fg-muted">Conditions (all must match)</span>
+                                    <Button onclick={() => addCondition(rule.id)} variant="link" size="xs">+ Add Condition</Button>
                                 </div>
                                 <div class="space-y-2" role="group" aria-labelledby="{uid}-conditions-{rule.id}">
                                     {#each rule.conditions as condition, cIndex (rule.id + '-' + cIndex)}
                                         <div class="flex items-center gap-2">
-                                            <select
+                                            <Select
                                                 aria-label="Condition {cIndex + 1} field"
                                                 value={condition.field}
                                                 onchange={(e) => handleFieldChange(rule.id, cIndex, (e.target as HTMLSelectElement).value)}
-                                                class="rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                class="w-auto"
                                             >
                                                 {#each fieldOptions as opt (opt.value)}
                                                     <option value={opt.value}>{opt.label}</option>
                                                 {/each}
-                                            </select>
-                                            <select
+                                            </Select>
+                                            <Select
                                                 aria-label="Condition {cIndex + 1} operator"
                                                 value={condition.operator}
                                                 onchange={(e) =>
                                                     handleOperatorChange(rule.id, cIndex, condition, (e.target as HTMLSelectElement).value)}
-                                                class="rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                class="w-auto"
                                             >
                                                 {#each getOperatorOptions(condition.field) as opt (opt.value)}
                                                     <option value={opt.value}>{opt.label}</option>
                                                 {/each}
-                                            </select>
+                                            </Select>
                                             {#if getFieldType(condition.field) === 'multi_enum' || ['in', 'not_in'].includes(condition.operator)}
-                                                <div class="relative min-w-0 flex-1" id={`${uid}-picker-${rule.id}:${cIndex}`}>
+                                                {@const pickerKey = `${rule.id}:${cIndex}`}
+                                                <Popover
+                                                    class="min-w-0 flex-1"
+                                                    open={valuePickerKey === pickerKey}
+                                                    onClose={() => {
+                                                        valuePickerKey = null;
+                                                        valueSearch = '';
+                                                    }}
+                                                >
                                                     <button
                                                         type="button"
                                                         onclick={() => {
-                                                            valuePickerKey =
-                                                                valuePickerKey === `${rule.id}:${cIndex}` ? null : `${rule.id}:${cIndex}`;
+                                                            valuePickerKey = valuePickerKey === pickerKey ? null : pickerKey;
                                                             if (valuePickerKey === null) valueSearch = '';
                                                         }}
-                                                        class="flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-2 py-1.5 text-left text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                        class="flex w-full items-center justify-between rounded-md border border-border-input bg-surface-alt px-2 py-1.5 text-left text-sm text-fg focus:border-fg-muted focus:outline-none"
                                                     >
                                                         <span class="truncate">
                                                             {conditionValues(condition.value).join(', ') || 'Select values'}
                                                         </span>
                                                         <ChevronDownIcon class="h-4 w-4 shrink-0" />
                                                     </button>
-                                                    {#if valuePickerKey === `${rule.id}:${cIndex}`}
+                                                    {#if valuePickerKey === pickerKey}
                                                         <div
-                                                            class="absolute z-20 mt-1 w-full rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
+                                                            class="popover-elevated absolute z-20 mt-1 w-full rounded-lg border border-border-strong"
                                                         >
                                                             <div class="p-2">
-                                                                <input
-                                                                    type="text"
+                                                                <TextInput
                                                                     bind:value={valueSearch}
                                                                     aria-label="Filter values"
                                                                     placeholder="Type to filter values..."
-                                                                    class="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                                                 />
                                                             </div>
                                                             <div class="max-h-56 overflow-y-auto py-1">
@@ -405,20 +362,20 @@
                                                                     <button
                                                                         type="button"
                                                                         onclick={() => toggleMultiValue(rule.id, cIndex, String(option.value))}
-                                                                        class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                                                                        class="popover-row-hover flex w-full items-center justify-between px-3 py-2 text-left text-sm text-fg"
                                                                     >
                                                                         <span class="truncate">{option.label}</span>
                                                                         {#if conditionValues(condition.value).includes(String(option.value))}
-                                                                            <CheckIcon class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                                                            <CheckIcon class="h-4 w-4 text-fg" />
                                                                         {/if}
                                                                     </button>
                                                                 {/each}
                                                             </div>
                                                         </div>
                                                     {/if}
-                                                </div>
+                                                </Popover>
                                             {:else if getFieldType(condition.field) === 'enum' || getFieldType(condition.field) === 'boolean'}
-                                                <select
+                                                <Select
                                                     aria-label="Condition {cIndex + 1} value"
                                                     value={String(condition.value)}
                                                     onchange={(e) =>
@@ -428,32 +385,34 @@
                                                                     ? (e.target as HTMLSelectElement).value === 'true'
                                                                     : (e.target as HTMLSelectElement).value,
                                                         })}
-                                                    class="min-w-0 flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                    fieldClass="min-w-0 flex-1"
                                                 >
                                                     {#each getValueOptions(condition.field) as option (String(option.value))}
                                                         <option value={String(option.value)}>{option.label}</option>
                                                     {/each}
-                                                </select>
+                                                </Select>
                                             {:else}
-                                                <input
-                                                    type="text"
+                                                <TextInput
                                                     value={Array.isArray(condition.value)
                                                         ? condition.value.join(', ')
                                                         : String(condition.value ?? '')}
                                                     aria-label="Condition {cIndex + 1} value"
                                                     placeholder="Value"
                                                     oninput={(e) => updateCondition(rule.id, cIndex, { value: (e.target as HTMLInputElement).value })}
-                                                    class="min-w-0 flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                    fieldClass="min-w-0 flex-1"
                                                 />
                                             {/if}
                                             {#if rule.conditions.length > 1}
-                                                <button
+                                                <Button
                                                     onclick={() => removeCondition(rule.id, cIndex)}
-                                                    aria-label="Remove condition {cIndex + 1}"
-                                                    class="shrink-0 rounded p-1 text-gray-400 hover:text-red-600"
+                                                    variant="ghost"
+                                                    tone="danger"
+                                                    size="icon-sm"
+                                                    class="shrink-0"
+                                                    ariaLabel="Remove condition {cIndex + 1}"
                                                 >
                                                     <XMarkIcon class="h-4 w-4" />
-                                                </button>
+                                                </Button>
                                             {/if}
                                         </div>
                                     {/each}
@@ -461,29 +420,20 @@
                             </div>
 
                             <div>
-                                <span id="{uid}-action-{rule.id}" class="mb-2 block text-xs font-medium text-gray-500 dark:text-gray-400">Action</span
-                                >
+                                <span id="{uid}-action-{rule.id}" class="mb-2 block text-xs font-medium text-fg-muted">Action</span>
                                 <div class="flex flex-wrap items-center gap-4" role="group" aria-labelledby="{uid}-action-{rule.id}">
-                                    <label class="flex items-center gap-2 text-sm">
-                                        <input
-                                            type="radio"
-                                            name="action-{rule.id}"
-                                            checked={rule.action.type === 'ignore'}
-                                            onchange={() => updateRule(rule.id, { action: { type: 'ignore' } })}
-                                            class="text-blue-600"
-                                        />
-                                        <span class="text-gray-700 dark:text-gray-300">Ignore</span>
-                                    </label>
-                                    <label class="flex items-center gap-2 text-sm">
-                                        <input
-                                            type="radio"
-                                            name="action-{rule.id}"
-                                            checked={rule.action.type === 'route'}
-                                            onchange={() => updateRule(rule.id, { action: { type: 'route', channel_id: '' } })}
-                                            class="text-blue-600"
-                                        />
-                                        <span class="text-gray-700 dark:text-gray-300">Route to channel</span>
-                                    </label>
+                                    <Radio
+                                        name="action-{rule.id}"
+                                        checked={rule.action.type === 'ignore'}
+                                        onchange={() => updateRule(rule.id, { action: { type: 'ignore' } })}
+                                        label="Ignore"
+                                    />
+                                    <Radio
+                                        name="action-{rule.id}"
+                                        checked={rule.action.type === 'route'}
+                                        onchange={() => updateRule(rule.id, { action: { type: 'route', channel_id: '' } })}
+                                        label="Route to channel"
+                                    />
                                     {#if rule.action.type === 'route'}
                                         <ChannelPicker
                                             items={channels}

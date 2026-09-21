@@ -28,7 +28,7 @@
     }
     .hub {
         background: var(--xy-node-hub-bg, #e0e7ff);
-        border: 2px solid var(--xy-node-hub-border, #6366f1);
+        border: 1px solid var(--xy-node-hub-border, #6366f1);
         border-radius: 8px;
         line-height: 1.4;
         padding: 8px 14px;
@@ -46,8 +46,7 @@
     .condition {
         background: var(--rm-edge-label-bg);
         border: 1px solid var(--rm-edge-label-border);
-        border-radius: 4px;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
+        border-radius: 8px;
         color: var(--rm-edge-label-text);
         font-size: 11px;
         line-height: 1.25;
@@ -63,30 +62,30 @@
         width: 1px;
     }
     .label {
-        background: var(--xy-node-background-color, var(--xy-node-background-color-default));
-        border: var(--xy-node-border, var(--xy-node-border-default));
-        border-radius: var(--xy-node-border-radius, var(--xy-node-border-radius-default));
-        color: var(--xy-node-color, var(--xy-node-color-default));
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
         line-height: 1.4;
         padding: 10px;
         text-align: center;
         width: 220px;
     }
     .unresolved {
-        background: #fef2f2;
-        border-color: #ef4444;
+        background: var(--surface);
+        border-color: #dc2626;
         color: #b91c1c;
         font-weight: 600;
     }
     .returns-to-caller {
-        background: #f0f9ff;
-        border-color: #0ea5e9;
+        background: var(--surface);
+        border-color: #0284c7;
     }
     :global(.dark) .unresolved {
-        background: rgba(127, 29, 29, 0.5);
+        border-color: #f87171;
         color: #fca5a5;
     }
     :global(.dark) .returns-to-caller {
-        background: rgba(12, 74, 110, 0.45);
+        border-color: #38bdf8;
     }
 </style>

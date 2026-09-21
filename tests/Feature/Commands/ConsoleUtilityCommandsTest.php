@@ -8,6 +8,7 @@ use App\Models\DialogueLine;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\Rater;
+use App\Models\Tag;
 use App\Models\UniqueDialogueText;
 use App\Models\User;
 use App\Services\ImageDownloadUrlValidator;
@@ -102,14 +103,29 @@ it('delegates full rating recalculation to the rating service', function () {
         ->assertExitCode(0);
 });
 
-it('generates a sitemap from visible slugged games and the canonical listing page', function () {
+it('generates a sitemap from visible slugged games, tag pages and the canonical listing pages', function () {
     $sitemapPath = public_path('sitemap.xml');
     @unlink($sitemapPath);
+    config()->set('fvn.min_tag_game_count', 3);
+    Tag::clearPopularCache();
 
-    Game::factory()->count(10)->create([
+    $tag = Tag::create(['name' => 'Sitemap Tag']);
+    $games = Game::factory()->count(10)->create([
         'is_visible' => true,
         'slug' => fn (array $attributes) => str($attributes['name'])->slug()->append('-visible')->toString(),
     ]);
+    $games->take(3)->each(fn (Game $game) => $game->tags()->attach($tag->id));
+
+    $versioned = $games->first();
+    $versioned->forceFill([
+        'optimized_thumbnails' => ['default' => ['path' => 'thumbnails/sitemap-cover.webp']],
+        'first_visible_at' => '2026-01-01 00:00:00',
+        'initially_published_at' => '2026-01-01 00:00:00',
+        'custom_page_updated_at' => null,
+    ])->save();
+    GameVersion::factory()->for($versioned)->create(['is_latest' => true, 'published_at' => '2026-03-04 05:06:07']);
+    $versioned->touch();
+
     Game::factory()->create([
         'is_visible' => false,
         'slug' => 'hidden-game',
@@ -121,10 +137,17 @@ it('generates a sitemap from visible slugged games and the canonical listing pag
             ->assertExitCode(0);
 
         $sitemap = file_get_contents($sitemapPath);
+        $versionedEntry = str($sitemap)->after('<loc>' . route('games.show', $versioned) . '</loc>')->before('</url>')->toString();
 
         expect($sitemap)->toContain(route('games.index'))
+            ->and($sitemap)->toContain('<loc>' . route('tags.index') . '</loc>')
+            ->and($sitemap)->toContain('<loc>' . route('tags.show', $tag) . '</loc>')
+            ->and($sitemap)->toContain('<loc>' . route('lists.public') . '</loc>')
+            ->and($sitemap)->toContain('<loc>' . route('ratings.index') . '</loc>')
             ->and($sitemap)->not->toContain('page=')
-            ->and($sitemap)->not->toContain('hidden-game');
+            ->and($sitemap)->not->toContain('hidden-game')
+            ->and($versionedEntry)->toContain('<lastmod>2026-03-04T05:06:07+00:00</lastmod>')
+            ->and($versionedEntry)->toContain('<image:loc>' . asset('storage/thumbnails/sitemap-cover.webp') . '</image:loc>');
     } finally {
         @unlink($sitemapPath);
     }

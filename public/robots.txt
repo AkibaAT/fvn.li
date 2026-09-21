@@ -9,3 +9,5 @@ Disallow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://fvn.li/sitemap.xml

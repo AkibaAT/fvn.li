@@ -1,6 +1,5 @@
 <script lang="ts">
-    import clsx from 'clsx';
-    import { twMerge } from 'tailwind-merge';
+    import { cn } from '@/utils/cn';
     import type { HTMLSelectAttributes } from 'svelte/elements';
     import type { Snippet } from 'svelte';
     import Field from './Field.svelte';
@@ -19,13 +18,9 @@
     const isRequired = $derived(required ?? undefined);
 
     const selectClass = $derived(
-        twMerge(
-            clsx(
-                'block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-700 dark:text-white',
-                error && 'border-red-300 focus:border-red-500 focus:ring-red-500 dark:border-red-700',
-                className,
-            ),
-        ),
+        cn('block w-full cursor-pointer rounded-md border border-border-input bg-surface-alt px-3 py-2 text-sm text-fg transition-colors focus:border-fg-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-60',
+                error && 'border-red-500 focus:border-red-500',
+                className),
     );
 </script>
 

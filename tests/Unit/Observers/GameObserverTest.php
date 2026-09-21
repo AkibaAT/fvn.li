@@ -156,7 +156,7 @@ describe('GameObserver visibility tracking', function () {
 
 describe('GameObserver cache management', function () {
     test('clears cache when game is created', function () {
-        $cacheKey = 'react-game-filter-options:min-' . Tag::minPublicGameCount();
+        $cacheKey = 'react-game-filter-options:' . Tag::publicCacheVariant();
         Cache::put($cacheKey, 'test_data', 60);
 
         Game::factory()->create();
@@ -167,7 +167,7 @@ describe('GameObserver cache management', function () {
     test('clears cache when game is deleted', function () {
         $game = Game::factory()->create();
 
-        $cacheKey = 'react-game-filter-options:min-' . Tag::minPublicGameCount();
+        $cacheKey = 'react-game-filter-options:' . Tag::publicCacheVariant();
         Cache::put($cacheKey, 'test_data', 60);
 
         $game->delete();

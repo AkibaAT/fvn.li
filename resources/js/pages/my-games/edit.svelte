@@ -7,7 +7,7 @@
     import GameStats from '@/components/GameStats.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import { notify } from '@/components/Toast.svelte';
-    import { Button, Card } from '@/components/ui';
+    import { Alert, Button, Card, Select, TextInput } from '@/components/ui';
     import { updateMyGameLinks } from '@/api/my-games';
     import { httpValidationErrors } from '@/utils/http';
     import { formatLocalDateTime, toLocalDateTimeInput } from '@/utils/date-formatting';
@@ -141,13 +141,13 @@
         {/snippet}
     </PageHeader>
 
-    <Card variant="glass">
+    <Card variant="flat">
         <div class="mb-6 flex items-start justify-between">
             <div>
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Download Links</h2>
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Add download links for your game. {sortedLinks.length} of 15 links used.</p>
+                <h2 class="text-title font-semibold text-fg">Download Links</h2>
+                <p class="mt-1 text-sm text-fg-muted">Add download links for your game. {sortedLinks.length} of 15 links used.</p>
             </div>
-            <Button onclick={addLink} disabled={saving || sortedLinks.length >= 15} tone="success">
+            <Button onclick={addLink} disabled={saving || sortedLinks.length >= 15} variant="outline" tone="neutral">
                 <PlusIcon class="h-4 w-4" />
                 <span>{sortedLinks.length >= 15 ? 'Limit Reached' : 'Add Link'}</span>
             </Button>
@@ -155,42 +155,45 @@
 
         <div class="space-y-3">
             {#if sortedLinks.length === 0}
-                <div class="text-sm text-gray-600 dark:text-gray-400">No links added yet.</div>
+                <div class="text-sm text-fg-muted">No links added yet.</div>
             {/if}
             {#each sortedLinks as link, index (link.id ?? `new-${index}`)}
                 <div
-                    class="grid grid-cols-12 items-start gap-3 rounded-lg border border-gray-200 bg-white p-4 transition-all hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700"
+                    class="grid grid-cols-12 items-start gap-3 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
                 >
                     <div class="col-span-3">
-                        <input
+                        <TextInput
                             value={link.name}
                             oninput={(e) => updateLink(index, { ...link, name: e.currentTarget.value })}
                             placeholder="Link name"
-                            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-500 dark:bg-gray-700 dark:text-white"
+                            aria-label="Link name"
+                            error={formErrors[`links.${index}.name`]}
                             disabled={saving}
                         />
                     </div>
                     <div class="col-span-6">
-                        <input
+                        <TextInput
                             value={link.url}
                             oninput={(e) => updateLink(index, { ...link, url: e.currentTarget.value })}
                             placeholder="https://..."
-                            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-500 dark:bg-gray-700 dark:text-white"
+                            aria-label="Link URL"
+                            error={formErrors[`links.${index}.url`]}
                             disabled={saving}
                         />
                     </div>
                     <div class="col-span-2">
-                        <select
+                        <Select
+                            aria-label="Platform"
+                            error={formErrors[`links.${index}.platform`]}
                             value={link.platform ?? ''}
                             onchange={(e) => updateLink(index, { ...link, platform: e.currentTarget.value || null })}
-                            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-500 dark:bg-gray-700 dark:text-white"
                             disabled={saving}
                         >
                             <option value="">Platform</option>
                             {#each platforms as p (p)}
                                 <option value={p}>{p}</option>
                             {/each}
-                        </select>
+                        </Select>
                     </div>
                     <div class="col-span-1 flex items-center justify-end gap-1">
                         <Button onclick={() => removeLink(index)} tone="danger" size="icon-sm" aria-label="Remove link" disabled={saving}>
@@ -198,21 +201,20 @@
                         </Button>
                     </div>
                     <div class="col-span-12 mt-2">
-                        <label for="release-date-{index}" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Release Date & Time <span class="text-gray-500">(Optional)</span>
-                        </label>
-                        <input
+                        <TextInput
                             id="release-date-{index}"
                             type="datetime-local"
+                            label="Release Date & Time (Optional)"
+                            help="Leave empty to make the download available immediately."
+                            error={formErrors[`links.${index}.release_at`]}
                             value={link.release_at || ''}
                             onchange={(e) => updateLink(index, { ...link, release_at: e.currentTarget.value || null })}
-                            class="w-auto rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-500 dark:bg-gray-700 dark:text-white"
+                            class="w-auto"
                             disabled={saving}
                         />
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty to make the download available immediately.</p>
                     </div>
                     {#if link.last_edited_at}
-                        <div class="col-span-12 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        <div class="col-span-12 mt-1 text-xs text-fg-faint">
                             Last edited: {formatLocalDateTime(link.last_edited_at)}
                         </div>
                     {/if}
@@ -221,12 +223,10 @@
         </div>
 
         {#if formErrors['links']}
-            <div class="mt-3 text-sm text-red-600 dark:text-red-400">{formErrors['links']}</div>
+            <Alert tone="danger" layout="inline" class="mt-3">{formErrors['links']}</Alert>
         {/if}
 
-        <div class="mt-4 text-xs text-gray-500 dark:text-gray-400">
-            Security: localhost and private IP addresses are blocked. Up to 15 links allowed.
-        </div>
+        <div class="mt-4 text-xs text-fg-faint">Security: localhost and private IP addresses are blocked. Up to 15 links allowed.</div>
     </Card>
 
     <GameStats {clickStats} {dailyStats} />

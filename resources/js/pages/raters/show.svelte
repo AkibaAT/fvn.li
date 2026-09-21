@@ -3,18 +3,19 @@
     import type { RatingHistoryEntry } from '@/api';
     import { untrack } from 'svelte';
     import RatingHistoryDialog from '@/components/RatingHistoryDialog.svelte';
-    import Pagination from '@/components/Pagination.svelte';
     import RatingFilterBar from '@/components/ratings/RatingFilterBar.svelte';
-    import RatingRow from '@/components/ratings/RatingRow.svelte';
+    import RatingList from '@/components/ratings/RatingList.svelte';
     import RatingStatsCard from '@/components/ratings/RatingStatsCard.svelte';
     import { emptyStats, type GlobalStats, type RatingRowData } from '@/components/ratings/types';
     import { Button, Card, Dialog } from '@/components/ui';
+    import { alertToneClasses } from '@/components/ui/Alert.svelte';
     import { Link } from '@inertiajs/svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { MetaTags } from '@/types/meta-tags';
-    import ReviewTextControls, { useReviewTextStyles } from '@/components/ReviewTextControls.svelte';
+    import ReviewTextControls, { useReviewStyleString } from '@/components/ReviewTextControls.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import { useUrlSyncedFilters } from '@/hooks/useUrlSyncedFilters.svelte';
+    import { buildPageMeta } from '@/utils/pagination';
 
     type Rater = {
         id: number;
@@ -85,10 +86,7 @@
         gameName: '',
         open: false,
     });
-    const reviewStylesObj = useReviewTextStyles();
-    const reviewStyles = $derived(
-        `max-width: ${reviewStylesObj.maxWidth}; font-size: ${reviewStylesObj.fontSize}; line-height: ${reviewStylesObj.lineHeight}; margin: ${reviewStylesObj.margin};`,
-    );
+    const reviewStyle = useReviewStyleString();
 
     const filterSync = useUrlSyncedFilters({
         route: untrack(() => route('raters.show', rater.id)),
@@ -96,11 +94,7 @@
         getParams: () => ({ page, perPage, showOnlyReviews, showOnlyVisibleGames, sortField, sortDirection }),
     });
 
-    const ratingMeta = $derived(
-        ratings
-            ? { current_page: ratings.current_page, last_page: ratings.last_page, per_page: ratings.per_page, total: ratings.total }
-            : { current_page: 1, last_page: 0, per_page: perPage, total: 0 },
-    );
+    const ratingMeta = $derived(ratings ? buildPageMeta(ratings) : { current_page: 1, last_page: 0, per_page: perPage, total: 0 });
 
     const openHistory = (gameId: number, gameName: string) => {
         historyModal = { gameId, gameName, open: true };
@@ -128,11 +122,7 @@
         })),
     );
 
-    const colorForAvg = (avg: number) => {
-        if (avg >= 4) return 'bg-green-50 dark:bg-green-900 text-green-900 dark:text-green-100';
-        if (avg >= 3) return 'bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100';
-        return 'bg-red-50 dark:bg-red-900 text-red-900 dark:text-red-100';
-    };
+    const toneForAvg = (avg: number) => alertToneClasses[avg >= 4 ? 'success' : avg >= 3 ? 'neutral' : 'danger'];
 
     function closePhrasesDialog() {
         showContext = false;
@@ -145,16 +135,16 @@
 
     <RatingStatsCard stats={safeStats} heading={`${rater.name}'s Rating Statistics`} />
 
-    <Card padding="lg" class="shadow">
-        <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Common Phrases in Reviews</h2>
+    <Card variant="flat" padding="lg">
+        <h2 class="mb-4 text-title font-semibold text-fg">Common Phrases in Reviews</h2>
         <div class="mt-4">
             {#if Object.keys(safePhrases).length === 0}
-                <div class="text-gray-500 dark:text-gray-400">No common phrases found</div>
+                <div class="text-fg-muted">No common phrases found</div>
             {:else}
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {#each Object.entries(safePhrases) as [phrase, data] (phrase)}
-                        {@const color = colorForAvg(data.avg_rating)}
-                        <div class="flex items-center justify-between rounded p-2 {color}">
+                        {@const tone = toneForAvg(data.avg_rating)}
+                        <div class="flex items-center justify-between rounded-md border p-2 {tone.box} {tone.title}">
                             <span class="flex-grow">{phrase}</span>
                             <div class="ml-2 flex items-center gap-2 text-sm opacity-75">
                                 <span>{data.count}x</span>
@@ -181,63 +171,58 @@
             {/if}
         </div>
         {#if Object.keys(safePhrases).length > 0}
-            <div class="mt-4 flex gap-4 text-sm text-gray-500 dark:text-gray-400">
-                <div><span class="mr-1 inline-block h-3 w-3 rounded bg-green-100 dark:bg-green-900"></span>Positive context (4-5★)</div>
-                <div><span class="mr-1 inline-block h-3 w-3 rounded bg-gray-100 dark:bg-gray-700"></span>Neutral context (3★)</div>
-                <div><span class="mr-1 inline-block h-3 w-3 rounded bg-red-100 dark:bg-red-900"></span>Negative context (1-2★)</div>
+            <div class="mt-4 flex gap-4 text-sm text-fg-muted">
+                <div><span class="mr-1 inline-block h-3 w-3 rounded-sm border {alertToneClasses.success.box}"></span>Positive context (4-5★)</div>
+                <div><span class="mr-1 inline-block h-3 w-3 rounded-sm border {alertToneClasses.neutral.box}"></span>Neutral context (3★)</div>
+                <div><span class="mr-1 inline-block h-3 w-3 rounded-sm border {alertToneClasses.danger.box}"></span>Negative context (1-2★)</div>
             </div>
         {/if}
     </Card>
 
-    <ReviewTextControls />
-
-    <Card padding="none" class="overflow-hidden">
-        <div class="border-b border-gray-200 p-4 dark:border-gray-700">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Rating History</h2>
-                    <div class="mt-1 flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-                        <span>{ratingMeta.total.toLocaleString()}</span>
-                        <span>{showOnlyReviews ? 'reviews' : 'ratings'}</span>
+    <RatingList
+        {rows}
+        reviewStyle={reviewStyle.css}
+        meta={ratingMeta}
+        onChange={(p) => {
+            page = p;
+        }}
+        onPerPageChange={(pp) => {
+            perPage = pp;
+            page = 1;
+        }}
+        loading={filterSync.isLoading}
+        label="ratings"
+        buildPageUrl={filterSync.buildPageUrl}
+        class="overflow-hidden"
+    >
+        {#snippet header()}
+            <div class="border-b border-border p-4">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <h2 class="text-title font-semibold text-fg">Rating History</h2>
+                        <div class="mt-1 flex items-center gap-1 text-sm text-fg-faint">
+                            <span>{ratingMeta.total.toLocaleString()}</span>
+                            <span>{showOnlyReviews ? 'reviews' : 'ratings'}</span>
+                        </div>
                     </div>
+
+                    <RatingFilterBar
+                        bind:showOnlyReviews
+                        bind:showOnlyVisibleGames
+                        bind:sortField
+                        bind:sortDirection
+                        onFilterChange={() => (page = 1)}
+                        embedded
+                    >
+                        {#snippet actions()}<ReviewTextControls />{/snippet}
+                    </RatingFilterBar>
                 </div>
-
-                <RatingFilterBar
-                    bind:showOnlyReviews
-                    bind:showOnlyVisibleGames
-                    bind:sortField
-                    bind:sortDirection
-                    onFilterChange={() => (page = 1)}
-                    embedded
-                />
             </div>
-        </div>
-
-        <div class="divide-y divide-gray-200 dark:divide-gray-700">
-            {#if rows.length === 0}
-                <div class="p-6 text-gray-500 dark:text-gray-400">No ratings</div>
-            {:else}
-                {#each rows as row (row.id)}<RatingRow {row} reviewStyle={reviewStyles} />{/each}
-            {/if}
-        </div>
-
-        <div class="p-4">
-            <Pagination
-                layout="full"
-                meta={ratingMeta}
-                onChange={(p) => {
-                    page = p;
-                }}
-                onPerPageChange={(pp) => {
-                    perPage = pp;
-                    page = 1;
-                }}
-                loading={filterSync.isLoading}
-                label="ratings"
-                buildPageUrl={filterSync.buildPageUrl}
-            />
-        </div>
-    </Card>
+        {/snippet}
+        {#snippet empty()}
+            <div class="p-6 text-fg-muted">No ratings</div>
+        {/snippet}
+    </RatingList>
 
     <Dialog
         open={showContext && !!selectedPhrase && !!safePhrases[selectedPhrase]}
@@ -246,21 +231,19 @@
         size="xl"
     >
         {#if selectedPhrase && safePhrases[selectedPhrase]}
-            <div class="mb-4 text-sm text-gray-600 dark:text-gray-300">
+            <div class="mb-4 text-sm text-fg-muted">
                 {safePhrases[selectedPhrase].count}x / {safePhrases[selectedPhrase].avg_rating.toFixed(1)}★
             </div>
             <div class="max-h-96 space-y-4 overflow-y-auto">
                 {#each Object.entries(safePhrases[selectedPhrase].contexts) as [gameName, context] (gameName)}
                     <div>
-                        <h4 class="mb-2 font-medium text-gray-900 dark:text-gray-100">
-                            <Link href={route('games.show', { game: context.slug })} class="text-blue-600 hover:underline dark:text-blue-400"
-                                >{gameName}</Link
-                            >
-                            <span class="font-normal text-gray-500 dark:text-gray-400">({context.rating}★)</span>
+                        <h4 class="mb-2 font-medium text-fg">
+                            <Link href={route('games.show', { game: context.slug })} class="text-fg hover:underline">{gameName}</Link>
+                            <span class="font-normal text-fg-faint">({context.rating}★)</span>
                         </h4>
                         <div class="space-y-2">
                             {#each context.sentences as sentence, _index (_index)}
-                                <div class="rounded bg-gray-50 p-2 text-sm dark:bg-gray-700">
+                                <div class="rounded-md bg-surface-alt p-2 text-sm">
                                     {sentence}
                                 </div>
                             {/each}
@@ -276,7 +259,7 @@
         raterId={rater.id}
         gameId={historyModal.gameId}
         title={historyModal.gameName || 'Rating History'}
-        {reviewStyles}
+        reviewStyles={reviewStyle.css}
         onClose={closeHistory}
     />
 </div>

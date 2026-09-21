@@ -4,6 +4,8 @@
     import TinyMCEEditor from '@/components/editor/TinyMCEEditor.svelte';
     import { untrack } from 'svelte';
     import { page } from '@inertiajs/svelte';
+    import { useAsyncAction } from '@/utils/async-action.svelte';
+    import { toast } from '@/utils/toast';
     import { Alert, Button, Card, Checkbox } from '@/components/ui';
     import { deleteUserReview, submitUserReview, type UserReview } from '@/api/user-reviews';
 
@@ -25,15 +27,10 @@
     let reviewText = $state(untrack(() => initialReview?.review ?? ''));
     let hasSpoilers = $state(untrack(() => initialReview?.has_spoilers ?? false));
     const userReview = $derived(initialReview);
-    let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let showDeleteConfirm = $state(false);
-    let isSubmitting = $state(false);
-    let isDeleting = $state(false);
-
-    function showMessageFn(text: string, type: 'success' | 'error') {
-        message = { text, type };
-        setTimeout(() => (message = null), 5000);
-    }
+    let errorMessage = $state<string | null>(null);
+    const submitAction = useAsyncAction();
+    const deleteAction = useAsyncAction();
 
     export function startEditing() {
         handleStartEdit();
@@ -65,76 +62,72 @@
 
     async function handleSubmit(e: Event) {
         e.preventDefault();
-        if (isSubmitting || isDeleting) return;
+        if (submitAction.isLoading || deleteAction.isLoading) return;
+        errorMessage = null;
         if (rating === 0) {
-            showMessageFn('Please select a rating', 'error');
+            toast.error('Please select a rating');
             return;
         }
 
-        isSubmitting = true;
-        try {
-            const { message: successMessage } = await submitUserReview(gameId, {
-                rating,
-                review: reviewText,
-                has_spoilers: hasSpoilers,
-            });
-            if (!(await refreshReview())) return;
-            isEditing = false;
-            onReviewChange?.();
-            onEditingChange?.(false);
-            showMessageFn(successMessage, 'success');
-        } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Failed to submit review';
-            showMessageFn(msg, 'error');
-        } finally {
-            isSubmitting = false;
-        }
+        const result = await submitAction.run(
+            async () => {
+                const { message } = await submitUserReview(gameId, {
+                    rating,
+                    review: reviewText,
+                    has_spoilers: hasSpoilers,
+                });
+                if (!(await refreshReview())) return null;
+                return { message };
+            },
+            { fallbackError: 'Failed to submit review', onError: (message) => (errorMessage = message) },
+        );
+        if (!result) return;
+        isEditing = false;
+        onReviewChange?.();
+        onEditingChange?.(false);
+        toast.success(result.message);
     }
 
     async function handleDelete() {
-        if (isSubmitting || isDeleting) return;
-        isDeleting = true;
-        try {
-            const successMessage = await deleteUserReview(gameId);
-            if (!(await refreshReview())) return;
-            rating = 0;
-            reviewText = '';
-            hasSpoilers = false;
-            isEditing = false;
-            showDeleteConfirm = false;
-            onReviewChange?.();
-            onEditingChange?.(false);
-            showMessageFn(successMessage, 'success');
-        } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Failed to delete review';
-            showMessageFn(msg, 'error');
-        } finally {
-            isDeleting = false;
-        }
+        if (submitAction.isLoading || deleteAction.isLoading) return;
+        errorMessage = null;
+        const result = await deleteAction.run(
+            async () => {
+                const message = await deleteUserReview(gameId);
+                if (!(await refreshReview())) return null;
+                return { message };
+            },
+            { fallbackError: 'Failed to delete review', onError: (message) => (errorMessage = message) },
+        );
+        if (!result) return;
+        rating = 0;
+        reviewText = '';
+        hasSpoilers = false;
+        isEditing = false;
+        showDeleteConfirm = false;
+        onReviewChange?.();
+        onEditingChange?.(false);
+        toast.success(result.message);
     }
 
     const refreshReview = () => refreshPage(['userReview', 'reviews', 'availableRatings', 'game', 'metaTags']);
 </script>
 
 {#if !isAuthenticated}
-    <Card variant="soft" padding="sm" class="text-center">
-        <p class="text-sm text-gray-600 dark:text-gray-400">
-            <a href={route('login')} class="text-blue-600 underline underline-offset-2 dark:text-blue-400">Sign in</a>
+    <Card variant="flat" padding="sm" class="text-center">
+        <p class="text-sm text-fg-muted">
+            <a href={route('login')} class="text-fg underline underline-offset-2">Sign in</a>
             to leave a review for this game.
         </p>
     </Card>
 {:else if userReview && !isEditing}
-    <Card variant="outline" padding="sm" class="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/20">
+    <Card variant="flat" padding="sm">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Your Review</span>
+                <span class="text-sm font-medium text-fg">Your Review</span>
                 <div class="flex items-center gap-0.5">
                     {#each Array(5) as _, i (i)}
-                        <StarIcon
-                            class="h-4 w-4 {i < userReview.rating
-                                ? 'fill-yellow-400 text-yellow-400'
-                                : 'fill-gray-300 text-gray-300 dark:fill-gray-600 dark:text-gray-600'}"
-                        />
+                        <StarIcon class="h-4 w-4 {i < userReview.rating ? 'fill-accent text-accent' : 'fill-border text-border'}" />
                     {/each}
                 </div>
             </div>
@@ -154,33 +147,33 @@
                             variant="solid"
                             tone="danger"
                             onclick={handleDelete}
-                            disabled={isDeleting}
-                            loading={isDeleting}
+                            disabled={deleteAction.isLoading}
+                            loading={deleteAction.isLoading}
                             size="xs"
                         >
-                            {isDeleting ? 'Deleting...' : 'Confirm'}
+                            {deleteAction.isLoading ? 'Deleting...' : 'Confirm'}
                         </Button>
                         <Button type="button" variant="soft" tone="neutral" size="xs" onclick={() => (showDeleteConfirm = false)}>Cancel</Button>
                     </div>
                 {/snippet}
             </Alert>
-        {/if}
 
-        {#if message}
-            <div class="mt-2 text-sm {message.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">
-                {message.text}
-            </div>
+            {#if errorMessage}
+                <div class="mt-2 text-sm text-red-600 dark:text-red-400">
+                    {errorMessage}
+                </div>
+            {/if}
         {/if}
     </Card>
 {:else if isEditing}
-    <Card variant="outline" padding="sm">
-        <h3 class="mb-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+    <Card variant="flat" padding="sm">
+        <h3 class="mb-3 text-sm font-medium text-fg">
             {userReview ? 'Edit Your Review' : 'Write a Review'}
         </h3>
 
         <form onsubmit={handleSubmit}>
             <fieldset class="mb-3">
-                <legend class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Rating *</legend>
+                <legend class="mb-1 block text-xs text-fg-muted">Rating *</legend>
                 <div class="flex items-center gap-1">
                     {#each Array(5) as _, i (i)}
                         {@const starValue = i + 1}
@@ -198,19 +191,19 @@
                         >
                             <StarIcon
                                 class="h-7 w-7 cursor-pointer transition-colors {isActive
-                                    ? 'fill-yellow-400 text-yellow-400'
-                                    : 'fill-gray-300 text-gray-300 hover:fill-yellow-200 hover:text-yellow-200 dark:fill-gray-600 dark:text-gray-600'}"
+                                    ? 'fill-accent text-accent'
+                                    : 'fill-border text-border hover:fill-fg-faint'}"
                             />
                         </Button>
                     {/each}
                     {#if rating > 0}
-                        <span class="ml-2 text-sm text-gray-500 dark:text-gray-400">{rating}/5</span>
+                        <span class="ml-2 text-sm text-fg-faint">{rating}/5</span>
                     {/if}
                 </div>
             </fieldset>
 
             <div class="mb-3">
-                <label for="review-text" class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Review (optional)</label>
+                <label for="review-text" class="mb-1 block text-xs text-fg-muted">Review (optional)</label>
                 <TinyMCEEditor
                     id="review-text"
                     ariaLabel="Review (optional)"
@@ -230,17 +223,23 @@
             {/if}
 
             <div class="flex items-center gap-2">
-                <Button type="submit" variant="solid" tone="primary" disabled={rating === 0 || isSubmitting} loading={isSubmitting}>
-                    {isSubmitting ? 'Submitting...' : userReview ? 'Update Review' : 'Submit Review'}
+                <Button
+                    type="submit"
+                    variant="solid"
+                    tone="primary"
+                    disabled={rating === 0 || submitAction.isLoading}
+                    loading={submitAction.isLoading}
+                >
+                    {submitAction.isLoading ? 'Submitting...' : userReview ? 'Update Review' : 'Submit Review'}
                 </Button>
                 {#if isEditing}
                     <Button type="button" variant="soft" tone="neutral" onclick={handleCancel}>Cancel</Button>
                 {/if}
             </div>
 
-            {#if message}
-                <div class="mt-2 text-sm {message.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">
-                    {message.text}
+            {#if errorMessage}
+                <div class="mt-2 text-sm text-red-600 dark:text-red-400">
+                    {errorMessage}
                 </div>
             {/if}
         </form>

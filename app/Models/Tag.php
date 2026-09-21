@@ -32,10 +32,19 @@ class Tag extends Model
     }
 
     /**
-     * Cached map of popular tag id => game count.
-     *
-     * Built with a single GROUP BY over game_tag instead of per-tag correlated counts.
-     *
+     * @return list<string>
+     */
+    public static function hiddenSlugs(): array
+    {
+        return array_values(config('fvn.hidden_tag_slugs', []));
+    }
+
+    public static function publicCacheVariant(): string
+    {
+        return 'min-' . self::minPublicGameCount() . '.hidden-' . md5(implode(',', self::hiddenSlugs()));
+    }
+
+    /**
      * @return array<int, int>
      */
     public static function popularGameCounts(): array
@@ -43,6 +52,7 @@ class Tag extends Model
         return Cache::remember(self::popularCacheKey(), 3600, function () {
             return DB::table('game_tag')
                 ->select('tag_id', DB::raw('COUNT(*) as games_count'))
+                ->whereNotIn('tag_id', DB::table('tags')->select('id')->whereIn('slug', self::hiddenSlugs()))
                 ->groupBy('tag_id')
                 ->havingRaw('COUNT(*) >= ?', [self::minPublicGameCount()])
                 ->pluck('games_count', 'tag_id')
@@ -97,7 +107,7 @@ class Tag extends Model
 
     private static function popularCacheKey(): string
     {
-        return 'popular-tag-game-counts:min-' . self::minPublicGameCount();
+        return 'popular-tag-game-counts:' . self::publicCacheVariant();
     }
 
     public function games(): BelongsToMany
@@ -113,9 +123,8 @@ class Tag extends Model
     {
         $min ??= self::minPublicGameCount();
 
-        // Custom thresholds skip the shared popularity cache.
         if ($min !== self::minPublicGameCount()) {
-            return $query->has('games', '>=', $min);
+            return $query->has('games', '>=', $min)->whereNotIn('slug', self::hiddenSlugs());
         }
 
         $ids = self::popularIds();

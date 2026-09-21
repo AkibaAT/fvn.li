@@ -22,6 +22,7 @@
         getParallelEdgeLanes,
         type VisualRouteEdge,
     } from '@/utils/route-map';
+    import { getErrorMessage } from '@/utils/async-action.svelte';
     import { SvelteMap, SvelteSet } from 'svelte/reactivity';
     import { router } from '@inertiajs/svelte';
     import { untrack } from 'svelte';
@@ -88,15 +89,13 @@
     let pathRequestSequence = 0;
     let layoutVersion = $state(0);
 
-    const seenNodeStyle =
-        'background:var(--rm-seen-bg);border:2px solid var(--rm-seen-border);border-radius:6px;box-shadow:0 0 0 1px var(--rm-seen-shadow);';
-    const partiallySeenNodeStyle =
-        'background:var(--rm-partial-bg);border:2px solid var(--rm-partial-border);border-radius:6px;box-shadow:0 0 0 1px var(--rm-partial-shadow);';
-    const pathNodeStyle = 'background:var(--rm-path-bg);border:2px solid var(--rm-path-border);border-radius:6px;';
+    const seenNodeStyle = 'background:var(--rm-seen-bg);border:1px solid var(--rm-seen-border);border-radius:8px;';
+    const partiallySeenNodeStyle = 'background:var(--rm-partial-bg);border:1px solid var(--rm-partial-border);border-radius:8px;';
+    const pathNodeStyle = 'background:var(--rm-path-bg);border:1px solid var(--rm-path-border);border-radius:8px;';
     const choiceNodeStyle =
-        'background:var(--xy-node-choice-bg, #fef3c7);border:2px solid var(--xy-node-choice-border, #f59e0b);border-radius:16px;font-size:12px;';
-    const selectedNodeStyle = 'box-shadow:0 0 0 3px rgba(14, 165, 233, 0.35);border:2px solid #0ea5e9;';
-    const connectedNodeStyle = 'box-shadow:0 0 0 2px rgba(14, 165, 233, 0.18);border:2px solid rgba(14, 165, 233, 0.75);';
+        'background:var(--xy-node-choice-bg, #fef3c7);border:1px solid var(--xy-node-choice-border, #f59e0b);border-radius:8px;font-size:12px;';
+    const selectedNodeStyle = 'border:2px solid #0ea5e9;';
+    const connectedNodeStyle = 'border:1px solid #0ea5e9;';
     const dimmedNodeStyle = 'opacity:0.15;';
     const mutedNodeStyle = 'opacity:0.2;';
     const highlightedEdgeStyle = 'stroke:var(--rm-path-border);stroke-width:3;';
@@ -506,7 +505,7 @@
             saveUploadError = null;
         } catch (error) {
             if (generation !== graphGeneration) return;
-            graphError = error instanceof Error ? error.message : 'Unable to load the route map.';
+            graphError = getErrorMessage(error, 'Unable to load the route map.');
             failedGraphRequest = { versionId: targetVersion, includeUnreachable: shouldIncludeUnreachable };
         } finally {
             if (generation === graphGeneration) isLoading = false;
@@ -570,7 +569,7 @@
                 seenNodeIds.add(label);
             }
         } catch (error) {
-            saveUploadError = error instanceof Error ? error.message : 'Failed to parse save file';
+            saveUploadError = getErrorMessage(error, 'Failed to parse save file');
         } finally {
             isUploadingSave = false;
         }
@@ -764,11 +763,14 @@
 <SeoHead {metaTags} />
 
 {#if graphError}
-    <div role="alert" class="flex items-center gap-3 bg-red-50 p-4 text-red-800 dark:bg-red-950 dark:text-red-200">
+    <div
+        role="alert"
+        class="flex items-center gap-3 rounded-lg border border-red-600/40 bg-red-50 p-4 text-red-800 dark:border-red-800/60 dark:bg-red-950/30 dark:text-red-200"
+    >
         <span>{graphError} The previous route map is still displayed.</span>
         <button
             type="button"
-            class="rounded border px-3 py-1"
+            class="rounded-md border border-border-strong px-3 py-1 text-fg transition-colors hover:border-fg"
             onclick={() => failedGraphRequest && loadGraph(failedGraphRequest.versionId, failedGraphRequest.includeUnreachable)}>Retry</button
         >
     </div>

@@ -108,7 +108,7 @@ async function expectStrongFocusIndicator(locator: ReturnType<Page['locator']>) 
         )
         .toMatchObject({
             outlineStyle: 'solid',
-            outlineWidth: '3px',
+            outlineWidth: '2px',
         });
 }
 
@@ -255,7 +255,17 @@ test.describe('Accessibility - Keyboard Navigation @accessibility', () => {
         await expect(mainContent).toBeFocused();
 
         await page.keyboard.press('Tab');
-        const recentlyAddedViewAll = page.locator('section:has(h2:has-text("Recently Added")) a:has-text("View all")');
+        const layoutToggle = page.getByRole('button', { name: 'Cards' });
+        await expect(layoutToggle).toBeFocused();
+        await expectStrongFocusIndicator(layoutToggle);
+
+        await page.keyboard.press('Tab');
+        const listToggle = page.getByRole('button', { name: 'List' });
+        await expect(listToggle).toBeFocused();
+        await expectStrongFocusIndicator(listToggle);
+
+        await page.keyboard.press('Tab');
+        const recentlyAddedViewAll = page.locator('section:has(h2:has-text("Recently added")) a:has-text("All new titles")');
         await expect(recentlyAddedViewAll).toBeFocused();
         await expectStrongFocusIndicator(recentlyAddedViewAll);
     });

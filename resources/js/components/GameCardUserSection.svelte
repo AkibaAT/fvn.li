@@ -1,8 +1,9 @@
 <script lang="ts">
     import { refreshPage } from '@/utils/refreshPage';
     import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
-    import PlusCircleIcon from '@/components/icons/PlusCircle.svelte';
     import { notify } from '@/components/Toast.svelte';
+    import { getErrorMessage, useAsyncAction } from '@/utils/async-action.svelte';
+    import { toast } from '@/utils/toast';
     import { page } from '@inertiajs/svelte';
     import { untrack } from 'svelte';
     import {
@@ -13,8 +14,8 @@
         storeVnList,
         toggleUserProgressUpdates,
     } from '@/api/lists';
-    import { Badge, Button, Dialog, TextInput, Checkbox } from '@/components/ui';
-    import { formatListType, listTypeDotClass, listTypeTone } from '@/components/ui/tones';
+    import { Button, Dialog, TextInput, Checkbox } from '@/components/ui';
+    import { formatListType, listTypeDotClass } from '@/components/ui/tones';
 
     let {
         gameId,
@@ -46,12 +47,11 @@
     let userLists = $state<VnList[]>(untrack(() => listMemberships.map((list) => ({ ...list, id: list.list_id }))));
     let showListDialog = $state(false);
     let showUserLists = $state(false);
-    let isTogglingNotifications = $state(false);
+    const toggleNotificationsAction = useAsyncAction();
     let notificationStatus = $state(untrack(() => userProgress?.receive_updates ?? false));
-    let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let newListName = $state('');
     let newListIsPublic = $state(false);
-    let isCreatingList = $state(false);
+    const createAction = useAsyncAction();
     let listStates = $state<Record<number, boolean>>(untrack(() => Object.fromEntries(listMemberships.map((list) => [list.list_id, true]))));
     let loadingStates = $state<Record<number, boolean>>({});
 
@@ -63,14 +63,6 @@
         userLists = listMemberships.map((list) => ({ ...list, id: list.list_id }));
         listStates = Object.fromEntries(listMemberships.map((list) => [list.list_id, true]));
     });
-
-    let messageTimeout: ReturnType<typeof setTimeout>;
-
-    const showMessage = (text: string, type: 'success' | 'error') => {
-        message = { text, type };
-        clearTimeout(messageTimeout);
-        messageTimeout = setTimeout(() => (message = null), 5000);
-    };
 
     $effect(() => {
         if (!isAuthenticated) return;
@@ -92,7 +84,7 @@
             listStates = initialStates;
         } catch (error) {
             console.error('Failed to load user lists:', error);
-            showMessage('Failed to load user lists', 'error');
+            toast.error('Failed to load user lists');
         }
     };
 
@@ -124,10 +116,9 @@
             } else {
                 listStates = { ...listStates, [listId]: false };
             }
-            showMessage(message, 'success');
+            toast.success(message);
         } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Failed to update list';
-            showMessage(msg, 'error');
+            toast.error(getErrorMessage(error, 'Failed to update list'));
         } finally {
             loadingStates = { ...loadingStates, [listId]: false };
         }
@@ -140,10 +131,9 @@
             if (!(await refreshUserData())) return;
             const isRemoved = message.includes('removed');
             listStates = { ...listStates, [listId]: !isRemoved };
-            showMessage(message, 'success');
+            toast.success(message);
         } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Failed to update list';
-            showMessage(msg, 'error');
+            toast.error(getErrorMessage(error, 'Failed to update list'));
         } finally {
             loadingStates = { ...loadingStates, [listId]: false };
         }
@@ -151,62 +141,47 @@
 
     const handleCreateList = async (e: Event) => {
         e.preventDefault();
-        if (!newListName.trim() || isCreatingList) return;
+        if (!newListName.trim() || createAction.isLoading) return;
 
-        isCreatingList = true;
-        try {
-            const data = await storeVnList({
-                name: newListName.trim(),
-                is_public: newListIsPublic,
-                game_id: gameId,
-            });
-            if (!(await refreshUserData())) return;
-            const newList = data.list;
-            allLists = [...allLists, newList];
-            userLists = [...userLists.filter((list) => list.id !== newList.id), newList];
-            listStates = { ...listStates, [newList.id]: true };
-            newListName = '';
-            newListIsPublic = false;
-            showMessage(data.message, 'success');
-        } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Failed to create list';
-            showMessage(msg, 'error');
-        } finally {
-            isCreatingList = false;
-        }
+        const data = await createAction.run(
+            async () => {
+                const data = await storeVnList({
+                    name: newListName.trim(),
+                    is_public: newListIsPublic,
+                    game_id: gameId,
+                });
+                if (!(await refreshUserData())) return null;
+                return data;
+            },
+            { fallbackError: 'Failed to create list' },
+        );
+        if (!data) return;
+        const newList = data.list;
+        allLists = [...allLists, newList];
+        userLists = [...userLists.filter((list) => list.id !== newList.id), newList];
+        listStates = { ...listStates, [newList.id]: true };
+        newListName = '';
+        newListIsPublic = false;
+        toast.success(data.message);
     };
 
     const handleToggleNotifications = async (event: Event) => {
         (event.currentTarget as HTMLInputElement).checked = notificationStatus;
-        if (isTogglingNotifications || isPaid) return;
+        if (toggleNotificationsAction.isLoading || isPaid) return;
 
-        isTogglingNotifications = true;
-        try {
-            const newStatus = !notificationStatus;
-            const data = await toggleUserProgressUpdates(gameId, newStatus);
-            if (!(await refreshUserData())) return;
-            notificationStatus = data.receive_updates;
-            notify(`Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${gameName}"`, 'success');
-        } catch (error) {
-            notify(error instanceof Error ? error.message : 'Failed to toggle notifications', 'error');
-        } finally {
-            isTogglingNotifications = false;
-        }
+        const data = await toggleNotificationsAction.run(
+            async () => {
+                const data = await toggleUserProgressUpdates(gameId, !notificationStatus);
+                if (!(await refreshUserData())) return null;
+                return data;
+            },
+            { fallbackError: 'Failed to toggle notifications' },
+        );
+        if (!data) return;
+        notificationStatus = data.receive_updates;
+        notify(`Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${gameName}"`, 'success');
     };
 
-    const primaryListType = $derived(
-        (() => {
-            const priorityOrder = ['reading', 'completed', 'plan_to_read', 'on_hold', 'dropped'];
-            for (const type of priorityOrder) {
-                if (userLists.some((list) => list.type === type && listStates[list.id])) {
-                    return type;
-                }
-            }
-            return null;
-        })(),
-    );
-
-    const badgeTone = $derived(listTypeTone(primaryListType ?? undefined));
     const userListsInGame = $derived(userLists.filter((list) => listStates[list.id]));
 
     const defaultListTypes = ['plan_to_read', 'reading', 'completed', 'on_hold', 'dropped'];
@@ -218,49 +193,54 @@
 </script>
 
 {#if isAuthenticated}
-    <div class="border-t border-gray-100 pt-3 dark:border-gray-700/50">
-        <div class="flex flex-wrap gap-2">
-            <Button
+    <div class="mt-3">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-ui leading-none">
+            <button
+                type="button"
                 onclick={async () => {
                     showListDialog = true;
                     await loadUserListsForDialog();
                 }}
-                size="sm"
+                class="cursor-pointer text-fg-muted transition-colors hover:text-fg"
             >
-                <PlusCircleIcon class="h-4 w-4" />
                 {userListsInGame.length > 0 ? 'Manage in Lists' : 'Add to Lists'}
-            </Button>
+            </button>
 
             {#if userListsInGame.length > 0}
-                <Button onclick={() => (showUserLists = !showUserLists)} variant="soft" tone="neutral" size="sm">
+                <button
+                    type="button"
+                    onclick={() => (showUserLists = !showUserLists)}
+                    aria-expanded={showUserLists}
+                    class="inline-flex cursor-pointer items-center gap-1 text-fg-muted transition-colors hover:text-fg"
+                >
                     <span>My Lists</span>
-                    <Badge tone={badgeTone} size="sm">{userListsInGame.length}</Badge>
-                    <ChevronDownIcon class="h-4 w-4 transition-transform {showUserLists ? 'rotate-180' : ''}" />
-                </Button>
+                    <span>{userListsInGame.length}</span>
+                    <ChevronDownIcon class="h-3 w-3 transition-transform {showUserLists ? 'rotate-180' : ''}" />
+                </button>
             {/if}
 
             {#if !isPaid}
-                <label class="flex cursor-pointer items-center gap-2">
+                <label class="flex cursor-pointer items-center gap-1.5 text-fg-muted transition-colors hover:text-fg">
                     <input
                         type="checkbox"
                         checked={notificationStatus}
                         onchange={handleToggleNotifications}
-                        disabled={isTogglingNotifications}
+                        disabled={toggleNotificationsAction.isLoading}
                         class="sr-only"
                     />
-                    <div
-                        class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors {notificationStatus
-                            ? 'bg-blue-600'
-                            : 'bg-gray-300 dark:bg-gray-600'} {isTogglingNotifications ? 'opacity-50' : ''}"
+                    <span
+                        class="relative inline-flex h-3.5 w-6 items-center rounded-full transition-colors {notificationStatus
+                            ? 'bg-fg'
+                            : 'bg-border'} {toggleNotificationsAction.isLoading ? 'opacity-50' : ''}"
                     >
                         <span
-                            class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform {notificationStatus
-                                ? 'translate-x-5'
-                                : 'translate-x-1'}"
+                            class="inline-block h-2.5 w-2.5 transform rounded-full bg-surface transition-transform {notificationStatus
+                                ? 'translate-x-3'
+                                : 'translate-x-0.5'}"
                         ></span>
-                    </div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400">
-                        {isTogglingNotifications ? 'Updating...' : notificationStatus ? 'Notifications on' : 'Notifications off'}
+                    </span>
+                    <span>
+                        {toggleNotificationsAction.isLoading ? 'Updating...' : notificationStatus ? 'Notifications on' : 'Notifications off'}
                     </span>
                 </label>
             {/if}
@@ -268,27 +248,19 @@
 
         {#if userListsInGame.length > 0 && showUserLists}
             <div class="mt-3">
-                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700/50 dark:bg-gray-800/50">
-                    <h3 class="mb-3 text-sm font-medium text-gray-900 dark:text-gray-100">My Lists</h3>
+                <div class="rounded-lg border border-border bg-surface-alt p-4">
+                    <h3 class="mb-3 text-ui font-semibold text-fg">My Lists</h3>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         {#each userListsInGame as list (list.id)}
-                            <div class="flex flex-col rounded-lg border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="min-w-0 flex-1">
-                                        <a
-                                            href={route('lists.show', list.id)}
-                                            class="block truncate font-medium text-gray-900 hover:text-blue-600 dark:text-gray-100 dark:hover:text-blue-400"
-                                        >
-                                            {list.name}
-                                        </a>
-                                        <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                            {formatListType(list.type)}
-                                            {#if list.is_public}
-                                                <Badge tone="primary" size="sm" class="ml-1">Public</Badge>
-                                            {/if}
-                                        </div>
+                            <div class="flex flex-col rounded-md border border-border bg-surface p-3">
+                                <div class="min-w-0">
+                                    <a href={route('lists.show', list.id)} class="block truncate text-ui font-medium text-fg hover:underline">
+                                        {list.name}
+                                    </a>
+                                    <div class="mt-1 text-xs text-fg-faint">
+                                        {formatListType(list.type)}
+                                        {#if list.is_public}<span class="ml-1">· Public</span>{/if}
                                     </div>
-                                    <Badge tone={listTypeTone(list.type)} size="sm" class="flex-shrink-0">{formatListType(list.type)}</Badge>
                                 </div>
                             </div>
                         {/each}
@@ -298,17 +270,9 @@
         {/if}
 
         <Dialog open={showListDialog} onClose={closeListDialog} title={`Manage Lists for "${gameName}"`} size="sm">
-            <div class="mb-4 h-6 text-center text-sm">
-                {#if message}
-                    <span class={message.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                        {message.text}
-                    </span>
-                {/if}
-            </div>
-
             <div class="space-y-6">
                 <div>
-                    <h4 class="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Default Lists</h4>
+                    <h4 class="mb-2 text-ui font-medium text-fg-muted">Default Lists</h4>
                     <div class="space-y-1">
                         {#each defaultListTypes as listType (listType)}
                             {@const list = allLists.find((l) => l.type === listType)}
@@ -336,7 +300,7 @@
                 </div>
 
                 <div>
-                    <h4 class="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Custom Lists</h4>
+                    <h4 class="mb-2 text-ui font-medium text-fg-muted">Custom Lists</h4>
                     <div class="space-y-1">
                         {#each customLists as list (list.id)}
                             {@const isInList = listStates[list.id]}
@@ -358,7 +322,7 @@
                         {/each}
                     </div>
 
-                    <div class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+                    <div class="mt-4 border-t border-border pt-4">
                         <form onsubmit={handleCreateList}>
                             <div class="flex gap-2">
                                 <TextInput
@@ -366,20 +330,15 @@
                                     bind:value={newListName}
                                     placeholder="New list name"
                                     fieldClass="flex-1"
-                                    class="border-0 bg-gray-100 py-1 dark:bg-gray-700"
+                                    class="border-0 bg-surface-alt py-1"
                                     required
                                 />
-                                <Button type="submit" disabled={!newListName.trim() || isCreatingList} size="sm">
-                                    {isCreatingList ? 'Creating...' : 'Create & Add'}
+                                <Button type="submit" disabled={!newListName.trim() || createAction.isLoading} size="sm">
+                                    {createAction.isLoading ? 'Creating...' : 'Create & Add'}
                                 </Button>
                             </div>
                             <div class="mt-2 flex items-center">
-                                <Checkbox
-                                    id="is_public_{gameId}"
-                                    bind:checked={newListIsPublic}
-                                    label="Make this list public"
-                                    class="dark:bg-gray-800"
-                                />
+                                <Checkbox id="is_public_{gameId}" bind:checked={newListIsPublic} label="Make this list public" />
                             </div>
                         </form>
                     </div>

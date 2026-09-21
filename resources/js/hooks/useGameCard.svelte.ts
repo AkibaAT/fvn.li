@@ -1,6 +1,11 @@
-import { router } from '@inertiajs/svelte';
+import { page, router } from '@inertiajs/svelte';
 import { SvelteURLSearchParams } from 'svelte/reactivity';
-import type { GameCardPlatform } from './usePlatformIcons';
+import { formatAuthorsInline, getGameThumbnail } from '@/utils/game-card-display';
+import { usePlatformIcons, type GameCardPlatform } from './usePlatformIcons';
+import { useStorePlatformIcons } from './useStorePlatformIcons';
+
+/** Inertia shared auth prop; the cards only check for a signed-in user. */
+type GameCardAuth = { user?: unknown };
 
 export interface GameCardGame {
     id: number;
@@ -17,7 +22,7 @@ export interface GameCardGame {
     }>;
     english_word_count?: number | null;
     primary_word_count?: number | null;
-    primary_language_label?: string | null;
+    primary_language_name?: string | null;
     initially_published_at?: string | null;
     latest_version_published_at?: string | null;
     rating_score?: number | null;
@@ -77,35 +82,33 @@ export interface GameCardProps {
     onSaleToggle?: () => void;
 }
 
-export function useGameCard({
-    game,
-    selectedTags,
-    onTagClick,
-    onPlatformClick,
-    onLanguageClick,
-    onStatusClick,
-    onStorePlatformClick,
-    onNsfwToggle,
-    onPaidToggle,
-    onDemoToggle,
-    onSaleToggle,
-}: GameCardProps) {
-    const getThumbnailUrl = (): string | null => {
-        if (game.optimized_thumbnails?.default?.path) {
-            return `/storage/${game.optimized_thumbnails.default.path}`;
-        }
+export function useGameCard(props: GameCardProps) {
+    const {
+        game,
+        selectedTags,
+        onTagClick,
+        onPlatformClick,
+        onLanguageClick,
+        onStatusClick,
+        onStorePlatformClick,
+        onNsfwToggle,
+        onPaidToggle,
+        onDemoToggle,
+        onSaleToggle,
+    } = props;
+    const { getSupportedPlatforms } = usePlatformIcons();
+    const { getStorePlatformFromString } = useStorePlatformIcons();
 
-        return null;
-    };
+    const thumbnailUrl = getGameThumbnail(game) || null;
+    const authorsInlineHtml = formatAuthorsInline(game.authors);
 
-    // Authors formatting
-    const authorsInlineHtml = game.authors
-        ? game.authors
-              .replace(/<br\s*\/?>(\s*)/gi, ' ')
-              .replace(/\n+/g, ' ')
-              .replace(/\s{2,}/g, ' ')
-              .trim()
-        : '';
+    // Session/state shared by every card and row variant. These stay $derived:
+    // partial reloads update the props without remounting the cards, and the
+    // ignore button's label flips purely off `ignoredGameIds` changing.
+    const auth = $derived((page as any).props?.auth as GameCardAuth | undefined);
+    const isIgnored = $derived(props.ignoredGameIds?.includes(props.game.id) || false);
+    const supportedPlatforms = $derived(getSupportedPlatforms(props.game));
+    const storePlatform = $derived(props.game.platform ? getStorePlatformFromString(props.game.platform) : 'itch_io');
 
     // Navigation helpers
     const navigateWith = (params: Record<string, string | string[] | boolean>) => {
@@ -178,10 +181,24 @@ export function useGameCard({
 
     return {
         // Image handling
-        thumbnailUrl: getThumbnailUrl(),
+        thumbnailUrl,
 
         // Content
         authorsInlineHtml,
+
+        // Session/state
+        get auth() {
+            return auth;
+        },
+        get isIgnored() {
+            return isIgnored;
+        },
+        get supportedPlatforms() {
+            return supportedPlatforms;
+        },
+        get storePlatform() {
+            return storePlatform;
+        },
 
         // Navigation handlers
         handleTag,

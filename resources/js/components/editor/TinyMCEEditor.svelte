@@ -42,7 +42,6 @@
     }
 
     onMount(() => {
-        // Dynamically load TinyMCE from self-hosted assets
         const script = document.createElement('script');
         script.src = '/assets/tinymce/tinymce.min.js';
         script.onload = () => {
@@ -61,6 +60,16 @@
     function initEditor() {
         const tinymce = (window as any).tinymce;
         if (!tinymce) return;
+
+        const rootStyle = getComputedStyle(document.documentElement);
+        const token = (name: string) => rootStyle.getPropertyValue(`--${name}`).trim();
+        const surface = token('surface');
+        const surfaceAlt = token('surface-alt');
+        const text = token('text');
+        const textMuted = token('text-muted');
+        const border = token('border');
+        const borderStrong = token('border-strong');
+        const accentFg = token('accent-fg');
 
         tinymce.init({
             target: editorEl,
@@ -128,8 +137,8 @@
                     font-size: 1rem;
                     line-height: 1.75;
                     margin: 0.75rem;
-                    background-color: var(--color-editor-background);
-                    color: var(--color-editor-text);
+                    background-color: ${surface};
+                    color: ${text};
                 }
                 p {
                     margin-top: 1.25em;
@@ -173,32 +182,32 @@
                     border-collapse: collapse;
                 }
                 table td, table th {
-                    border: 1px solid var(--color-editor-toolbar-border);
+                    border: 1px solid ${border};
                     padding: 8px;
-                    background-color: var(--color-editor-toolbar-background);
+                    background-color: ${surfaceAlt};
                 }
                 a {
-                    color: var(--color-editor-link);
+                    color: ${accentFg};
                 }
                 code {
-                    background-color: var(--color-editor-content-background);
-                    color: var(--color-editor-content-text);
+                    background-color: ${surfaceAlt};
+                    color: ${text};
                     padding: 2px 4px;
                     border-radius: 3px;
                 }
                 pre {
-                    background-color: var(--color-editor-content-background);
-                    color: var(--color-editor-content-text);
+                    background-color: ${surfaceAlt};
+                    color: ${text};
                     padding: 1rem;
                     border-radius: 6px;
-                    border: 1px solid var(--color-editor-content-border);
+                    border: 1px solid ${border};
                 }
                 blockquote {
-                    border-left: 4px solid var(--color-editor-blockquote-border);
+                    border-left: 4px solid ${borderStrong};
                     padding-left: 1rem;
                     margin-left: 0;
                     font-style: italic;
-                    color: var(--color-editor-pre-text);
+                    color: ${textMuted};
                 }
                 .spoiler {
                     background-color: #fef3c7;

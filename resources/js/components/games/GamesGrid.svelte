@@ -1,109 +1,67 @@
 <script lang="ts">
     import GameCard from '@/components/GameCard.svelte';
+    import GameListRow from '@/components/games/GameListRow.svelte';
+    import ListGroup from '@/components/lists/ListGroup.svelte';
+    import type { GameCardGame, GameCardProps } from '@/hooks/useGameCard.svelte';
     import type { CurrentFilters } from '@/types';
+    import { GAME_CARD_GRID_CLASS, type ViewMode } from '@/utils/view-mode';
 
-    interface Game {
-        id: number;
-        name: string;
-        effective_name: string;
-        slug: string;
-        description?: string;
-        thumb_url?: string;
-        optimized_thumbnails?: {
-            default?: { path: string; width: number; height: number };
-        };
-        rating_score?: number;
-        rating_count?: number;
-        status: string;
-        game_engine?: string;
-        is_nsfw: boolean;
-        is_paid: boolean;
-        has_demo: boolean;
-        authors?: string;
-        tags?: Array<{ id: number; name: string; slug: string }>;
-        gameJams?: Array<{ id: number; name: string }>;
-        supported_languages?: Array<{
-            iso_code: string;
-            ref_name: string;
-            flag_code: string;
-        }>;
-        is_windows?: boolean;
-        is_linux?: boolean;
-        is_mac?: boolean;
-        is_android?: boolean;
-        is_web?: boolean;
-        english_word_count?: number;
-        trending_score?: number;
-        initially_published_at?: string;
-        latest_version_published_at?: string;
-        rating?: number;
-        created_at: string;
-        updated_at: string;
-        [key: string]: unknown;
-    }
+    type FilterHandlers = Pick<
+        GameCardProps,
+        | 'onPlatformClick'
+        | 'onLanguageClick'
+        | 'onTagClick'
+        | 'onStatusClick'
+        | 'onStorePlatformClick'
+        | 'onNsfwToggle'
+        | 'onPaidToggle'
+        | 'onDemoToggle'
+        | 'onSaleToggle'
+    >;
 
-    interface Props {
-        games: Game[];
-        currentFilters: CurrentFilters;
+    interface Props extends FilterHandlers {
+        games: GameCardGame[];
+        /** Active catalogue filters; omitted where cards link out to the catalogue instead. */
+        currentFilters?: CurrentFilters;
         ignoredGameIds?: number[];
-        onPlatformClick: (platform: string) => void;
-        onLanguageClick: (language: string) => void;
-        onTagClick: (tag: string) => void;
-        onStatusClick: (status: string) => void;
-        onStorePlatformClick: (platform: string) => void;
-        onNsfwToggle: () => void;
-        onPaidToggle: () => void;
-        onDemoToggle: () => void;
-        onSaleToggle: () => void;
-        updateFilters: (filters: Partial<CurrentFilters>) => void;
+        viewMode?: ViewMode;
     }
 
-    let {
-        games,
-        currentFilters,
-        ignoredGameIds,
-        onPlatformClick,
-        onLanguageClick,
-        onTagClick,
-        onStatusClick,
-        onStorePlatformClick,
-        onNsfwToggle,
-        onPaidToggle,
-        onDemoToggle,
-        onSaleToggle,
-    }: Props = $props();
+    let { games, currentFilters = {}, ignoredGameIds, viewMode = 'grid', ...handlers }: Props = $props();
+
+    function cardProps(game: GameCardGame): GameCardProps {
+        return {
+            game,
+            selectedTags: currentFilters.selectedTags || [],
+            selectedPlatforms: currentFilters.selectedPlatforms || [],
+            selectedLanguages: currentFilters.selectedLanguages || [],
+            selectedStatuses: currentFilters.selectedStatuses || [],
+            selectedStorePlatforms: currentFilters.selectedStorePlatforms || [],
+            nsfw: currentFilters.nsfw || false,
+            showPaid: currentFilters.showPaid || false,
+            showDemo: currentFilters.showDemo || false,
+            showSale: currentFilters.showSale || false,
+            ignoredGameIds,
+            ...handlers,
+        };
+    }
 </script>
 
 {#if games.length === 0}
     <div class="py-12 text-center">
-        <div class="text-lg text-gray-700 dark:text-gray-300">No games found</div>
-        <p class="mt-2 text-gray-600 dark:text-gray-400">Try adjusting your search criteria or check back later.</p>
+        <div class="text-md text-fg-muted">No games found</div>
+        <p class="mt-2 text-ui text-fg-faint">Try adjusting your search criteria or check back later.</p>
     </div>
-{:else}
-    <div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+{:else if viewMode === 'list'}
+    <ListGroup class="px-3.5 max-sm:px-2.5">
         {#each games as game (game.id)}
-            <GameCard
-                {game}
-                selectedPlatforms={currentFilters.selectedPlatforms || []}
-                selectedLanguages={currentFilters.selectedLanguages || []}
-                selectedTags={currentFilters.selectedTags || []}
-                selectedStatuses={currentFilters.selectedStatuses || []}
-                selectedStorePlatforms={currentFilters.selectedStorePlatforms || []}
-                nsfw={currentFilters.nsfw || false}
-                showPaid={currentFilters.showPaid || false}
-                showDemo={currentFilters.showDemo || false}
-                showSale={currentFilters.showSale || false}
-                {ignoredGameIds}
-                {onPlatformClick}
-                {onLanguageClick}
-                {onTagClick}
-                {onStatusClick}
-                {onStorePlatformClick}
-                {onNsfwToggle}
-                {onPaidToggle}
-                {onDemoToggle}
-                {onSaleToggle}
-            />
+            <GameListRow {...cardProps(game)} />
+        {/each}
+    </ListGroup>
+{:else}
+    <div class={GAME_CARD_GRID_CLASS}>
+        {#each games as game (game.id)}
+            <GameCard {...cardProps(game)} />
         {/each}
     </div>
 {/if}

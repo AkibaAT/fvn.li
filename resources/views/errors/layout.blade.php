@@ -8,26 +8,22 @@
         <style>
             :root {
                 color-scheme: light;
-                --error-background: #f3f4f6;
+                --error-background: #edf0f4;
                 --error-surface: #ffffff;
-                --error-text: #111827;
-                --error-muted: #4b5563;
-                --error-border: #e5e7eb;
-                --error-link: #2563eb;
-                --error-link-hover: #1d4ed8;
-                --error-shadow: rgba(17, 24, 39, 0.08);
+                --error-text: #161c26;
+                --error-muted: #5a6578;
+                --error-border: #d5dbe3;
+                --error-accent: #b07a14;
             }
 
             .dark {
                 color-scheme: dark;
-                --error-background: #111827;
-                --error-surface: #1f2937;
-                --error-text: #f9fafb;
-                --error-muted: #d1d5db;
-                --error-border: #4b5563;
-                --error-link: #60a5fa;
-                --error-link-hover: #93c5fd;
-                --error-shadow: rgba(0, 0, 0, 0.3);
+                --error-background: #171b24;
+                --error-surface: #222836;
+                --error-text: #eef1f6;
+                --error-muted: #a6b0c2;
+                --error-border: #3a4356;
+                --error-accent: #f2bb4a;
             }
 
             * {
@@ -54,15 +50,14 @@
                 width: min(100%, 32rem);
                 padding: clamp(2rem, 7vw, 4rem);
                 border: 1px solid var(--error-border);
-                border-radius: 1rem;
+                border-radius: 0.5rem;
                 background: var(--error-surface);
-                box-shadow: 0 1.25rem 3rem var(--error-shadow);
                 text-align: center;
             }
 
             .code {
                 margin: 0 0 0.75rem;
-                color: var(--error-link);
+                color: var(--error-accent);
                 font-size: clamp(3rem, 14vw, 5rem);
                 font-weight: 800;
                 line-height: 1;
@@ -84,19 +79,19 @@
             a {
                 display: inline-flex;
                 margin-top: 1.75rem;
-                color: var(--error-link);
+                color: var(--error-accent);
                 font-weight: 700;
                 text-underline-offset: 0.2em;
             }
 
             a:hover {
-                color: var(--error-link-hover);
+                opacity: 0.85;
             }
 
             a:focus-visible {
                 border-radius: 0.25rem;
-                outline: 3px solid var(--error-link);
-                outline-offset: 0.25rem;
+                outline: 2px solid var(--error-accent);
+                outline-offset: 2px;
             }
         </style>
         @include('partials.appearance-script')

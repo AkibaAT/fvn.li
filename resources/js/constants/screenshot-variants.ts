@@ -2,7 +2,7 @@
  * Screenshot variant constants
  * These match the variants defined in ProcessGameScreenshots.php
  */
-export const SCREENSHOT_VARIANTS = {
+const SCREENSHOT_VARIANTS = {
     SMALL: 'small',
     DEFAULT: 'default',
     LARGE: 'large',

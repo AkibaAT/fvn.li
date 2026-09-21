@@ -26,7 +26,12 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
     const updateFilters = (newFilters: Partial<CurrentFilters>) => {
         const paginationKeys = ['page', 'perPage', 'sort', 'direction'];
 
-        const hasFilterChanges = Object.keys(newFilters).some((key) => !paginationKeys.includes(key));
+        const changedKeys = Object.keys(newFilters);
+        const hasFilterChanges = changedKeys.some((key) => !paginationKeys.includes(key));
+
+        // Page/sort changes only alter the result list, so ask Inertia for a partial
+        // reload instead of re-sending every filter option and meta tag.
+        const listOnly = changedKeys.length > 0 && changedKeys.every((key) => paginationKeys.includes(key));
 
         const params = {
             ...getCurrentFilters(),
@@ -52,7 +57,11 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
         const url = `/games?${searchParams.toString()}`;
 
         if (onGamesPage) {
-            router.visit(url, { preserveState: true, preserveScroll: true });
+            router.visit(url, {
+                preserveState: true,
+                preserveScroll: true,
+                ...(listOnly ? { only: ['games', 'currentFilters'] } : {}),
+            });
         } else {
             router.visit(url);
         }

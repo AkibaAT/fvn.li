@@ -7,8 +7,13 @@ describe('list type tones', () => {
         expect(listTypeTone('unknown')).toBe('neutral');
         expect(listTypeLabel('unknown')).toBe('Custom');
         expect(listTypeIcon(undefined)).toBe(ClipboardIcon);
-        expect(listTypeBorderClass('unknown')).toBe('border-gray-500');
-        expect(listTypeDotClass(undefined)).toBe('bg-gray-500');
+        expect(listTypeBorderClass('unknown')).toBe('border-border-strong');
+        expect(listTypeDotClass(undefined)).toBe('bg-border-strong');
+    });
+
+    test('uses the accent for reading lists', () => {
+        expect(listTypeBorderClass('reading')).toBe('border-accent');
+        expect(listTypeDotClass('reading')).toBe('bg-accent');
     });
 
     test('formats custom list type names', () => {

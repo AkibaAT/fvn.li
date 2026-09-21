@@ -167,6 +167,6 @@ class GameFilterService
 
     private static function cacheKey(): string
     {
-        return 'react-game-filter-options:min-' . Tag::minPublicGameCount();
+        return 'react-game-filter-options:' . Tag::publicCacheVariant();
     }
 }

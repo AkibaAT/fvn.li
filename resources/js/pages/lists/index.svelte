@@ -1,18 +1,20 @@
 <script lang="ts">
+    import { untrack } from 'svelte';
     import { refreshPage } from '@/utils/refreshPage';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import PlusCircleIcon from '@/components/icons/PlusCircle.svelte';
     import UsersIcon from '@/components/icons/Users.svelte';
-    import { SvelteURLSearchParams } from 'svelte/reactivity';
     import Pagination from '@/components/Pagination.svelte';
-    import type { VnList } from '@/components/VnListCard.svelte';
+    import type { VnList } from '@/types/lists';
     import VnListCard from '@/components/VnListCard.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
-    import { Link, router } from '@inertiajs/svelte';
-    import { shouldIntercept } from '@inertiajs/core';
+    import { router } from '@inertiajs/svelte';
     import { toast } from '@/utils/toast';
     import { destroyVnList, toggleVnListVisibility } from '@/api/lists';
-    import { Card } from '@/components/ui';
+    import { useAsyncAction } from '@/utils/async-action.svelte';
+    import { Button, Card, EmptyState, TabLinks } from '@/components/ui';
+    import { useUrlSyncedFilters } from '@/hooks/useUrlSyncedFilters.svelte';
+    import { buildPageMeta } from '@/utils/pagination';
 
     interface Props {
         lists: { data: VnList[]; current_page: number; last_page: number; per_page: number; total: number };
@@ -23,88 +25,77 @@
 
     let { lists, visibility, metaTags, counts = { all: 0, public: 0, private: 0 } }: Props = $props();
 
-    let isLoading = $state(false);
+    let visibilityFilter = $state(untrack(() => visibility));
+    let page = $state(untrack(() => lists.current_page));
+    let perPage = $state(untrack(() => lists.per_page));
 
-    function handleTabChange(newVisibility: string) {
-        isLoading = true;
-        router.get(
-            route('lists.index'),
-            {
-                visibility: newVisibility === 'all' ? undefined : newVisibility,
-                per_page: lists.per_page,
-                page: 1,
-            },
-            { preserveState: true, preserveScroll: true, onFinish: () => (isLoading = false) },
-        );
-    }
-
-    function handlePageChange(page: number) {
-        isLoading = true;
-        router.get(
-            route('lists.index'),
-            {
-                visibility: visibility === 'all' ? undefined : visibility,
-                per_page: lists.per_page,
-                page,
-            },
-            { preserveState: true, preserveScroll: true, onFinish: () => (isLoading = false) },
-        );
-    }
-
-    function handlePerPageChange(perPage: number) {
-        isLoading = true;
-        router.get(
-            route('lists.index'),
-            {
-                visibility: visibility === 'all' ? undefined : visibility,
-                per_page: perPage,
-                page: 1,
-            },
-            { preserveState: true, preserveScroll: true, onFinish: () => (isLoading = false) },
-        );
-    }
-
-    function buildPageUrl(page: number): string {
-        const params = new SvelteURLSearchParams();
-        if (visibility && visibility !== 'all') params.set('visibility', visibility);
-        params.set('per_page', lists.per_page.toString());
-        params.set('page', page.toString());
-        return `/lists?${params.toString()}`;
-    }
+    const filterSync = useUrlSyncedFilters({
+        route: route('lists.index'),
+        only: ['lists', 'visibility', 'counts', 'metaTags'],
+        getParams: () => ({
+            visibility: visibilityFilter === 'all' ? undefined : visibilityFilter,
+            per_page: perPage,
+            page,
+        }),
+    });
 
     async function refreshLists(): Promise<boolean> {
         if (!(await refreshPage(['lists', 'counts', 'metaTags']))) return false;
         if (lists.current_page > lists.last_page) {
-            router.get(buildPageUrl(lists.last_page), {}, { preserveState: true, preserveScroll: true, replace: true });
+            router.get(filterSync.buildPageUrl(lists.last_page), {}, { preserveState: true, preserveScroll: true, replace: true });
         }
         return true;
     }
 
+    const toggleVisibilityAction = useAsyncAction();
+    const deleteListAction = useAsyncAction();
+
     async function handleToggleVisibility(list: VnList) {
-        try {
-            const data = await toggleVnListVisibility(list.id);
-            if (!(await refreshLists())) return;
-            toast.success(data.message || 'List visibility updated successfully.');
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Failed to update list visibility');
-        }
+        const data = await toggleVisibilityAction.run(
+            async () => {
+                const result = await toggleVnListVisibility(list.id);
+                if (!(await refreshLists())) return null;
+                return result;
+            },
+            { fallbackError: 'Failed to update list visibility' },
+        );
+        if (!data) return;
+        toast.success(data.message || 'List visibility updated successfully.');
     }
 
     async function handleDelete(list: VnList) {
-        try {
-            await destroyVnList(list.id);
-            if (!(await refreshLists())) return;
-            toast.success('List deleted successfully.');
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Failed to delete list');
-        }
+        const deleted = await deleteListAction.run(
+            async () => {
+                await destroyVnList(list.id);
+                if (!(await refreshLists())) return null;
+                return true;
+            },
+            { fallbackError: 'Failed to delete list' },
+        );
+        if (!deleted) return;
+        toast.success('List deleted successfully.');
     }
 
-    const tabs = [
-        { key: 'all', label: 'All Lists' },
-        { key: 'public', label: 'Public Lists' },
-        { key: 'private', label: 'Private Lists' },
-    ];
+    const tabs = $derived([
+        {
+            key: 'all',
+            label: 'All Lists',
+            href: route('lists.index', { visibility: undefined, per_page: perPage, page: 1 }),
+            count: counts.all,
+        },
+        {
+            key: 'public',
+            label: 'Public Lists',
+            href: route('lists.index', { visibility: 'public', per_page: perPage, page: 1 }),
+            count: counts.public,
+        },
+        {
+            key: 'private',
+            label: 'Private Lists',
+            href: route('lists.index', { visibility: 'private', per_page: perPage, page: 1 }),
+            count: counts.private,
+        },
+    ]);
 </script>
 
 <SeoHead {metaTags} title="Your Visual Novel Lists" />
@@ -112,42 +103,26 @@
 <div class="space-y-8">
     <PageHeader title="Your Visual Novel Lists">
         {#snippet actions()}
-            <Link
-                href={route('lists.public')}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
-            >
-                <UsersIcon class="mr-2 h-5 w-5" />
+            <Button href={route('lists.public')} variant="outline" tone="neutral">
+                <UsersIcon class="h-5 w-5" />
                 Public Lists
-            </Link>
-            <Link
-                href={route('lists.create')}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
-            >
-                <PlusCircleIcon class="mr-2 h-5 w-5" />
+            </Button>
+            <Button href={route('lists.create')}>
+                <PlusCircleIcon class="h-5 w-5" />
                 New List
-            </Link>
+            </Button>
         {/snippet}
     </PageHeader>
 
-    <Card variant="glass" padding="lg">
-        <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
-            {#each tabs as tab (tab.key)}
-                {@const count = counts[tab.key as keyof typeof counts] ?? 0}
-                <a
-                    href={route('lists.index', { visibility: tab.key === 'all' ? undefined : tab.key, per_page: lists.per_page, page: 1 })}
-                    onclick={(e: MouseEvent) => {
-                        if (!shouldIntercept(e)) return;
-                        e.preventDefault();
-                        handleTabChange(tab.key);
-                    }}
-                    class="rounded-t-lg px-4 py-2 text-sm font-medium transition-colors {visibility === tab.key
-                        ? 'border-b-2 border-blue-600 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
-                >
-                    {tab.label} ({count})
-                </a>
-            {/each}
-        </div>
+    <Card variant="flat" padding="lg">
+        <TabLinks
+            {tabs}
+            active={visibilityFilter}
+            onSelect={(tab) => {
+                visibilityFilter = tab;
+                page = 1;
+            }}
+        />
     </Card>
 
     {#if lists.data.length > 0}
@@ -157,34 +132,25 @@
             {/each}
         </div>
     {:else}
-        <div class="py-12 text-center">
-            <h3 class="mb-2 text-lg font-medium text-gray-900 dark:text-white">No lists found</h3>
-            <p class="mb-6 text-gray-600 dark:text-gray-400">
-                {visibility === 'all' ? "You haven't created any lists yet." : `No ${visibility} lists found.`}
-            </p>
-            <Link
-                href={route('lists.create')}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700"
-                >Create Your First List</Link
-            >
-        </div>
+        <EmptyState
+            title="No lists found"
+            description={visibility === 'all' ? "You haven't created any lists yet." : `No ${visibility} lists found.`}
+        >
+            <Button href={route('lists.create')}>Create Your First List</Button>
+        </EmptyState>
     {/if}
 
     <Pagination
         layout="full"
-        meta={{
-            current_page: lists.current_page,
-            last_page: lists.last_page,
-            total: lists.total,
-            from: lists.data.length ? (lists.current_page - 1) * lists.per_page + 1 : 0,
-            to: lists.data.length ? (lists.current_page - 1) * lists.per_page + lists.data.length : 0,
-            per_page: lists.per_page,
+        meta={buildPageMeta(lists, lists.data)}
+        onChange={(nextPage) => (page = nextPage)}
+        onPerPageChange={(nextPerPage) => {
+            perPage = nextPerPage;
+            page = 1;
         }}
-        onChange={handlePageChange}
-        onPerPageChange={handlePerPageChange}
-        loading={isLoading}
+        loading={filterSync.isLoading}
         label="results"
         perPageOptions={[8, 16, 24, 32]}
-        {buildPageUrl}
+        buildPageUrl={filterSync.buildPageUrl}
     />
 </div>

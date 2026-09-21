@@ -120,21 +120,6 @@ trait HasGameLanguageSupport
         return null;
     }
 
-    public function getPrimaryLanguageLabel(): string
-    {
-        $langCode = $this->source_language_id ?? 'eng';
-
-        if ($this->relationLoaded('sourceLanguage') && $this->sourceLanguage) {
-            $part1 = $this->sourceLanguage->part1;
-            if ($part1) {
-                return strtoupper($part1);
-            }
-        }
-
-        // Fallback: uppercase first 2 chars of ISO code
-        return strtoupper(substr($langCode, 0, 2));
-    }
-
     public function getLatestCharacterStats(string $isoCode): Collection
     {
         return $this->latestVersion?->getCharacterStatsForLanguage($isoCode) ?? collect();

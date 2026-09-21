@@ -4,9 +4,11 @@
     import { untrack } from 'svelte';
     import { destroyVnList, updateVnList } from '@/api/lists';
     import { router } from '@inertiajs/svelte';
-    import { Button, Card, Checkbox, TextInput, Textarea } from '@/components/ui';
+    import { Button, Card } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
+    import ListFormFields from '@/components/lists/ListFormFields.svelte';
     import { formatListType } from '@/components/ui/tones';
+    import { useAsyncAction } from '@/utils/async-action.svelte';
 
     interface VnList {
         id: number;
@@ -34,23 +36,21 @@
             is_public: vnList.is_public,
         })),
     );
-    let isLoading = $state(false);
-    let isDeleting = $state(false);
+    const saveAction = useAsyncAction();
+    const deleteAction = useAsyncAction();
 
     async function handleSubmit(e: Event) {
         e.preventDefault();
-        isLoading = true;
-
-        try {
-            await updateVnList(vnList.id, formData);
-            if (!(await refreshPage(['vnList']))) return;
-            router.visit(route('lists.show', vnList.id));
-        } catch (error) {
-            console.error('Error updating list:', error);
-            alert(error instanceof Error ? error.message : 'Failed to update list');
-        } finally {
-            isLoading = false;
-        }
+        const data = await saveAction.run(
+            async () => {
+                const result = await updateVnList(vnList.id, formData);
+                if (!(await refreshPage(['vnList']))) return null;
+                return result;
+            },
+            { fallbackError: 'Failed to update list' },
+        );
+        if (!data) return;
+        router.visit(route('lists.show', vnList.id));
     }
 
     async function handleDelete() {
@@ -58,17 +58,15 @@
             return;
         }
 
-        isDeleting = true;
-
-        try {
-            await destroyVnList(vnList.id);
-            router.visit(route('lists.index'), { replace: true });
-        } catch (error) {
-            console.error('Error deleting list:', error);
-            alert(error instanceof Error ? error.message : 'Failed to delete list');
-        } finally {
-            isDeleting = false;
-        }
+        const deleted = await deleteAction.run(
+            async () => {
+                await destroyVnList(vnList.id);
+                return true;
+            },
+            { fallbackError: 'Failed to delete list' },
+        );
+        if (!deleted) return;
+        router.visit(route('lists.index'), { replace: true });
     }
 </script>
 
@@ -77,50 +75,36 @@
 <div class="mx-auto max-w-2xl space-y-8">
     <PageHeader title="Edit List" backHref={route('lists.show', vnList.id)} backLabel="Back to list" />
 
-    <Card variant="glass">
+    <Card variant="flat">
         <form onsubmit={handleSubmit} class="space-y-6">
-            <TextInput type="text" id="name" bind:value={formData.name} required label="List Name" placeholder="Enter list name..." />
-
-            <div>
-                <p class="block text-sm font-medium text-gray-700 dark:text-gray-300">List Type</p>
-                <div class="mt-1 rounded-md border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
-                    <span class="text-sm text-gray-900 dark:text-gray-100">
-                        {formatListType(vnList.type)}
-                        {vnList.is_default ? ' (Default)' : ''}
-                    </span>
-                </div>
-                {#if vnList.is_default}
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">The type of a default list cannot be changed</p>
-                {/if}
-            </div>
-
-            <Textarea
-                id="description"
-                bind:value={formData.description}
-                rows={4}
-                label="Description"
-                placeholder="Optional description for your list..."
-                help="Describe what this list is for (optional)"
-            />
-
-            <div>
-                <Checkbox bind:checked={formData.is_public} label="Make this list public" />
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Public lists can be viewed by anyone, private lists are only visible to you
-                </p>
-            </div>
+            <ListFormFields bind:form={formData}>
+                {#snippet afterName()}
+                    <div>
+                        <p class="block text-sm font-medium text-fg-muted">List Type</p>
+                        <div class="mt-1 rounded-md border border-border bg-surface-alt p-3">
+                            <span class="text-sm text-fg">
+                                {formatListType(vnList.type)}
+                                {vnList.is_default ? ' (Default)' : ''}
+                            </span>
+                        </div>
+                        {#if vnList.is_default}
+                            <p class="mt-1 text-xs text-fg-faint">The type of a default list cannot be changed</p>
+                        {/if}
+                    </div>
+                {/snippet}
+            </ListFormFields>
 
             <div class="flex justify-between pt-4">
                 <div class="flex space-x-3">
                     <Button href={route('lists.show', vnList.id)} variant="outline" tone="neutral">Cancel</Button>
                     {#if !vnList.is_default}
-                        <Button type="button" onclick={handleDelete} disabled={isDeleting} tone="danger" loading={isDeleting}>
-                            {isDeleting ? 'Deleting...' : 'Delete List'}
+                        <Button type="button" onclick={handleDelete} disabled={deleteAction.isLoading} tone="danger" loading={deleteAction.isLoading}>
+                            {deleteAction.isLoading ? 'Deleting...' : 'Delete List'}
                         </Button>
                     {/if}
                 </div>
-                <Button type="submit" disabled={isLoading || !formData.name.trim()} loading={isLoading}>
-                    {isLoading ? 'Saving...' : 'Save Changes'}
+                <Button type="submit" disabled={saveAction.isLoading || !formData.name.trim()} loading={saveAction.isLoading}>
+                    {saveAction.isLoading ? 'Saving...' : 'Save Changes'}
                 </Button>
             </div>
         </form>

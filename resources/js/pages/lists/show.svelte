@@ -1,5 +1,6 @@
 <script lang="ts">
     import { refreshPage } from '@/utils/refreshPage';
+    import { useAsyncAction } from '@/utils/async-action.svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { Attachment } from 'svelte/attachments';
     import { Link } from '@inertiajs/svelte';
@@ -19,84 +20,11 @@
     import { listTypeBorderClass, listTypeIcon, listTypeLabel, listTypeTone } from '@/components/ui/tones';
     import SortableList from '@/components/drag-drop/SortableList.svelte';
     import ListEntryCard from '@/components/lists/ListEntryCard.svelte';
-    import { Badge, Button, Card, Switch } from '@/components/ui';
+    import ListGroup from '@/components/lists/ListGroup.svelte';
+    import { Badge, Button, Card, Switch, Textarea, TextInput } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
+    import type { AvailableList, Game, VnList, VnListEntry } from '@/types/lists';
 
-    interface GameVersion {
-        id: number;
-        version: string;
-        published_at: string;
-    }
-    interface GameRating {
-        id: number;
-        game_id: number;
-        user_id: number;
-        rating: number;
-        is_reviewed: boolean;
-    }
-    interface Game {
-        id: number;
-        name: string;
-        effective_name: string;
-        slug: string;
-        thumb_url?: string;
-        optimized_thumbnails?: { default?: { path: string } } | null;
-        is_nsfw: boolean;
-        is_paid: boolean;
-        has_demo: boolean;
-        is_on_sale: boolean;
-        min_price?: number;
-        latest_version?: GameVersion;
-        game_versions?: GameVersion[];
-        user_progress?: UserGameProgress[];
-        ratings?: GameRating[];
-        platform?: 'itch_io' | 'steam' | 'other';
-    }
-    interface UserGameProgress {
-        id: number;
-        user_id: number;
-        game_id: number;
-        game_version_id?: number;
-        personal_notes?: string;
-        started_at?: string;
-        completed_at?: string;
-        game_version?: GameVersion;
-        receive_updates?: boolean;
-    }
-    interface VnListEntry {
-        id: number;
-        game: Game;
-        sort_order: number;
-        notes?: string;
-        private_notes?: string;
-        started_at?: string;
-        completed_at?: string;
-        user_progress?: UserGameProgress;
-        personal_notes?: string;
-        game_version_id?: number;
-        game_version?: GameVersion;
-    }
-    interface User {
-        id: number;
-        name: string;
-    }
-    interface VnList {
-        id: number;
-        name: string;
-        description?: string;
-        type: string;
-        is_default: boolean;
-        is_public: boolean;
-        created_at: string;
-        updated_at: string;
-        entries: VnListEntry[];
-        user: User;
-    }
-    interface AvailableList {
-        id: number;
-        name: string;
-        type: string;
-    }
     interface ListShowProps {
         vnList: VnList;
         isOwner: boolean;
@@ -110,10 +38,10 @@
     let entries = $derived(vnList.entries);
     const isPublic = $derived(vnList.is_public);
     const listData = $derived(vnList);
-    let isToggleVisibilityLoading = $state(false);
+    const toggleVisibilityAction = useAsyncAction();
     let isEditingList = $state(false);
-    let isListSaveLoading = $state(false);
-    let isListDeleteLoading = $state(false);
+    const listSaveAction = useAsyncAction();
+    const listDeleteAction = useAsyncAction();
     let listFormData = $state({ name: '', description: '' });
     let showVersionComparison = $state(false);
     let comparisonVersions = $state<{ gameId: number; fromVersionId: number; toVersionId: number } | null>(null);
@@ -128,12 +56,7 @@
         completed_at: '',
         target_list_id: '',
     });
-    let entryFormLoading = $state(false);
-
-    const getOptimizedThumbnail = (game: Game) => {
-        if (game.optimized_thumbnails?.default?.path) return `/storage/${game.optimized_thumbnails.default.path}`;
-        return game.thumb_url || '';
-    };
+    const entryFormAction = useAsyncAction();
 
     const freeGames = $derived(entries.filter((e) => !e.game.is_paid));
     const allFreeGamesReceiveUpdates = $derived(freeGames.length > 0 && freeGames.every((e) => e.game.user_progress?.[0]?.receive_updates ?? false));
@@ -141,18 +64,17 @@
     const refreshList = () => refreshPage(['vnList', 'availableLists', 'metaTags']);
 
     const handleSaveList = async () => {
-        isListSaveLoading = true;
-        try {
-            await updateVnList(vnList.id, { ...listFormData, is_public: isPublic });
-            if (!(await refreshList())) return;
-            isEditingList = false;
-            notify('List updated successfully', 'success');
-        } catch (error) {
-            console.error('Error updating list:', error);
-            notify(error instanceof Error ? error.message : 'Failed to update list', 'error');
-        } finally {
-            isListSaveLoading = false;
-        }
+        const data = await listSaveAction.run(
+            async () => {
+                const result = await updateVnList(vnList.id, { ...listFormData, is_public: isPublic });
+                if (!(await refreshList())) return null;
+                return result;
+            },
+            { fallbackError: 'Failed to update list' },
+        );
+        if (!data) return;
+        isEditingList = false;
+        notify('List updated successfully', 'success');
     };
 
     const handleCancelListEdit = () => {
@@ -162,31 +84,29 @@
 
     const handleDeleteList = async () => {
         if (!confirm('Are you sure you want to delete this list? This action cannot be undone.')) return;
-        isListDeleteLoading = true;
-        try {
-            await destroyVnList(vnList.id);
-            notify('List deleted successfully', 'success');
-            window.location.href = route('lists.index');
-        } catch (error) {
-            console.error('Error deleting list:', error);
-            notify(error instanceof Error ? error.message : 'Failed to delete list', 'error');
-        } finally {
-            isListDeleteLoading = false;
-        }
+        const deleted = await listDeleteAction.run(
+            async () => {
+                await destroyVnList(vnList.id);
+                return true;
+            },
+            { fallbackError: 'Failed to delete list' },
+        );
+        if (!deleted) return;
+        notify('List deleted successfully', 'success');
+        window.location.href = route('lists.index');
     };
 
     const handleToggleVisibility = async () => {
-        isToggleVisibilityLoading = true;
-        try {
-            const data = await toggleVnListVisibility(vnList.id);
-            if (!(await refreshList())) return;
-            notify(data.message || 'List visibility updated', 'success');
-        } catch (error) {
-            console.error('Error toggling visibility:', error);
-            notify(error instanceof Error ? error.message : 'Failed to update visibility', 'error');
-        } finally {
-            isToggleVisibilityLoading = false;
-        }
+        const data = await toggleVisibilityAction.run(
+            async () => {
+                const result = await toggleVnListVisibility(vnList.id);
+                if (!(await refreshList())) return null;
+                return result;
+            },
+            { fallbackError: 'Failed to update visibility' },
+        );
+        if (!data) return;
+        notify(data.message || 'List visibility updated', 'success');
     };
 
     const handleCompareVersions = (gameId: number, fromVersionId: number, toVersionId: number) => {
@@ -198,14 +118,19 @@
         comparisonVersions = null;
     };
 
+    const entryRemoveAction = useAsyncAction();
+
     const handleEntryRemove = async (entryId: number) => {
         if (!confirm('Are you sure you want to remove this game from the list?')) return;
-        try {
-            await destroyListEntry(entryId);
-            if (!(await refreshList())) return;
-        } catch (error) {
-            notify(error instanceof Error ? error.message : 'Failed to remove entry', 'error');
-        }
+        const removed = await entryRemoveAction.run(
+            async () => {
+                await destroyListEntry(entryId);
+                if (!(await refreshList())) return null;
+                return true;
+            },
+            { fallbackError: 'Failed to remove entry' },
+        );
+        if (!removed) return;
     };
 
     const getEntryVersionValue = (entry: VnListEntry) => {
@@ -234,17 +159,17 @@
     };
 
     const handleSaveEntry = async (entryId: number) => {
-        entryFormLoading = true;
-        try {
-            await updateListEntry(entryId, entryFormData);
-            if (!(await refreshList())) return;
-            editingEntryId = null;
-            notify('Entry updated', 'success');
-        } catch (error) {
-            notify(error instanceof Error ? error.message : 'Failed to update entry', 'error');
-        } finally {
-            entryFormLoading = false;
-        }
+        const data = await entryFormAction.run(
+            async () => {
+                const result = await updateListEntry(entryId, entryFormData);
+                if (!(await refreshList())) return null;
+                return result;
+            },
+            { fallbackError: 'Failed to update entry' },
+        );
+        if (!data) return;
+        editingEntryId = null;
+        notify('Entry updated', 'success');
     };
 
     const startMoving = (entry: VnListEntry) => {
@@ -255,57 +180,77 @@
 
     const handleMoveEntry = async (entryId: number) => {
         if (!entryFormData.target_list_id) return;
-        entryFormLoading = true;
-        try {
-            await moveListEntry(entryId, entryFormData.target_list_id);
-            if (!(await refreshList())) return;
-            movingEntryId = null;
-            notify('Entry moved successfully', 'success');
-        } catch (error) {
-            notify(error instanceof Error ? error.message : 'Failed to move entry', 'error');
-        } finally {
-            entryFormLoading = false;
-        }
+        const moved = await entryFormAction.run(
+            async () => {
+                await moveListEntry(entryId, entryFormData.target_list_id);
+                if (!(await refreshList())) return null;
+                return true;
+            },
+            { fallbackError: 'Failed to move entry' },
+        );
+        if (!moved) return;
+        movingEntryId = null;
+        notify('Entry moved successfully', 'success');
     };
 
+    const toggleNotificationAction = useAsyncAction();
+
     const handleToggleNotification = async (game: Game, newStatus: boolean) => {
-        try {
-            const data = await toggleUserProgressUpdates(game.id, newStatus);
-            if (!(await refreshList())) return;
-            notify(data.message || `Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${game.effective_name}"`, 'success');
-        } catch (error) {
-            console.error('Error toggling notifications:', error);
-            notify(error instanceof Error ? error.message : 'Failed to update notifications', 'error');
-        }
+        const data = await toggleNotificationAction.run(
+            async () => {
+                const result = await toggleUserProgressUpdates(game.id, newStatus);
+                if (!(await refreshList())) return null;
+                return result;
+            },
+            {
+                fallbackError: 'Failed to update notifications',
+            },
+        );
+        if (!data) return;
+        notify(data.message || `Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${game.effective_name}"`, 'success');
     };
+
+    const toggleAllNotificationsAction = useAsyncAction();
 
     const handleToggleAllNotifications = async () => {
         const newStatus = !allFreeGamesReceiveUpdates;
-        try {
-            const data = await toggleAllListUpdates(vnList.id, newStatus);
-            if (!(await refreshList())) return;
-            notify(data.message || `Notifications ${newStatus ? 'enabled' : 'disabled'} for all games`, 'success');
-        } catch (error) {
-            console.error('Error toggling all notifications:', error);
-            notify(error instanceof Error ? error.message : 'Failed to update notifications', 'error');
-        }
+        const data = await toggleAllNotificationsAction.run(
+            async () => {
+                const result = await toggleAllListUpdates(vnList.id, newStatus);
+                if (!(await refreshList())) return null;
+                return result;
+            },
+            {
+                fallbackError: 'Failed to update notifications',
+            },
+        );
+        if (!data) return;
+        notify(data.message || `Notifications ${newStatus ? 'enabled' : 'disabled'} for all games`, 'success');
     };
+
+    const reorderAction = useAsyncAction();
 
     const handleReorder = async (newEntries: VnListEntry[]) => {
         const originalEntries = [...entries];
         entries = newEntries;
-        try {
-            const data = await reorderListEntries(
-                vnList.id,
-                newEntries.map((e) => e.id),
-            );
-            if (!(await refreshList())) return;
-            notify(data.message || 'List order updated', 'success');
-        } catch (error) {
-            console.error('Error updating order:', error);
+        const data = await reorderAction.run(
+            async () => {
+                const result = await reorderListEntries(
+                    vnList.id,
+                    newEntries.map((e) => e.id),
+                );
+                if (!(await refreshList())) return null;
+                return result;
+            },
+            {
+                fallbackError: 'Failed to update order',
+            },
+        );
+        if (!data) {
             entries = originalEntries;
-            notify(error instanceof Error ? error.message : 'Failed to update order', 'error');
+            return;
         }
+        notify(data.message || 'List order updated', 'success');
     };
 
     const availableListsForMove = (currentListId: number) => availableLists.filter((list) => list.id !== currentListId);
@@ -341,7 +286,7 @@
                     {#snippet metadata()}
                         {#if !isOwner && vnList?.user?.name}
                             <span>
-                                By <Link href={route('lists.user-public', vnList.user.id)} class="text-blue-600 hover:underline dark:text-blue-400"
+                                By <Link href={route('lists.user-public', vnList.user.id)} class="text-fg-muted hover:text-fg hover:underline"
                                     >{vnList.user.name}</Link
                                 >
                             </span>
@@ -359,30 +304,26 @@
                     </Badge>
                 {/if}
                 {#if isPublic}
-                    <Badge tone="primary" size="sm">Public</Badge>
+                    <Badge tone="neutral" size="sm">Public</Badge>
                 {/if}
                 {#if isOwner}
                     <div class="flex gap-2">
-                        <Link
-                            href={route('lists.index')}
-                            class="inline-flex items-center rounded-md border border-transparent bg-gray-200 px-3 py-1 text-xs font-semibold tracking-widest text-gray-800 uppercase hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
-                            >Back to Lists</Link
-                        >
+                        <Button href={route('lists.index')} variant="outline" tone="neutral" size="xs">Back to Lists</Button>
                         <Button
                             type="button"
-                            variant="solid"
-                            tone={isPublic ? 'primary' : 'neutral'}
+                            variant="outline"
+                            tone="neutral"
                             size="xs"
                             onclick={handleToggleVisibility}
-                            disabled={isToggleVisibilityLoading}
-                            loading={isToggleVisibilityLoading}
+                            disabled={toggleVisibilityAction.isLoading}
+                            loading={toggleVisibilityAction.isLoading}
                         >
                             {isPublic ? 'Make Private' : 'Make Public'}
                         </Button>
                         <Button
                             type="button"
-                            variant="solid"
-                            tone="warning"
+                            variant="outline"
+                            tone="neutral"
                             size="xs"
                             onclick={() => {
                                 if (isEditingList) handleCancelListEdit();
@@ -401,60 +342,43 @@
                                 tone="danger"
                                 size="xs"
                                 onclick={handleDeleteList}
-                                disabled={isListDeleteLoading}
-                                loading={isListDeleteLoading}
+                                disabled={listDeleteAction.isLoading}
+                                loading={listDeleteAction.isLoading}
                             >
-                                {isListDeleteLoading ? 'Deleting...' : 'Delete List'}
+                                {listDeleteAction.isLoading ? 'Deleting...' : 'Delete List'}
                             </Button>
                         {/if}
                     </div>
                 {:else}
-                    <Link
-                        href={route('lists.public')}
-                        class="inline-flex items-center rounded-md border border-transparent bg-gray-200 px-3 py-1 text-xs font-semibold tracking-widest text-gray-800 uppercase hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
-                        >Back to Public Lists</Link
-                    >
+                    <Button href={route('lists.public')} variant="outline" tone="neutral" size="xs">Back to Public Lists</Button>
                 {/if}
             </div>
         </div>
     </Card>
 
     {#if isEditingList && isOwner}
-        <Card padding="sm" class="mb-4 border-l-4 border-yellow-500 dark:border-yellow-500">
-            <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Edit List</h3>
+        <Card padding="sm" class="mb-4 border-l-4 border-l-amber-500">
+            <h3 class="mb-4 text-title font-semibold text-fg">Edit List</h3>
             <div class="space-y-4">
-                <div>
-                    <label for="list-name" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">List Name</label>
-                    <input
-                        id="list-name"
-                        type="text"
-                        bind:value={listFormData.name}
-                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                        placeholder="Enter list name"
-                    />
-                </div>
-                <div>
-                    <label for="list-description" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >Description (Optional)</label
-                    >
-                    <textarea
-                        id="list-description"
-                        bind:value={listFormData.description}
-                        rows={3}
-                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                        placeholder="Enter list description"></textarea>
-                </div>
+                <TextInput id="list-name" type="text" bind:value={listFormData.name} label="List Name" placeholder="Enter list name" />
+                <Textarea
+                    id="list-description"
+                    bind:value={listFormData.description}
+                    rows={3}
+                    label="Description (Optional)"
+                    placeholder="Enter list description"
+                />
                 <div class="flex justify-end space-x-2">
                     <Button type="button" variant="outline" tone="neutral" onclick={handleCancelListEdit}>Cancel</Button>
                     <Button
                         type="button"
                         variant="solid"
-                        tone="warning"
+                        tone="primary"
                         onclick={handleSaveList}
-                        disabled={isListSaveLoading || !listFormData.name.trim()}
-                        loading={isListSaveLoading}
+                        disabled={listSaveAction.isLoading || !listFormData.name.trim()}
+                        loading={listSaveAction.isLoading}
                     >
-                        {isListSaveLoading ? 'Saving...' : 'Save Changes'}
+                        {listSaveAction.isLoading ? 'Saving...' : 'Save Changes'}
                     </Button>
                 </div>
             </div>
@@ -463,10 +387,10 @@
 
     <Card padding="sm" class="mb-4 md:pr-6 md:pl-7">
         <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">List Entries ({entries.length})</h2>
+            <h2 class="text-title font-semibold text-fg">List Entries ({entries.length})</h2>
             {#if isOwner && freeGames.length > 0}
                 <div class="flex items-center gap-3">
-                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Notifications for all free entries:</span>
+                    <span class="text-sm font-medium text-fg-muted">Notifications for all free entries:</span>
                     <Switch
                         checked={allFreeGamesReceiveUpdates}
                         onchange={handleToggleAllNotifications}
@@ -480,45 +404,52 @@
     </Card>
 
     {#if entries.length === 0}
-        <div class="rounded-lg bg-gray-50 p-8 text-center dark:bg-gray-700">
-            <p class="text-gray-500 dark:text-gray-400">No visual novels in this list yet.</p>
+        <div class="rounded-lg bg-surface-alt p-8 text-center">
+            <p class="text-fg-muted">No visual novels in this list yet.</p>
             {#if isOwner}
-                <p class="mt-2 text-gray-500 dark:text-gray-400">Browse games and add them to your list!</p>
+                <p class="mt-2 text-fg-muted">Browse games and add them to your list!</p>
             {/if}
         </div>
     {:else}
-        <div class="hidden rounded-t-lg bg-gray-100 p-3 pr-5 text-sm font-medium text-gray-500 uppercase lg:flex dark:bg-gray-700 dark:text-gray-300">
-            {#if isOwner}<div class="w-8"></div>{/if}
-            <div class="mr-2 w-20"></div>
-            <div class="flex-grow">Title</div>
-            <div class="w-52">Version</div>
-            <div class="w-30">Started</div>
-            {#if vnList.type === 'custom' || vnList.type === 'completed'}
-                <div class="w-28">Completed</div>
-            {/if}
-            {#if isOwner}
-                <div class="w-20">Actions</div>
-                <div class="w-30 pr-1.5 text-right">Notifications</div>
-            {/if}
+        <div
+            class="hidden items-center gap-3.5 rounded-t-lg border border-transparent bg-surface-alt px-3.5 py-2.5 text-sm font-medium text-fg-muted uppercase lg:flex"
+        >
+            <div class="w-8 shrink-0"></div>
+            <div class="w-18 shrink-0"></div>
+            <div class="min-w-0 flex-1">Title</div>
+            <div class="flex shrink-0 items-center gap-3">
+                <div class="w-52">Version</div>
+                <div class="w-30">Started</div>
+                {#if vnList.type === 'custom' || vnList.type === 'completed'}
+                    <div class="w-28">Completed</div>
+                {/if}
+                {#if isOwner}
+                    <div class="w-20">Actions</div>
+                    <div class="w-30 pr-1 text-right">Notifications</div>
+                {/if}
+            </div>
         </div>
 
-        {#if isOwner}
-            <SortableList
-                items={entries}
-                onReorder={(newItems) => handleReorder(newItems)}
-                class="space-y-3 text-gray-700 md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:space-y-3 dark:text-gray-300"
-            >
-                {#snippet children(entry, _index, _canDrag, handleAttachment)}
-                    {@render gameEntry(entry, handleAttachment)}
-                {/snippet}
-            </SortableList>
-        {:else}
-            <div class="space-y-3 text-gray-700 md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:space-y-3 dark:text-gray-300">
-                {#each entries as entry (entry.id)}
-                    {@render gameEntry(entry)}
-                {/each}
-            </div>
-        {/if}
+        <!-- One shared surface from `lg` up; below that every entry keeps its own card. -->
+        <ListGroup class="rounded-none border-0 bg-transparent px-0 lg:rounded-lg lg:border lg:border-border lg:bg-surface lg:px-3.5 lg:py-1">
+            {#if isOwner}
+                <SortableList
+                    items={entries}
+                    onReorder={(newItems) => handleReorder(newItems)}
+                    class="space-y-3 text-fg-muted md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:space-y-0 lg:divide-y lg:divide-border"
+                >
+                    {#snippet children(entry, _index, _canDrag, handleAttachment)}
+                        {@render gameEntry(entry, handleAttachment)}
+                    {/snippet}
+                </SortableList>
+            {:else}
+                <div class="space-y-3 text-fg-muted md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:space-y-0 lg:divide-y lg:divide-border">
+                    {#each entries as entry (entry.id)}
+                        {@render gameEntry(entry)}
+                    {/each}
+                </div>
+            {/if}
+        </ListGroup>
     {/if}
 </div>
 
@@ -542,8 +473,7 @@
         {editingEntryId}
         {movingEntryId}
         {entryFormData}
-        {entryFormLoading}
-        {getOptimizedThumbnail}
+        entryFormLoading={entryFormAction.isLoading}
         onCompareVersions={handleCompareVersions}
         onRemove={handleEntryRemove}
         onStartEditing={startEditing}

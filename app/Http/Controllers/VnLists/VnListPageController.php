@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Rater;
 use App\Models\User;
 use App\Models\VnList;
+use App\Services\GamesSearchResultHydrator;
 use App\Support\Seo\MetaTags;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -152,8 +153,9 @@ class VnListPageController extends Controller
                         $q->select([
                             'id', 'name', 'custom_name', 'has_custom_page', 'view_mode', 'thumb_url', 'is_nsfw', 'slug',
                             'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price',
+                            'authors', 'platform', 'rating_score', 'rating_count', 'source_language_id',
                         ]);
-                        $q->with(['latestVersion', 'gameVersions']);
+                        $q->with(['latestVersion.languageStats', 'gameVersions', 'sourceLanguage']);
                         $q->with([
                             'userProgress' => function ($upQuery) use ($listOwnerId, $isOwner) {
                                 $upQuery->where('user_id', $listOwnerId)
@@ -183,6 +185,13 @@ class VnListPageController extends Controller
                 $query->orderBy('sort_order');
             }, 'user:id,name',
         ]);
+
+        foreach ($vnList->entries as $entry) {
+            GamesSearchResultHydrator::hydrateWordCounts($entry->game);
+
+            $entry->game->makeHidden('sourceLanguage');
+            $entry->game->latestVersion?->makeHidden('languageStats');
+        }
 
         $allVersionIds = $vnList->entries->flatMap(function ($entry) {
             return $entry->game->gameVersions->pluck('id')

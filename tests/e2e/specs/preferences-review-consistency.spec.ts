@@ -25,7 +25,7 @@ async function shot(page: Page, info: TestInfo, name: string) {
 test('saved search preferences survive Back and subsequent saves', async ({ page }, info) => {
     await page.goto('/dashboard?tab=search');
     const english = page.getByRole('button', { name: 'English', exact: true });
-    await expect(english).toHaveClass(/bg-blue-600/);
+    await expect(english).toHaveClass(/bg-accent/);
     await english.click();
     await page.getByRole('button', { name: 'Save Preferences', exact: true }).first().click();
     await expect(page.getByText('Language preferences saved', { exact: true })).toBeVisible();
@@ -33,7 +33,7 @@ test('saved search preferences survive Back and subsequent saves', async ({ page
     await page.getByRole('navigation', { name: 'Main navigation', exact: true }).getByRole('link', { name: 'Games', exact: true }).click();
     await expect(page).toHaveURL(/\/games$/);
     await page.goBack();
-    await expect(english).not.toHaveClass(/bg-blue-600/);
+    await expect(english).not.toHaveClass(/bg-accent/);
     await page.getByRole('button', { name: 'Save Preferences', exact: true }).first().click();
     await expect(page.getByText('Language preferences saved', { exact: true })).toBeVisible();
     expect((await (await page.request.get('/user/language-preferences')).json()).preferred_languages).toEqual([]);
@@ -278,20 +278,20 @@ test('saving preferences preserves other unsaved selections', async ({ page }) =
     await page.goto('/dashboard?tab=search');
     const english = page.getByRole('button', { name: 'English', exact: true });
     await english.click();
-    await expect(english).not.toHaveClass(/bg-blue-600/);
+    await expect(english).not.toHaveClass(/bg-accent/);
     await page.getByRole('button', { name: 'Clear All', exact: true }).click();
     await expect(page.getByText('Excluded tags saved', { exact: true })).toBeVisible();
-    await expect(english).not.toHaveClass(/bg-blue-600/);
+    await expect(english).not.toHaveClass(/bg-accent/);
     expect((await (await page.request.get('/user/language-preferences')).json()).preferred_languages).toEqual(['eng']);
 
     const tag = page.getByRole('button', { name: /^E2E Excluded / }).first();
     await tag.click();
-    await expect(tag).toHaveClass(/bg-red-600/);
+    await expect(tag).toHaveClass(/bg-red-700/);
     await page.getByRole('button', { name: 'Save Preferences', exact: true }).first().click();
     await expect(page.getByText('Language preferences saved', { exact: true })).toBeVisible();
-    await expect(tag).toHaveClass(/bg-red-600/);
+    await expect(tag).toHaveClass(/bg-red-700/);
     expect((await (await page.request.get('/user/excluded-tags')).json()).excluded_tags).toEqual([]);
     await page.getByRole('button', { name: 'Remove', exact: true }).click();
     await expect(page.getByText('0 games', { exact: true })).toBeVisible();
-    await expect(tag).toHaveClass(/bg-red-600/);
+    await expect(tag).toHaveClass(/bg-red-700/);
 });

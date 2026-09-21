@@ -4,8 +4,9 @@
     import TrashIcon from '@/components/icons/Trash.svelte';
     import { deleteMyGameScreenshot, uploadMyGameScreenshots } from '@/api/my-games';
     import LoadingSpinner from '@/components/LoadingSpinner.svelte';
+    import { getErrorMessage, useAsyncAction } from '@/utils/async-action.svelte';
     import { toast } from '@/utils/toast';
-    import { Alert, Button, Card } from '@/components/ui';
+    import { Alert, Button, Card, EmptyState } from '@/components/ui';
     import type { Screenshot } from '@/types/game-show';
     import { gameScreenshotAltText } from '@/utils/imageAltText';
 
@@ -25,36 +26,51 @@
     let { screenshots, blur = false, onOpenLightbox, canEdit = false, gameSlug, gameName }: Props = $props();
 
     const shouldBlur = $derived(blur && !canEdit);
-    let uploadingScreenshots = $state(false);
+    const uploadAction = useAsyncAction();
     let deletingScreenshotIndex = $state<number | null>(null);
     let displayedScreenshots = $derived(screenshots ?? []);
+    let screenshotInput = $state<HTMLInputElement | null>(null);
+
+    const wideColumnClasses: Record<number, string> = {
+        3: 'lg:grid-cols-3',
+        4: 'lg:grid-cols-4',
+        5: 'lg:grid-cols-5',
+    };
+
+    const wideColumns = $derived.by(() => {
+        const count = displayedScreenshots.length;
+        if (count <= 4) return Math.max(3, count);
+        const candidates = [4, 5, 3];
+        return (
+            candidates.find((columns) => count % columns === 0) ??
+            candidates.reduce((best, columns) => (count % columns > count % best ? columns : best))
+        );
+    });
 
     async function handleScreenshotUpload(files: FileList) {
         if (typeof window === 'undefined') return;
-        if (uploadingScreenshots || deletingScreenshotIndex !== null) return;
+        if (uploadAction.isLoading || deletingScreenshotIndex !== null) return;
         const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
         if (imageFiles.length === 0) {
-            alert('Please upload image files');
+            toast.error('Please upload image files');
             return;
         }
 
-        uploadingScreenshots = true;
-
-        try {
-            await uploadMyGameScreenshots(gameSlug, imageFiles);
-            if (!(await refreshPage(['game', 'metaTags']))) return;
-            toast.success('Screenshots uploaded successfully');
-        } catch (e: unknown) {
-            console.error('Failed to upload screenshots', e);
-            toast.error(e instanceof Error ? e.message : 'Failed to upload screenshots');
-        } finally {
-            uploadingScreenshots = false;
-        }
+        const uploaded = await uploadAction.run(
+            async () => {
+                await uploadMyGameScreenshots(gameSlug, imageFiles);
+                if (!(await refreshPage(['game', 'metaTags']))) return false;
+                return true;
+            },
+            { fallbackError: 'Failed to upload screenshots' },
+        );
+        if (!uploaded) return;
+        toast.success('Screenshots uploaded successfully');
     }
 
     async function handleScreenshotDelete(index: number) {
         if (typeof window === 'undefined') return;
-        if (uploadingScreenshots || deletingScreenshotIndex !== null) return;
+        if (uploadAction.isLoading || deletingScreenshotIndex !== null) return;
         if (!confirm('Delete this screenshot?')) return;
 
         deletingScreenshotIndex = index;
@@ -62,9 +78,9 @@
             await deleteMyGameScreenshot(gameSlug, index, displayedScreenshots[index]?.id);
             if (!(await refreshPage(['game', 'metaTags']))) return;
             toast.success('Screenshot deleted successfully');
-        } catch (e: unknown) {
-            console.error('Failed to delete screenshot', e);
-            toast.error(e instanceof Error ? e.message : 'Failed to delete screenshot');
+        } catch (error) {
+            console.error('Failed to delete screenshot', error);
+            toast.error(getErrorMessage(error, 'Failed to delete screenshot'));
         } finally {
             deletingScreenshotIndex = null;
         }
@@ -72,37 +88,35 @@
 </script>
 
 {#if (displayedScreenshots && displayedScreenshots.length > 0) || canEdit}
-    <Card id="screenshots" class="mb-6 scroll-mt-28">
+    <Card id="screenshots" variant="flat" padding="lg" class="mb-6 scroll-mt-32">
         <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Screenshots</h2>
+            <h2 class="text-title font-semibold text-fg">Screenshots</h2>
             {#if canEdit}
-                <label
-                    aria-busy={uploadingScreenshots}
-                    class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-white transition-colors focus-within:ring-2 focus-within:ring-blue-500 {uploadingScreenshots
-                        ? 'cursor-wait bg-blue-500'
-                        : 'cursor-pointer bg-blue-600 hover:bg-blue-700'}"
+                <Button
+                    type="button"
+                    size="sm"
+                    loading={uploadAction.isLoading}
+                    disabled={uploadAction.isLoading || deletingScreenshotIndex !== null}
+                    onclick={() => screenshotInput?.click()}
                 >
-                    {#if uploadingScreenshots}
-                        <LoadingSpinner size="sm" currentColor isBusy={false} />
-                        <span>Uploading...</span>
-                    {:else}
-                        <PlusIcon class="h-4 w-4" />
-                        <span>Add Screenshots</span>
-                    {/if}
-                    <input
-                        type="file"
-                        aria-label="Add screenshots"
-                        accept="image/*"
-                        multiple
-                        disabled={uploadingScreenshots || deletingScreenshotIndex !== null}
-                        onchange={(e) => {
-                            const input = e.target as HTMLInputElement;
-                            if (input.files) handleScreenshotUpload(input.files);
-                            input.value = '';
-                        }}
-                        class="sr-only"
-                    />
-                </label>
+                    {#snippet icon()}<PlusIcon class="h-4 w-4" />{/snippet}
+                    {uploadAction.isLoading ? 'Uploading...' : 'Add Screenshots'}
+                </Button>
+                <input
+                    bind:this={screenshotInput}
+                    type="file"
+                    aria-label="Add screenshots"
+                    accept="image/*"
+                    multiple
+                    tabindex="-1"
+                    disabled={uploadAction.isLoading || deletingScreenshotIndex !== null}
+                    onchange={(e) => {
+                        const input = e.target as HTMLInputElement;
+                        if (input.files) handleScreenshotUpload(input.files);
+                        input.value = '';
+                    }}
+                    class="sr-only"
+                />
             {/if}
         </div>
 
@@ -113,14 +127,14 @@
         {/if}
 
         {#if displayedScreenshots && displayedScreenshots.length > 0}
-            <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4" id="screenshots-gallery">
+            <div class="grid grid-cols-2 gap-3 md:grid-cols-3 {wideColumnClasses[wideColumns]}" id="screenshots-gallery">
                 {#each displayedScreenshots as screenshot, index (`${screenshot.url}-${index}`)}
                     {@const thumbnailUrl = getThumbnailUrl(screenshot)}
                     {@const fullUrl = screenshot.url}
-                    <div class="group relative h-32 w-full">
+                    <div class="relative aspect-video w-full">
                         <a
                             href={fullUrl}
-                            class="block h-full overflow-hidden rounded-lg border border-gray-200 bg-gray-50 shadow-sm transition-all hover:shadow-md dark:border-gray-700 dark:bg-gray-900"
+                            class="block h-full overflow-hidden rounded-md border border-border bg-surface-alt transition-colors hover:border-border-strong"
                             onclick={(e) => {
                                 e.preventDefault();
                                 onOpenLightbox?.(index);
@@ -130,18 +144,17 @@
                                 <img
                                     src={thumbnailUrl}
                                     alt={gameScreenshotAltText(gameName, index, displayedScreenshots.length)}
-                                    class="h-full w-full object-cover {shouldBlur ? 'blur-sm transition-all duration-300 hover:blur-none' : ''}"
+                                    class="h-full w-full object-cover {shouldBlur ? 'blur-sm transition-[filter] duration-300 hover:blur-none' : ''}"
                                 />
                             </div>
-                            <div class="absolute inset-0 bg-black/20 opacity-0 transition-opacity group-hover:opacity-100"></div>
                         </a>
                         {#if canEdit}
                             <Button
                                 onclick={() => handleScreenshotDelete(index)}
-                                disabled={uploadingScreenshots || deletingScreenshotIndex !== null}
+                                disabled={uploadAction.isLoading || deletingScreenshotIndex !== null}
                                 tone="danger"
                                 size="icon-sm"
-                                class="absolute top-2 right-2 z-10 rounded-full shadow-lg"
+                                class="absolute top-2 right-2 z-10"
                                 aria-label="Delete screenshot"
                             >
                                 {#if deletingScreenshotIndex === index}
@@ -155,9 +168,7 @@
                 {/each}
             </div>
         {:else}
-            <div class="py-12 text-center text-gray-500 dark:text-gray-400">
-                <p>No screenshots yet. Click "Add Screenshots" to upload some.</p>
-            </div>
+            <EmptyState title="No screenshots yet" description="Use Add Screenshots to upload some." class="py-8" />
         {/if}
     </Card>
 {/if}

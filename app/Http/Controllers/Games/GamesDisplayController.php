@@ -19,6 +19,7 @@ use App\Services\RouteGraphService;
 use App\Services\SimilarGamesService;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -292,23 +293,12 @@ class GamesDisplayController extends Controller
         }
 
         $recommendationCacheVersion = (int) Cache::get('games.recommendations.version', 1);
-        $similarCacheKey = "game.{$game->id}.similar.v{$recommendationCacheVersion}";
+        $similarCacheKey = "game.{$game->id}.similar-cards.v{$recommendationCacheVersion}";
         $similarGames = Cache::get($similarCacheKey);
 
         if ($similarGames === null) {
             try {
-                $similarGames = app(SimilarGamesService::class)->findSimilarGames($game, 6)
-                    ->map(fn (Game $g) => [
-                        'id' => $g->id,
-                        'name' => $g->effective_name,
-                        'slug' => $g->slug,
-                        'thumb_url' => $g->optimized_thumbnail_url,
-                        'authors' => $g->authors ? strip_tags($g->authors) : null,
-                        'rating_score' => $g->rating_score,
-                        'rating_count' => $g->rating_count,
-                        'status' => $g->status,
-                        'platform' => $g->platform,
-                    ]);
+                $similarGames = $this->recommendationCards(app(SimilarGamesService::class)->findSimilarGames($game, 6));
 
                 Cache::put($similarCacheKey, $similarGames, $similarGames->isEmpty() ? 60 : 3600);
             } catch (Exception $e) {
@@ -321,18 +311,8 @@ class GamesDisplayController extends Controller
             }
         }
 
-        $developerCacheKey = "game.{$game->id}.developer." . md5((string) $game->authors) . ".v{$recommendationCacheVersion}";
-        $developerGames = Cache::remember($developerCacheKey, 3600, fn () => app(SimilarGamesService::class)->findDeveloperGames($game, 12)
-            ->map(fn (Game $g) => [
-                'id' => $g->id,
-                'name' => $g->effective_name,
-                'slug' => $g->slug,
-                'thumb_url' => $g->optimized_thumbnail_url,
-                'rating_score' => $g->rating_score,
-                'rating_count' => $g->rating_count,
-                'status' => $g->status,
-                'platform' => $g->platform,
-            ]));
+        $developerCacheKey = "game.{$game->id}.developer-cards." . md5((string) $game->authors) . ".v{$recommendationCacheVersion}";
+        $developerGames = Cache::remember($developerCacheKey, 3600, fn () => $this->recommendationCards(app(SimilarGamesService::class)->findDeveloperGames($game, 12)));
 
         $estimatedReadingTime = null;
         $primaryWordCount = $primaryStats['words'] ?? null;
@@ -482,6 +462,18 @@ class GamesDisplayController extends Controller
             'initially_published_at' => $game->initially_published_at,
             'first_visible_at' => $game->first_visible_at,
         ]);
+    }
+
+    /**
+     * @param  Collection<int, Game>  $games
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function recommendationCards(Collection $games): Collection
+    {
+        $models = (new Game)->newCollection($games->all());
+        app(GamesSearchResultHydrator::class)->hydrateModels($models);
+
+        return collect($models->toArray());
     }
 
     private function formatSupportedLanguages(GameVersion $version)

@@ -1,4 +1,6 @@
+import type { GameCardGame } from '@/hooks/useGameCard.svelte';
 import type { MetaTags } from '@/types/meta-tags';
+import type { Game as BaseGame, PaginationMeta } from '@/types';
 
 interface Tag {
     id: number;
@@ -9,7 +11,7 @@ interface Tag {
     pivot: any;
 }
 
-interface GameJam {
+export interface GameJam {
     id: number;
     name: string;
     slug?: string;
@@ -111,41 +113,23 @@ interface UserReview {
     updated_at: string;
 }
 
-interface Game {
-    id: number;
-    name: string;
-    slug: string;
-    effective_name: string;
-    description?: string;
+interface Game extends BaseGame {
     full_description?: string;
     custom_name?: string;
     custom_description?: string;
     effective_description?: string;
     has_custom_page?: boolean;
     view_mode?: 'custom' | 'original';
-    thumb_url?: string;
     optimized_thumbnail_url?: string;
     rating?: number;
-    rating_score?: number;
-    rating_count?: number;
-    initially_published_at?: string;
-    authors?: string;
-    game_engine?: string;
-    status?: string;
-    is_nsfw?: boolean;
-    is_paid?: boolean;
-    has_demo?: boolean;
-    min_price?: number;
     currency?: string;
     current_price?: number;
     original_price?: number;
     formatted_current_price?: string;
     formatted_original_price?: string;
-    is_on_sale?: boolean;
     sale_discount_percent?: number;
     discount_percentage?: number;
     url?: string;
-    platform?: 'itch_io' | 'steam' | 'other';
     primary_url?: string | null;
     custom_css?: string;
     custom_tags?: string;
@@ -162,13 +146,12 @@ interface Game {
     [key: string]: any;
 }
 
-export interface PaginationMeta {
-    current_page: number;
-    last_page: number;
-    per_page: number;
-    total: number;
-    from: number;
-    to: number;
+export type { PaginationMeta };
+
+export interface GameFact {
+    label: string;
+    value: string;
+    hint?: string;
 }
 
 interface Paginated<T> {
@@ -225,18 +208,6 @@ interface PublicList {
     user: { id: number; name: string; avatar?: string };
 }
 
-interface SimilarGame {
-    id: number;
-    name: string;
-    slug: string;
-    thumb_url?: string;
-    authors?: string;
-    platform?: string;
-    rating_score?: number;
-    rating_count?: number;
-    status?: string;
-}
-
 interface EstimatedReadingTime {
     hours: number;
     minutes: number;
@@ -266,8 +237,8 @@ export interface GameShowProps {
     userReview?: UserReview | null;
     publicLists?: PublicList[];
     publicListsCount?: number;
-    similarGames?: SimilarGame[];
-    developerGames?: SimilarGame[];
+    similarGames?: GameCardGame[];
+    developerGames?: GameCardGame[];
     estimatedReadingTime?: EstimatedReadingTime | null;
     metaTags?: MetaTags;
 }
