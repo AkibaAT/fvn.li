@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { Card } from '@/components/ui';
+    import { Badge, Card } from '@/components/ui';
+    import type { BadgeTone } from '@/components/ui/Badge.svelte';
     import { formatFutureDateTime, formatRelativeDateTime } from '@/utils/date-formatting';
 
     interface MonitoredTask {
@@ -64,37 +65,37 @@
         return Math.floor((end.getTime() - start.getTime()) / 1000);
     };
 
-    const getStatusClasses = (statusColor: string) => {
-        if (statusColor === 'red') return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-        if (statusColor === 'green') return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-        if (statusColor === 'yellow') return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+    const getStatusBadgeTone = (statusColor: string): BadgeTone => {
+        if (statusColor === 'red') return 'danger';
+        if (statusColor === 'green') return 'success';
+        if (statusColor === 'yellow') return 'warning';
+        return 'neutral';
     };
 </script>
 
-<Card variant="outline" padding="none" class="overflow-hidden border-gray-200 shadow-none dark:border-gray-700 dark:bg-gray-800/60">
+<Card variant="flat" padding="none" class="overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead class="bg-gray-50 dark:bg-gray-900/50">
+        <table class="min-w-full divide-y divide-border">
+            <thead class="bg-surface-alt">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"> Task </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"> Schedule </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"> Last Run </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"> Next Run </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"> Status </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase"> Task </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase"> Schedule </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase"> Last Run </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase"> Next Run </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase"> Status </th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
+            <tbody class="divide-y divide-border bg-surface">
                 {#each monitoredTasks as task, index (index)}
                     {@const lastStarted = formatRelativeDateTime(task.last_started)}
                     {@const nextRun = formatFutureDateTime(task.next_run)}
                     {@const taskStatus = getTaskStatus(task)}
-                    <tr class="group hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <tr class="group hover:bg-surface-alt">
                         <td class="px-6 py-4 text-sm">
-                            <div class="font-medium text-gray-900 dark:text-gray-100">
+                            <div class="font-medium text-fg">
                                 {task.name}
                             </div>
-                            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <div class="flex items-center gap-2 text-xs text-fg-muted">
                                 <span>{task.type}</span>
                                 {#if task.grace_time > 0}
                                     <span class="text-xs">
@@ -104,26 +105,26 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 text-sm">
-                            <div class="text-gray-500 dark:text-gray-400">
+                            <div class="text-fg-muted">
                                 {task.schedule}
                                 {#if task.timezone && task.timezone !== 'UTC'}
-                                    <span class="block text-xs text-gray-400 dark:text-gray-500">
+                                    <span class="block text-xs text-fg-faint">
                                         {task.timezone}
                                     </span>
                                 {/if}
                             </div>
                         </td>
                         <td class="px-6 py-4 text-sm">
-                            <div class="text-gray-500 dark:text-gray-400">
+                            <div class="text-fg-muted">
                                 {#if lastStarted}
                                     <div>
                                         {lastStarted.timeAgo}
                                     </div>
-                                    <div class="text-xs text-gray-400 dark:text-gray-500">
+                                    <div class="text-xs text-fg-faint">
                                         {lastStarted.formattedDate}
                                     </div>
                                     {#if task.last_finished}
-                                        <div class="text-xs text-gray-400 dark:text-gray-500">
+                                        <div class="text-xs text-fg-faint">
                                             Duration: {getDuration(task.last_started!, task.last_finished)}s
                                         </div>
                                     {/if}
@@ -133,10 +134,10 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 text-sm">
-                            <div class="text-gray-500 dark:text-gray-400">
+                            <div class="text-fg-muted">
                                 {#if nextRun}
                                     <div>{nextRun.timeUntil}</div>
-                                    <div class="text-xs text-gray-400 dark:text-gray-500">
+                                    <div class="text-xs text-fg-faint">
                                         {nextRun.formattedDate}
                                     </div>
                                 {:else}
@@ -147,15 +148,11 @@
                         <td class="px-6 py-4 text-sm">
                             <div class="space-y-1">
                                 <div class="flex items-center gap-2">
-                                    <span
-                                        class="inline-flex rounded-full px-2 text-xs leading-5 font-semibold {getStatusClasses(
-                                            taskStatus.statusColor,
-                                        )}"
-                                    >
+                                    <Badge tone={getStatusBadgeTone(taskStatus.statusColor)}>
                                         {taskStatus.statusText}
-                                    </span>
+                                    </Badge>
                                     {#if taskStatus.hasFailedRecently && taskStatus.lastFailed}
-                                        <span class="text-xs text-gray-400 dark:text-gray-500">
+                                        <span class="text-xs text-fg-faint">
                                             {formatRelativeDateTime(task.last_failed!)?.timeAgo}
                                         </span>
                                     {/if}
@@ -169,18 +166,10 @@
 
                                 <div class="flex flex-wrap gap-1">
                                     {#if task.runs_on_one_server}
-                                        <span
-                                            class="inline-flex items-center rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                                        >
-                                            Single Server
-                                        </span>
+                                        <Badge tone="neutral" size="sm">Single Server</Badge>
                                     {/if}
                                     {#if task.runs_in_maintenance}
-                                        <span
-                                            class="inline-flex items-center rounded bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200"
-                                        >
-                                            Maintenance OK
-                                        </span>
+                                        <Badge tone="neutral" size="sm">Maintenance OK</Badge>
                                     {/if}
                                 </div>
                             </div>

@@ -72,7 +72,7 @@ describe('NotificationSettings', () => {
 
         const testButton = await screen.findByRole('button', { name: 'Send test DM' });
 
-        expect(testButton.className).toContain('bg-blue-600');
+        expect(testButton.className).toContain('bg-accent');
         expect(screen.getByText('The bot checks for queued notifications once a minute, so a test may take up to 75 seconds.')).toBeTruthy();
     });
 
@@ -92,7 +92,7 @@ describe('NotificationSettings', () => {
 
         const testButton = await screen.findByRole('button', { name: 'Send test notification' });
 
-        expect(testButton.className).toContain('bg-blue-600');
+        expect(testButton.className).toContain('bg-accent');
     });
     test('refreshes health when the linked Discord account changes and ignores an older response', async () => {
         const pending = Promise.withResolvers<typeof health>();

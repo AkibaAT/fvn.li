@@ -8,11 +8,11 @@
     import type { VnList } from '@/components/VnListCard.svelte';
     import VnListCard from '@/components/VnListCard.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
-    import { Link, router } from '@inertiajs/svelte';
+    import { router } from '@inertiajs/svelte';
     import { shouldIntercept } from '@inertiajs/core';
     import { toast } from '@/utils/toast';
     import { destroyVnList, toggleVnListVisibility } from '@/api/lists';
-    import { Card } from '@/components/ui';
+    import { Button, Card } from '@/components/ui';
 
     interface Props {
         lists: { data: VnList[]; current_page: number; last_page: number; per_page: number; total: number };
@@ -112,25 +112,19 @@
 <div class="space-y-8">
     <PageHeader title="Your Visual Novel Lists">
         {#snippet actions()}
-            <Link
-                href={route('lists.public')}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
-            >
-                <UsersIcon class="mr-2 h-5 w-5" />
+            <Button href={route('lists.public')} variant="outline" tone="neutral">
+                <UsersIcon class="h-5 w-5" />
                 Public Lists
-            </Link>
-            <Link
-                href={route('lists.create')}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
-            >
-                <PlusCircleIcon class="mr-2 h-5 w-5" />
+            </Button>
+            <Button href={route('lists.create')}>
+                <PlusCircleIcon class="h-5 w-5" />
                 New List
-            </Link>
+            </Button>
         {/snippet}
     </PageHeader>
 
-    <Card variant="glass" padding="lg">
-        <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
+    <Card variant="flat" padding="lg">
+        <div class="flex flex-wrap gap-2 border-b border-border">
             {#each tabs as tab (tab.key)}
                 {@const count = counts[tab.key as keyof typeof counts] ?? 0}
                 <a
@@ -140,9 +134,9 @@
                         e.preventDefault();
                         handleTabChange(tab.key);
                     }}
-                    class="rounded-t-lg px-4 py-2 text-sm font-medium transition-colors {visibility === tab.key
-                        ? 'border-b-2 border-blue-600 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
+                    class="rounded-t-md px-4 py-2 text-sm font-medium transition-colors {visibility === tab.key
+                        ? 'border-b-2 border-accent text-fg'
+                        : 'text-fg-muted hover:text-fg'}"
                 >
                     {tab.label} ({count})
                 </a>
@@ -158,15 +152,11 @@
         </div>
     {:else}
         <div class="py-12 text-center">
-            <h3 class="mb-2 text-lg font-medium text-gray-900 dark:text-white">No lists found</h3>
-            <p class="mb-6 text-gray-600 dark:text-gray-400">
+            <h3 class="mb-2 text-lg font-medium text-fg">No lists found</h3>
+            <p class="mb-6 text-fg-muted">
                 {visibility === 'all' ? "You haven't created any lists yet." : `No ${visibility} lists found.`}
             </p>
-            <Link
-                href={route('lists.create')}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700"
-                >Create Your First List</Link
-            >
+            <Button href={route('lists.create')}>Create Your First List</Button>
         </div>
     {/if}
 

@@ -16,7 +16,7 @@
 
 <div class={className}>
     {#if label}
-        <label for={id} class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label for={id} class="mb-1 block text-[13px] font-medium text-fg-muted">
             {label}
             {#if required}
                 <span class="text-red-600 dark:text-red-400">*</span>
@@ -27,8 +27,8 @@
     {@render children?.()}
 
     {#if error}
-        <p id={id ? `${id}-message` : undefined} class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
+        <p id={id ? `${id}-message` : undefined} class="mt-1 text-[12px] text-red-600 dark:text-red-400" role="alert">{error}</p>
     {:else if help}
-        <p id={id ? `${id}-message` : undefined} class="mt-1 text-sm text-gray-500 dark:text-gray-400">{help}</p>
+        <p id={id ? `${id}-message` : undefined} class="mt-1 text-[12px] text-fg-faint">{help}</p>
     {/if}
 </div>

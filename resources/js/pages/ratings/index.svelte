@@ -124,10 +124,10 @@
         onFilterChange={() => (page = 1)}
     />
 
-    <Card padding="none" class="shadow">
-        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+    <Card variant="flat" padding="none">
+        <div class="divide-y divide-border">
             {#if rows.length === 0}
-                <div class="p-6 text-gray-500 dark:text-gray-400">No ratings yet</div>
+                <div class="p-6 text-fg-muted">No ratings yet</div>
             {:else}
                 {#each rows as row (row.id)}<RatingRow {row} {reviewStyle} showRater />{/each}
             {/if}

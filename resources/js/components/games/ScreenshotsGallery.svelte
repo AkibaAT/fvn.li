@@ -72,15 +72,15 @@
 </script>
 
 {#if (displayedScreenshots && displayedScreenshots.length > 0) || canEdit}
-    <Card id="screenshots" class="mb-6 scroll-mt-28">
+    <Card id="screenshots" variant="flat" class="mb-6 scroll-mt-28">
         <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Screenshots</h2>
+            <h2 class="text-xl font-semibold text-fg">Screenshots</h2>
             {#if canEdit}
                 <label
                     aria-busy={uploadingScreenshots}
-                    class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-white transition-colors focus-within:ring-2 focus-within:ring-blue-500 {uploadingScreenshots
-                        ? 'cursor-wait bg-blue-500'
-                        : 'cursor-pointer bg-blue-600 hover:bg-blue-700'}"
+                    class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-on-accent transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent {uploadingScreenshots
+                        ? 'cursor-wait bg-accent opacity-70'
+                        : 'cursor-pointer bg-accent hover:opacity-90'}"
                 >
                     {#if uploadingScreenshots}
                         <LoadingSpinner size="sm" currentColor isBusy={false} />
@@ -117,10 +117,10 @@
                 {#each displayedScreenshots as screenshot, index (`${screenshot.url}-${index}`)}
                     {@const thumbnailUrl = getThumbnailUrl(screenshot)}
                     {@const fullUrl = screenshot.url}
-                    <div class="group relative h-32 w-full">
+                    <div class="relative h-32 w-full">
                         <a
                             href={fullUrl}
-                            class="block h-full overflow-hidden rounded-lg border border-gray-200 bg-gray-50 shadow-sm transition-all hover:shadow-md dark:border-gray-700 dark:bg-gray-900"
+                            class="block h-full overflow-hidden rounded-md border border-border bg-surface-alt transition-colors hover:border-border-strong"
                             onclick={(e) => {
                                 e.preventDefault();
                                 onOpenLightbox?.(index);
@@ -130,10 +130,9 @@
                                 <img
                                     src={thumbnailUrl}
                                     alt={gameScreenshotAltText(gameName, index, displayedScreenshots.length)}
-                                    class="h-full w-full object-cover {shouldBlur ? 'blur-sm transition-all duration-300 hover:blur-none' : ''}"
+                                    class="h-full w-full object-cover {shouldBlur ? 'blur-sm transition-[filter] duration-300 hover:blur-none' : ''}"
                                 />
                             </div>
-                            <div class="absolute inset-0 bg-black/20 opacity-0 transition-opacity group-hover:opacity-100"></div>
                         </a>
                         {#if canEdit}
                             <Button
@@ -141,7 +140,7 @@
                                 disabled={uploadingScreenshots || deletingScreenshotIndex !== null}
                                 tone="danger"
                                 size="icon-sm"
-                                class="absolute top-2 right-2 z-10 rounded-full shadow-lg"
+                                class="absolute top-2 right-2 z-10 rounded-full"
                                 aria-label="Delete screenshot"
                             >
                                 {#if deletingScreenshotIndex === index}
@@ -155,7 +154,7 @@
                 {/each}
             </div>
         {:else}
-            <div class="py-12 text-center text-gray-500 dark:text-gray-400">
+            <div class="py-12 text-center text-fg-muted">
                 <p>No screenshots yet. Click "Add Screenshots" to upload some.</p>
             </div>
         {/if}

@@ -281,39 +281,39 @@
     {#if clickStats}
         <div class="space-y-6">
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <Card variant="glass" padding="sm" class="shadow-none">
-                    <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Page Views</div>
-                    <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{clickStats.page_views_unique}</div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">{clickStats.page_views_total} total</div>
+                <Card variant="flat" padding="sm">
+                    <div class="text-sm font-medium text-fg-muted">Page Views</div>
+                    <div class="mt-1 text-2xl font-semibold text-fg">{clickStats.page_views_unique}</div>
+                    <div class="text-xs text-fg-faint">{clickStats.page_views_total} total</div>
                 </Card>
-                <Card variant="glass" padding="sm" class="shadow-none">
-                    <div class="text-sm font-medium text-gray-500 dark:text-gray-400">itch.io Visits</div>
-                    <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                <Card variant="flat" padding="sm">
+                    <div class="text-sm font-medium text-fg-muted">itch.io Visits</div>
+                    <div class="mt-1 text-2xl font-semibold text-fg">
                         {clickStats.external_project_unique}
                     </div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">{clickStats.external_project_total} total</div>
+                    <div class="text-xs text-fg-faint">{clickStats.external_project_total} total</div>
                 </Card>
-                <Card variant="glass" padding="sm" class="shadow-none">
-                    <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Downloads</div>
-                    <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{downloadsUnique}</div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">{downloadsTotal} total</div>
+                <Card variant="flat" padding="sm">
+                    <div class="text-sm font-medium text-fg-muted">Downloads</div>
+                    <div class="mt-1 text-2xl font-semibold text-fg">{downloadsUnique}</div>
+                    <div class="text-xs text-fg-faint">{downloadsTotal} total</div>
                 </Card>
             </div>
         </div>
     {/if}
 
-    <Card variant="glass" padding="none" class="shadow-none">
-        <div class="border-b border-gray-200 dark:border-gray-700">
+    <Card variant="flat" padding="none">
+        <div class="border-b border-border">
             <nav class="flex space-x-8 overflow-x-auto px-6" aria-label="Tabs">
                 {#each tabs as tab (tab.id)}
                     <Button
                         type="button"
                         variant="link"
-                        tone="primary"
+                        tone="neutral"
                         onclick={() => (activeTab = tab.id)}
                         class="border-b-2 px-1 py-4 text-sm font-medium whitespace-nowrap {activeTab === tab.id
-                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}"
+                            ? 'border-fg text-fg'
+                            : 'border-transparent text-fg-muted hover:border-border-strong hover:text-fg'}"
                     >
                         {tab.label}
                     </Button>
@@ -326,10 +326,10 @@
                 {#if ChartComponent}
                     <ChartComponent data={activeChartData} options={chartOptions} style="height: 320px;" />
                 {:else}
-                    <div class="flex h-80 items-center justify-center text-gray-500 dark:text-gray-400">Loading chart...</div>
+                    <div class="flex h-80 items-center justify-center text-fg-muted">Loading chart...</div>
                 {/if}
             {:else}
-                <div class="flex h-80 items-center justify-center text-gray-500 dark:text-gray-400">
+                <div class="flex h-80 items-center justify-center text-fg-muted">
                     No analytics data is available yet. Share your game to begin collecting activity.
                 </div>
             {/if}

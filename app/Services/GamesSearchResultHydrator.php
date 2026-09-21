@@ -11,6 +11,93 @@ use Illuminate\Support\Facades\DB;
 
 class GamesSearchResultHydrator
 {
+    private const LIST_HIDDEN = [
+        'description',
+        'full_description',
+        'custom_description',
+        'custom_css',
+        'custom_assets',
+        'screenshots',
+        'uploads',
+        'additional_links',
+        'steam_genres',
+        'steam_user_tags',
+        'discord_tags',
+        'discord_channel_id',
+        'discord_message_id',
+        'discord_likes',
+        'discord_dislikes',
+        'discord_updated_at',
+        'abbreviations',
+        'content_type',
+        'is_stats_extraction_disabled',
+        'trending_score_calculated_at',
+        'custom_page_updated_at',
+        'custom_page_updated_by',
+        'custom_name',
+        'url',
+        'min_price',
+        'currency',
+        'sale_discount_percent',
+    ];
+
+    /**
+     * Strip a hydrated game down to the fields the list/card views need. Call
+     * after hydration (and after any code that reads the latest version relation).
+     */
+    public static function stripForList(mixed $game): void
+    {
+        if (! method_exists($game, 'makeHidden')) {
+            return;
+        }
+
+        $game->makeHidden(self::LIST_HIDDEN);
+
+        // These relations only exist to derive attributes above; drop them so they
+        // are not serialized into the response.
+        if (method_exists($game, 'relationLoaded')) {
+            foreach (['latestVersion', 'sourceLanguage'] as $relation) {
+                if ($game->relationLoaded($relation)) {
+                    $game->unsetRelation($relation);
+                }
+            }
+        }
+    }
+
+    /**
+     * Derive the word-count fields the card/row meta lines render.
+     *
+     * Expects `latestVersion.languageStats` (and ideally `sourceLanguage`) to be
+     * eager-loaded; without a loaded latest version the counts are nulled out.
+     */
+    public static function hydrateWordCounts(mixed $game): void
+    {
+        if (! $game->latestVersion) {
+            $game->english_word_count = null;
+            $game->primary_word_count = null;
+            $game->primary_language_label = 'EN';
+
+            return;
+        }
+
+        $englishStats = $game->latestVersion->languageStats
+            ->where('iso_code', 'eng')
+            ->first();
+        $game->english_word_count = $englishStats?->words;
+
+        $sourceLanguageId = $game->source_language_id ?? 'eng';
+        if ($sourceLanguageId !== 'eng') {
+            $primaryStats = $game->latestVersion->languageStats
+                ->where('iso_code', $sourceLanguageId)
+                ->first();
+            $game->primary_word_count = $primaryStats?->words;
+        } else {
+            $game->primary_word_count = $game->english_word_count;
+        }
+
+        $game->primary_language_label = $game->getPrimaryLanguageLabel();
+    }
+
     public function hydrate(mixed $games): void
     {
         if ($games->count() <= 0) {
@@ -30,6 +117,7 @@ class GamesSearchResultHydrator
 
         foreach ($games as $game) {
             $this->hydrateGame($game);
+            self::stripForList($game);
         }
     }
 
@@ -78,6 +166,7 @@ class GamesSearchResultHydrator
             $game->is_web = $game->latestVersion->is_web ?? false;
             $game->latest_version_id = $game->latestVersion->id;
             $game->latest_version_published_at = $game->latestVersion->published_at;
+            $game->latest_version_number = $game->latestVersion->version;
         } else {
             $game->is_windows = false;
             $game->is_linux = false;
@@ -86,6 +175,7 @@ class GamesSearchResultHydrator
             $game->is_web = false;
             $game->latest_version_id = null;
             $game->latest_version_published_at = null;
+            $game->latest_version_number = null;
         }
 
         $game->supported_languages = $game->latestVersion && $game->latestVersion->supportedLanguages
@@ -100,29 +190,6 @@ class GamesSearchResultHydrator
                 ->values()
             : collect();
 
-        if (! $game->latestVersion) {
-            $game->english_word_count = null;
-            $game->primary_word_count = null;
-            $game->primary_language_label = 'EN';
-
-            return;
-        }
-
-        $englishStats = $game->latestVersion->languageStats
-            ->where('iso_code', 'eng')
-            ->first();
-        $game->english_word_count = $englishStats?->words;
-
-        $sourceLanguageId = $game->source_language_id ?? 'eng';
-        if ($sourceLanguageId !== 'eng') {
-            $primaryStats = $game->latestVersion->languageStats
-                ->where('iso_code', $sourceLanguageId)
-                ->first();
-            $game->primary_word_count = $primaryStats?->words;
-        } else {
-            $game->primary_word_count = $game->english_word_count;
-        }
-
-        $game->primary_language_label = $game->getPrimaryLanguageLabel();
+        self::hydrateWordCounts($game);
     }
 }

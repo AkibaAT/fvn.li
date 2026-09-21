@@ -5,7 +5,7 @@
     import type { RatingRowData } from '@/components/ratings/types';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
     import Pagination from '@/components/Pagination.svelte';
-    import { Link, router } from '@inertiajs/svelte';
+    import { router } from '@inertiajs/svelte';
     import { Button, Card } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
 
@@ -136,11 +136,7 @@
             </span>
         {/snippet}
         {#snippet actions()}
-            <Link
-                href={route('lists.user-public', reviewUser.id)}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-                >View Lists</Link
-            >
+            <Button href={route('lists.user-public', reviewUser.id)} variant="solid" tone="primary">View Lists</Button>
         {/snippet}
     </PageHeader>
 
@@ -150,9 +146,7 @@
             variant={filters.sortField === 'published_at' ? 'solid' : 'soft'}
             tone={filters.sortField === 'published_at' ? 'primary' : 'neutral'}
             onclick={() => toggleSort('published_at')}
-            class="rounded-md px-3 py-1.5 text-sm transition-colors {filters.sortField === 'published_at'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300'}"
+            class="px-3 py-1.5 text-sm"
         >
             Date{sortIcon('published_at')}
         </Button>
@@ -161,9 +155,7 @@
             variant={filters.sortField === 'rating' ? 'solid' : 'soft'}
             tone={filters.sortField === 'rating' ? 'primary' : 'neutral'}
             onclick={() => toggleSort('rating')}
-            class="rounded-md px-3 py-1.5 text-sm transition-colors {filters.sortField === 'rating'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300'}"
+            class="px-3 py-1.5 text-sm"
         >
             Rating{sortIcon('rating')}
         </Button>
@@ -172,10 +164,10 @@
     <ReviewTextControls />
 
     {#if rows.length === 0}
-        <div class="py-12 text-center text-gray-500 dark:text-gray-400">No reviews yet.</div>
+        <div class="py-12 text-center text-fg-muted">No reviews yet.</div>
     {:else}
-        <Card padding="none" class="shadow">
-            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+        <Card variant="flat" padding="none">
+            <div class="divide-y divide-border">
                 {#each rows as row (row.id)}<RatingRow {row} {reviewStyle} />{/each}
             </div>
             <div class="p-4">

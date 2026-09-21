@@ -1,6 +1,10 @@
 <script lang="ts">
     import GameCard from '@/components/GameCard.svelte';
+    import GameListRow from '@/components/games/GameListRow.svelte';
+    import ListGroup from '@/components/lists/ListGroup.svelte';
+    import type { GameCardProps } from '@/hooks/useGameCard.svelte';
     import type { CurrentFilters } from '@/types';
+    import type { ViewMode } from '@/utils/view-mode';
 
     interface Game {
         id: number;
@@ -46,6 +50,7 @@
         games: Game[];
         currentFilters: CurrentFilters;
         ignoredGameIds?: number[];
+        viewMode?: ViewMode;
         onPlatformClick: (platform: string) => void;
         onLanguageClick: (language: string) => void;
         onTagClick: (tag: string) => void;
@@ -62,6 +67,7 @@
         games,
         currentFilters,
         ignoredGameIds,
+        viewMode = 'grid',
         onPlatformClick,
         onLanguageClick,
         onTagClick,
@@ -72,38 +78,48 @@
         onDemoToggle,
         onSaleToggle,
     }: Props = $props();
+
+    function cardProps(game: Game): GameCardProps {
+        return {
+            game,
+            selectedTags: currentFilters.selectedTags || [],
+            selectedPlatforms: currentFilters.selectedPlatforms || [],
+            selectedLanguages: currentFilters.selectedLanguages || [],
+            selectedStatuses: currentFilters.selectedStatuses || [],
+            selectedStorePlatforms: currentFilters.selectedStorePlatforms || [],
+            nsfw: currentFilters.nsfw || false,
+            showPaid: currentFilters.showPaid || false,
+            showDemo: currentFilters.showDemo || false,
+            showSale: currentFilters.showSale || false,
+            ignoredGameIds,
+            onPlatformClick,
+            onLanguageClick,
+            onTagClick,
+            onStatusClick,
+            onStorePlatformClick,
+            onNsfwToggle,
+            onPaidToggle,
+            onDemoToggle,
+            onSaleToggle,
+        };
+    }
 </script>
 
 {#if games.length === 0}
     <div class="py-12 text-center">
-        <div class="text-lg text-gray-700 dark:text-gray-300">No games found</div>
-        <p class="mt-2 text-gray-600 dark:text-gray-400">Try adjusting your search criteria or check back later.</p>
+        <div class="text-[15px] text-fg-muted">No games found</div>
+        <p class="mt-2 text-[13px] text-fg-faint">Try adjusting your search criteria or check back later.</p>
     </div>
-{:else}
-    <div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+{:else if viewMode === 'list'}
+    <ListGroup class="px-3.5 max-sm:px-2.5">
         {#each games as game (game.id)}
-            <GameCard
-                {game}
-                selectedPlatforms={currentFilters.selectedPlatforms || []}
-                selectedLanguages={currentFilters.selectedLanguages || []}
-                selectedTags={currentFilters.selectedTags || []}
-                selectedStatuses={currentFilters.selectedStatuses || []}
-                selectedStorePlatforms={currentFilters.selectedStorePlatforms || []}
-                nsfw={currentFilters.nsfw || false}
-                showPaid={currentFilters.showPaid || false}
-                showDemo={currentFilters.showDemo || false}
-                showSale={currentFilters.showSale || false}
-                {ignoredGameIds}
-                {onPlatformClick}
-                {onLanguageClick}
-                {onTagClick}
-                {onStatusClick}
-                {onStorePlatformClick}
-                {onNsfwToggle}
-                {onPaidToggle}
-                {onDemoToggle}
-                {onSaleToggle}
-            />
+            <GameListRow {...cardProps(game)} />
+        {/each}
+    </ListGroup>
+{:else}
+    <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {#each games as game (game.id)}
+            <GameCard {...cardProps(game)} />
         {/each}
     </div>
 {/if}

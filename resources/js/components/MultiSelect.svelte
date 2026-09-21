@@ -133,7 +133,7 @@
                 toggleDropdown();
             }
         }}
-        class="flex w-full cursor-pointer items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+        class="flex w-full cursor-pointer items-center justify-between rounded-md border border-border bg-surface-alt px-3 py-2 text-left text-sm text-fg focus:border-border-strong focus:outline-none"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         aria-controls="{title}-options"
@@ -145,7 +145,7 @@
                         {@const item = items?.[value]}
                         {@const label = getDisplayLabel(value, item)}
                         <span
-                            class="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                            class="inline-flex items-center gap-1 rounded-md border border-border-strong bg-surface px-2 py-1 text-xs font-medium text-fg"
                             role="listitem"
                         >
                             {#if renderItem && item}
@@ -162,7 +162,7 @@
                                     e.stopPropagation();
                                     onToggle(value);
                                 }}
-                                class="ml-1 h-3 w-3 rounded-full hover:opacity-80 focus:ring-1 focus:ring-blue-500"
+                                class="ml-1 h-3 w-3 rounded-full hover:opacity-80"
                                 ariaLabel="Remove {label}"
                             >
                                 <span aria-hidden="true">&times;</span>
@@ -171,7 +171,7 @@
                     {/each}
                 </span>
             {:else}
-                <span class="text-gray-500 dark:text-gray-400">
+                <span class="text-fg-faint">
                     {placeholder || `Select ${title.toLowerCase()}...`}
                 </span>
             {/if}
@@ -183,9 +183,7 @@
         <div
             id="{title}-options"
             bind:this={dropdownEl}
-            class="absolute z-10 w-full rounded-lg border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-700 {opensUp
-                ? 'bottom-full mb-1'
-                : 'top-full mt-1'}"
+            class="absolute z-10 w-full rounded-lg border border-border bg-surface {opensUp ? 'bottom-full mb-1' : 'top-full mt-1'}"
             role="listbox"
             aria-label="{title} options"
             aria-multiselectable="true"
@@ -201,13 +199,13 @@
 
             <div class="max-h-48 overflow-y-auto" role="group">
                 {#if filteredItems.length === 0}
-                    <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400" role="status">
+                    <div class="px-3 py-2 text-sm text-fg-muted" role="status">
                         No {title.toLowerCase()} found
                     </div>
                 {:else}
                     {#each filteredItems as [value, item] (value)}
                         <div
-                            class="flex cursor-pointer items-center px-3 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none dark:hover:bg-gray-600 dark:focus:bg-gray-600"
+                            class="flex cursor-pointer items-center px-3 py-2 hover:bg-surface-alt focus:bg-surface-alt focus:outline-none"
                             role="option"
                             tabindex="0"
                             aria-selected={selectedItems.includes(value)}
@@ -223,10 +221,10 @@
                                 checked={selectedItems.includes(value)}
                                 onclick={(e) => e.stopPropagation()}
                                 onchange={() => onToggle(value)}
-                                class="mr-2 focus:ring-2"
+                                class="mr-2"
                                 aria-label="Select {getDisplayLabel(value, item)}"
                             />
-                            <span class="text-sm text-gray-700 dark:text-gray-300">
+                            <span class="text-sm text-fg">
                                 {#if renderItem && item}
                                     {@render renderItem(value, item)}
                                 {:else}

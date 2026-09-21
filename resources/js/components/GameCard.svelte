@@ -1,26 +1,16 @@
 <script lang="ts">
-    import { refreshPage } from '@/utils/refreshPage';
-    import NoSymbolIcon from '@/components/icons/NoSymbol.svelte';
-    import NoSymbolSolidIcon from '@/components/icons/NoSymbolSolid.svelte';
     import { untrack } from 'svelte';
     import GameCardUserSection from './GameCardUserSection.svelte';
     import GameImage from './game-card/GameImage.svelte';
-    import GameTitle from './game-card/GameTitle.svelte';
-    import GameMetadata from './game-card/GameMetadata.svelte';
-    import GamePlatformPill from './game-card/GamePlatformPill.svelte';
-    import { toggleIgnoredGame } from '@/api';
-    import GameLanguageSection from './game-card/GameLanguageSection.svelte';
-    import GameTagSection from './game-card/GameTagSection.svelte';
-    import GameStatusBadge from './game-card/GameStatusBadge.svelte';
-    import GameContentBadge from './game-card/GameContentBadge.svelte';
-    import StorePlatformBadge from './game-card/StorePlatformBadge.svelte';
-    import { Button, Card } from '@/components/ui';
+    import GameFlags from './games/GameFlags.svelte';
+    import GameIgnoreButton from './games/GameIgnoreButton.svelte';
+    import GlyphStrip from './games/GlyphStrip.svelte';
+    import { page } from '@inertiajs/svelte';
+    import { Card, Rating } from '@/components/ui';
     import { useGameCard, type GameCardProps } from '@/hooks/useGameCard.svelte';
     import { usePlatformIcons } from '@/hooks/usePlatformIcons';
     import { useStorePlatformIcons } from '@/hooks/useStorePlatformIcons';
-    import type { Game } from '@/types';
-    import { page } from '@inertiajs/svelte';
-    import { toast } from '@/utils/toast';
+    import { formatReleaseDates, formatWordCount } from '@/utils/game-card-display';
 
     let props: GameCardProps = $props();
 
@@ -39,144 +29,112 @@
         orderedTags,
     } = untrack(() => useGameCard(props));
 
-    const {
-        game,
-        selectedTags,
-        selectedPlatforms,
-        selectedLanguages,
-        selectedStatuses,
-        nsfw,
-        showPaid,
-        showDemo,
-        showSale,
-        ignoredGameIds,
-        fixedHeight = false,
-    } = $derived(props);
-    const { getSupportedPlatforms, getPlatformIcon } = usePlatformIcons();
-    const { getStorePlatformIcon, getStorePlatformFromString } = useStorePlatformIcons();
-    const auth = $derived((page as any).props?.auth);
+    const { game, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, nsfw, showPaid, showDemo, showSale, ignoredGameIds } =
+        $derived(props);
 
+    const { getSupportedPlatforms } = usePlatformIcons();
+    const { getStorePlatformFromString } = useStorePlatformIcons();
+
+    const auth = $derived((page as any).props?.auth);
     const isIgnored = $derived(ignoredGameIds?.includes(game.id) || false);
-    let tagsExpanded = $state(false);
-    let languagesExpanded = $state(false);
-    let isTogglingIgnore = $state(false);
 
     const supportedPlatforms = $derived(getSupportedPlatforms(game));
     const storePlatform = $derived(game.platform ? getStorePlatformFromString(game.platform) : 'itch_io');
 
-    const handleIgnoreToggle = async (e: MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+    const TAG_LIMIT = 5;
+    const visibleTags = $derived(orderedTags.slice(0, TAG_LIMIT));
+    const hiddenTagCount = $derived(Math.max(0, orderedTags.length - TAG_LIMIT));
 
-        if (!auth?.user || isTogglingIgnore) return;
-
-        isTogglingIgnore = true;
-        try {
-            await toggleIgnoredGame(game.id);
-            if (!(await refreshPage())) return;
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Failed to update ignore list');
-        } finally {
-            isTogglingIgnore = false;
-        }
-    };
-
-    const showFooterBadges = $derived(
-        game.is_nsfw || Boolean((game as Game).is_on_sale) || game.is_paid || game.has_demo || Boolean(game.status),
-    );
+    const wordCountLabel = $derived(formatWordCount(game) ?? 'Word count pending');
+    const datesLabel = $derived(formatReleaseDates(game));
 </script>
 
-<Card
-    variant="glass"
-    padding="none"
-    hover
-    class="group relative flex {fixedHeight && !tagsExpanded && !languagesExpanded
-        ? 'h-[43rem]'
-        : 'h-full'} flex-col overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
->
+<Card variant="flat" padding="none" hover class="group relative flex h-full flex-col gap-2 p-2">
     {#if auth?.user}
-        <Button
-            onclick={handleIgnoreToggle}
-            disabled={isTogglingIgnore}
-            variant="ghost"
-            tone={isIgnored ? 'danger' : 'neutral'}
-            size="icon-md"
-            class="absolute top-2 right-2 z-10 rounded-full bg-white/90 p-2 shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800"
-            title={isIgnored ? 'Remove from ignore list' : 'Add to ignore list'}
-            aria-label={isIgnored ? 'Remove from ignore list' : 'Add to ignore list'}
-        >
-            {#if isIgnored}
-                <NoSymbolSolidIcon class="h-5 w-5 text-red-600 dark:text-red-400" />
-            {:else}
-                <NoSymbolIcon class="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            {/if}
-        </Button>
+        <GameIgnoreButton gameId={game.id} {isIgnored} class="absolute top-3 right-3 z-10" />
     {/if}
 
-    <GameImage {game} {thumbnailUrl} aspectClass="aspect-[315/250]" />
+    <GameImage {game} {thumbnailUrl} />
 
-    <div class="flex flex-1 flex-col p-4">
-        <div class="grid flex-1 auto-rows-min gap-y-3">
-            <GameTitle {game} {authorsInlineHtml} />
-
-            <GameMetadata {game} />
-
-            {#if storePlatform}
-                <div class="flex items-center gap-2">
-                    <StorePlatformBadge
-                        platform={storePlatform}
-                        iconMeta={getStorePlatformIcon(storePlatform)}
-                        isActive={props.selectedStorePlatforms?.includes(storePlatform)}
-                        onclick={handleStorePlatform}
-                    />
-                </div>
-            {/if}
-
-            <div class="h-8 border-t border-gray-100 pt-2 dark:border-gray-700/50">
-                <div class="flex h-6 flex-nowrap items-center gap-1 overflow-hidden">
-                    {#each supportedPlatforms as platform (platform)}
-                        {@const isActive = selectedPlatforms?.includes(platform)}
-                        <GamePlatformPill {platform} {isActive} iconMeta={getPlatformIcon(platform)} onclick={handlePlatform} />
-                    {/each}
-                </div>
-            </div>
-
-            <GameLanguageSection
-                languages={game.supported_languages}
-                {selectedLanguages}
-                {languagesExpanded}
-                setLanguagesExpanded={(value) => (languagesExpanded = value)}
-                {handleLanguage}
+    <div class="flex flex-1 flex-col gap-[3px] px-1 pt-0.5 pb-1">
+        <h2 class="line-clamp-2 text-[15px] leading-[1.3] font-semibold tracking-[-0.01em] break-words text-fg">
+            <a href={route('games.show', game.slug)} class="hover:underline" aria-label="View details for {game.effective_name}">
+                {game.effective_name}
+            </a>
+            <GameFlags
+                {game}
+                {selectedStatuses}
+                {nsfw}
+                {showPaid}
+                {showDemo}
+                {showSale}
+                onStatusClick={handleStatus}
+                onNsfwToggle={handleNsfwToggle}
+                onPaidToggle={handlePaidToggle}
+                onDemoToggle={handleDemoToggle}
+                onSaleToggle={handleSaleToggle}
+                class="ml-[5px] align-middle"
             />
+        </h2>
 
-            <GameTagSection {orderedTags} {selectedTags} {tagsExpanded} setTagsExpanded={(value) => (tagsExpanded = value)} {handleTag} />
+        {#if game.authors}
+            <div class="truncate text-[12.5px] leading-snug text-fg-muted [&_a:hover]:underline">
+                <span class="sr-only">Authors: </span>
+                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                {@html authorsInlineHtml}
+            </div>
+        {/if}
 
-            {#if showFooterBadges}
-                <div class="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-700/50">
-                    <GameStatusBadge {game} isActive={selectedStatuses?.includes(String(game.status))} onclick={handleStatus} />
-                    <GameContentBadge
-                        {game}
-                        {nsfw}
-                        {showPaid}
-                        {showDemo}
-                        {showSale}
-                        onNsfwToggle={handleNsfwToggle}
-                        onPaidToggle={handlePaidToggle}
-                        onDemoToggle={handleDemoToggle}
-                        onSaleToggle={handleSaleToggle}
-                    />
-                </div>
-            {/if}
-
-            {#if !fixedHeight}
-                <GameCardUserSection
-                    gameId={game.id}
-                    gameName={game.name}
-                    isPaid={game.is_paid}
-                    userProgress={game.user_progress?.[0] ?? null}
-                    listMemberships={game.user_list_memberships ?? []}
-                />
-            {/if}
+        <div class="mt-[5px] flex items-center justify-between gap-2">
+            <span class="truncate text-[12.5px] leading-none text-fg-muted">{wordCountLabel}</span>
+            <Rating score={game.rating_score} count={game.rating_count} />
         </div>
+
+        {#if datesLabel}
+            <div class="text-[12px] leading-snug text-fg-faint">{datesLabel}</div>
+        {/if}
+
+        <GlyphStrip
+            {storePlatform}
+            isStoreActive={props.selectedStorePlatforms?.includes(storePlatform)}
+            onStoreClick={handleStorePlatform}
+            platforms={supportedPlatforms}
+            {selectedPlatforms}
+            onPlatformClick={handlePlatform}
+            languages={game.supported_languages ?? []}
+            {selectedLanguages}
+            onLanguageClick={handleLanguage}
+            variant="card"
+            class="mt-[5px]"
+        />
+
+        {#if orderedTags.length > 0}
+            <div class="mt-1 text-[12px] leading-snug text-fg-muted" data-tag-list>
+                {#each visibleTags as tag, index (tag.id)}
+                    {@const isTagActive = selectedTags?.includes(String(tag.id)) ?? false}
+                    {#if index > 0}<span class="text-fg-faint">, </span>{/if}
+                    <button
+                        type="button"
+                        data-tag-id={tag.id}
+                        onclick={() => handleTag(tag.id)}
+                        class="cursor-pointer hover:underline {isTagActive ? 'font-semibold text-fg' : 'text-fg-muted'}"
+                        title={isTagActive ? 'Click to remove this filter' : 'Click to filter by this tag'}
+                    >
+                        {tag.name}
+                    </button>
+                {/each}
+                {#if hiddenTagCount > 0}
+                    <span class="text-fg-faint"> +{hiddenTagCount}</span>
+                {/if}
+            </div>
+        {/if}
+
+        <GameCardUserSection
+            gameId={game.id}
+            gameName={game.name}
+            isPaid={game.is_paid}
+            userProgress={game.user_progress?.[0] ?? null}
+            listMemberships={game.user_list_memberships ?? []}
+        />
     </div>
 </Card>

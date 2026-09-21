@@ -4,19 +4,33 @@ import { describe, expect, test } from 'vitest';
 import Button from './Button.svelte';
 
 describe('Button', () => {
-    test('uses the requested tone, variant, and size classes', () => {
+    test('uses the accent as the primary action color', () => {
         render(Button, {
             props: {
-                tone: 'warning',
-                variant: 'outline',
+                tone: 'primary',
+                variant: 'solid',
                 size: 'xs',
             },
         });
 
         const button = screen.getByRole('button');
 
-        expect([...button.classList]).toEqual(expect.arrayContaining(['border-amber-200', 'text-amber-800', 'min-h-7', 'text-xs']));
-        expect(button.classList.contains('bg-amber-600')).toBe(false);
+        expect([...button.classList]).toEqual(expect.arrayContaining(['bg-accent', 'text-on-accent', 'min-h-7', 'text-xs']));
+        expect(button.classList.contains('bg-blue-600')).toBe(false);
+    });
+
+    test('keeps non-destructive tones on the neutral scale', () => {
+        render(Button, {
+            props: {
+                tone: 'warning',
+                variant: 'outline',
+            },
+        });
+
+        const button = screen.getByRole('button');
+
+        expect(button.classList.contains('border-border-strong')).toBe(true);
+        expect([...button.classList].some((className) => className.includes('amber'))).toBe(false);
     });
 
     test('renders inertia=false hrefs as plain anchors for redirect endpoints', () => {

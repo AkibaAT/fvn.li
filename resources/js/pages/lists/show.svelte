@@ -19,7 +19,8 @@
     import { listTypeBorderClass, listTypeIcon, listTypeLabel, listTypeTone } from '@/components/ui/tones';
     import SortableList from '@/components/drag-drop/SortableList.svelte';
     import ListEntryCard from '@/components/lists/ListEntryCard.svelte';
-    import { Badge, Button, Card, Switch } from '@/components/ui';
+    import ListGroup from '@/components/lists/ListGroup.svelte';
+    import { Badge, Button, Card, Switch, Textarea, TextInput } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
 
     interface GameVersion {
@@ -341,7 +342,7 @@
                     {#snippet metadata()}
                         {#if !isOwner && vnList?.user?.name}
                             <span>
-                                By <Link href={route('lists.user-public', vnList.user.id)} class="text-blue-600 hover:underline dark:text-blue-400"
+                                By <Link href={route('lists.user-public', vnList.user.id)} class="text-fg-muted hover:text-fg hover:underline"
                                     >{vnList.user.name}</Link
                                 >
                             </span>
@@ -359,15 +360,11 @@
                     </Badge>
                 {/if}
                 {#if isPublic}
-                    <Badge tone="primary" size="sm">Public</Badge>
+                    <Badge tone="neutral" size="sm">Public</Badge>
                 {/if}
                 {#if isOwner}
                     <div class="flex gap-2">
-                        <Link
-                            href={route('lists.index')}
-                            class="inline-flex items-center rounded-md border border-transparent bg-gray-200 px-3 py-1 text-xs font-semibold tracking-widest text-gray-800 uppercase hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
-                            >Back to Lists</Link
-                        >
+                        <Button href={route('lists.index')} variant="outline" tone="neutral" size="xs">Back to Lists</Button>
                         <Button
                             type="button"
                             variant="solid"
@@ -409,41 +406,24 @@
                         {/if}
                     </div>
                 {:else}
-                    <Link
-                        href={route('lists.public')}
-                        class="inline-flex items-center rounded-md border border-transparent bg-gray-200 px-3 py-1 text-xs font-semibold tracking-widest text-gray-800 uppercase hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
-                        >Back to Public Lists</Link
-                    >
+                    <Button href={route('lists.public')} variant="outline" tone="neutral" size="xs">Back to Public Lists</Button>
                 {/if}
             </div>
         </div>
     </Card>
 
     {#if isEditingList && isOwner}
-        <Card padding="sm" class="mb-4 border-l-4 border-yellow-500 dark:border-yellow-500">
-            <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Edit List</h3>
+        <Card padding="sm" class="mb-4 border-l-4 border-l-amber-500">
+            <h3 class="mb-4 text-lg font-semibold text-fg">Edit List</h3>
             <div class="space-y-4">
-                <div>
-                    <label for="list-name" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">List Name</label>
-                    <input
-                        id="list-name"
-                        type="text"
-                        bind:value={listFormData.name}
-                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                        placeholder="Enter list name"
-                    />
-                </div>
-                <div>
-                    <label for="list-description" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >Description (Optional)</label
-                    >
-                    <textarea
-                        id="list-description"
-                        bind:value={listFormData.description}
-                        rows={3}
-                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                        placeholder="Enter list description"></textarea>
-                </div>
+                <TextInput id="list-name" type="text" bind:value={listFormData.name} label="List Name" placeholder="Enter list name" />
+                <Textarea
+                    id="list-description"
+                    bind:value={listFormData.description}
+                    rows={3}
+                    label="Description (Optional)"
+                    placeholder="Enter list description"
+                />
                 <div class="flex justify-end space-x-2">
                     <Button type="button" variant="outline" tone="neutral" onclick={handleCancelListEdit}>Cancel</Button>
                     <Button
@@ -463,10 +443,10 @@
 
     <Card padding="sm" class="mb-4 md:pr-6 md:pl-7">
         <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">List Entries ({entries.length})</h2>
+            <h2 class="text-lg font-semibold text-fg">List Entries ({entries.length})</h2>
             {#if isOwner && freeGames.length > 0}
                 <div class="flex items-center gap-3">
-                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Notifications for all free entries:</span>
+                    <span class="text-sm font-medium text-fg-muted">Notifications for all free entries:</span>
                     <Switch
                         checked={allFreeGamesReceiveUpdates}
                         onchange={handleToggleAllNotifications}
@@ -480,45 +460,52 @@
     </Card>
 
     {#if entries.length === 0}
-        <div class="rounded-lg bg-gray-50 p-8 text-center dark:bg-gray-700">
-            <p class="text-gray-500 dark:text-gray-400">No visual novels in this list yet.</p>
+        <div class="rounded-lg bg-surface-alt p-8 text-center">
+            <p class="text-fg-muted">No visual novels in this list yet.</p>
             {#if isOwner}
-                <p class="mt-2 text-gray-500 dark:text-gray-400">Browse games and add them to your list!</p>
+                <p class="mt-2 text-fg-muted">Browse games and add them to your list!</p>
             {/if}
         </div>
     {:else}
-        <div class="hidden rounded-t-lg bg-gray-100 p-3 pr-5 text-sm font-medium text-gray-500 uppercase lg:flex dark:bg-gray-700 dark:text-gray-300">
-            {#if isOwner}<div class="w-8"></div>{/if}
-            <div class="mr-2 w-20"></div>
-            <div class="flex-grow">Title</div>
-            <div class="w-52">Version</div>
-            <div class="w-30">Started</div>
-            {#if vnList.type === 'custom' || vnList.type === 'completed'}
-                <div class="w-28">Completed</div>
-            {/if}
-            {#if isOwner}
-                <div class="w-20">Actions</div>
-                <div class="w-30 pr-1.5 text-right">Notifications</div>
-            {/if}
+        <div
+            class="hidden items-center gap-3.5 rounded-t-lg border border-transparent bg-surface-alt px-3.5 py-2.5 text-sm font-medium text-fg-muted uppercase lg:flex"
+        >
+            <div class="w-8 shrink-0"></div>
+            <div class="w-[72px] shrink-0"></div>
+            <div class="min-w-0 flex-1">Title</div>
+            <div class="flex shrink-0 items-center gap-3">
+                <div class="w-52">Version</div>
+                <div class="w-30">Started</div>
+                {#if vnList.type === 'custom' || vnList.type === 'completed'}
+                    <div class="w-28">Completed</div>
+                {/if}
+                {#if isOwner}
+                    <div class="w-20">Actions</div>
+                    <div class="w-30 pr-1 text-right">Notifications</div>
+                {/if}
+            </div>
         </div>
 
-        {#if isOwner}
-            <SortableList
-                items={entries}
-                onReorder={(newItems) => handleReorder(newItems)}
-                class="space-y-3 text-gray-700 md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:space-y-3 dark:text-gray-300"
-            >
-                {#snippet children(entry, _index, _canDrag, handleAttachment)}
-                    {@render gameEntry(entry, handleAttachment)}
-                {/snippet}
-            </SortableList>
-        {:else}
-            <div class="space-y-3 text-gray-700 md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:space-y-3 dark:text-gray-300">
-                {#each entries as entry (entry.id)}
-                    {@render gameEntry(entry)}
-                {/each}
-            </div>
-        {/if}
+        <!-- One shared surface from `lg` up; below that every entry keeps its own card. -->
+        <ListGroup class="rounded-none border-0 bg-transparent px-0 lg:rounded-lg lg:border lg:border-border lg:bg-surface lg:px-3.5 lg:py-1">
+            {#if isOwner}
+                <SortableList
+                    items={entries}
+                    onReorder={(newItems) => handleReorder(newItems)}
+                    class="space-y-3 text-fg-muted md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:space-y-0 lg:divide-y lg:divide-border"
+                >
+                    {#snippet children(entry, _index, _canDrag, handleAttachment)}
+                        {@render gameEntry(entry, handleAttachment)}
+                    {/snippet}
+                </SortableList>
+            {:else}
+                <div class="space-y-3 text-fg-muted md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:space-y-0 lg:divide-y lg:divide-border">
+                    {#each entries as entry (entry.id)}
+                        {@render gameEntry(entry)}
+                    {/each}
+                </div>
+            {/if}
+        </ListGroup>
     {/if}
 </div>
 

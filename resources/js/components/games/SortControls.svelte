@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Button, Select } from '@/components/ui';
+    import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
 
     interface Props {
         currentSort: string;
@@ -13,39 +13,34 @@
     let { currentSort, currentDirection, sortOptions, onSortChange, onDirectionChange, hasSearch }: Props = $props();
 
     const defaultSort = $derived(hasSearch ? 'relevance' : 'first_visible_at');
+    const isDescending = $derived(currentDirection === 'desc');
 </script>
 
-<div class="flex items-center gap-3">
-    <label for="sort-select" class="text-sm text-gray-700 dark:text-gray-300">Sort by</label>
-    <Select id="sort-select" value={currentSort || defaultSort} onchange={(e) => onSortChange((e.target as HTMLSelectElement).value)} class="py-1">
-        {#each Object.entries(sortOptions) as [value, label] (value)}
-            <option {value}>{label}</option>
-        {/each}
-    </Select>
-    <div class="inline-flex rounded-md shadow-sm" role="group" aria-label="Sort direction">
-        <Button
-            type="button"
-            variant="outline"
-            tone="neutral"
-            size="xs"
-            onclick={() => onDirectionChange('desc')}
-            class="rounded-r-none dark:border-gray-600 {currentDirection === 'desc'
-                ? 'bg-gray-100 text-gray-900 dark:bg-gray-600 dark:text-white'
-                : 'bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-200'}"
+<div class="flex items-center gap-2">
+    <span class="text-[13px] text-fg-faint">Sort</span>
+
+    <span class="relative flex items-center">
+        <select
+            id="sort-select"
+            aria-label="Sort by"
+            value={currentSort || defaultSort}
+            onchange={(e) => onSortChange((e.target as HTMLSelectElement).value)}
+            class="h-7 cursor-pointer appearance-none rounded-md bg-transparent pr-5 pl-1 text-[13px] font-medium text-fg hover:text-fg focus:outline-none"
         >
-            Desc
-        </Button>
-        <Button
-            type="button"
-            variant="outline"
-            tone="neutral"
-            size="xs"
-            onclick={() => onDirectionChange('asc')}
-            class="-ml-px rounded-l-none dark:border-gray-600 {currentDirection === 'asc'
-                ? 'bg-gray-100 text-gray-900 dark:bg-gray-600 dark:text-white'
-                : 'bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-200'}"
-        >
-            Asc
-        </Button>
-    </div>
+            {#each Object.entries(sortOptions) as [value, label] (value)}
+                <option {value}>{label}</option>
+            {/each}
+        </select>
+        <ChevronDownIcon class="pointer-events-none absolute right-1 h-3.5 w-3.5 text-fg-muted" />
+    </span>
+
+    <button
+        type="button"
+        onclick={() => onDirectionChange(isDescending ? 'asc' : 'desc')}
+        class="inline-flex h-7 w-7 items-center justify-center rounded-md text-[13px] text-fg-muted transition-colors hover:text-fg"
+        title={isDescending ? 'Sort descending' : 'Sort ascending'}
+        aria-label={isDescending ? 'Sort descending' : 'Sort ascending'}
+    >
+        {isDescending ? '↓' : '↑'}
+    </button>
 </div>

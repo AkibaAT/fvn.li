@@ -44,13 +44,25 @@
     --color-chart-grid-split-line: rgba(148, 163, 184, 0.15);
     --color-chart-axis-line-light: rgba(71, 85, 105, 0.6);
     --color-chart-axis-line-dark: rgba(203, 213, 225, 0.6);
+
+    --page: #edf0f4;
+    --surface: #ffffff;
+    --surface-alt: #e3e8ee;
+    --border: #d5dbe3;
+    --border-strong: #aeb8c6;
+    --text: #161c26;
+    --text-muted: #5a6578;
+    --text-faint: #626d80;
+
+    --accent: #b07a14;
+    --on-accent: var(--text);
 }
 
 /* Light mode UI colors */
 :root {
-    --color-ui-background: #ffffff;
-    --color-ui-text: #111827;
-    --color-ui-border: #e5e7eb;
+    --color-ui-background: var(--surface);
+    --color-ui-text: var(--text);
+    --color-ui-border: var(--border);
 
     /* Tooltip colors */
     --color-tooltip-background: rgba(255, 255, 255, 0.95);
@@ -75,9 +87,21 @@
 
 /* Dark mode UI colors */
 .dark {
-    --color-ui-background: #1f2937;
-    --color-ui-text: #f9fafb;
-    --color-ui-border: #4b5563;
+    --page: #171b24;
+    --surface: #222836;
+    --surface-alt: #2c3342;
+    --border: #3a4356;
+    --border-strong: #56617a;
+    --text: #eef1f6;
+    --text-muted: #a6b0c2;
+    --text-faint: #8b96ad;
+
+    --accent: #f2bb4a;
+    --on-accent: var(--page);
+
+    --color-ui-background: var(--surface);
+    --color-ui-text: var(--text);
+    --color-ui-border: var(--border);
 
     /* Tooltip colors */
     --color-tooltip-background: rgba(17, 24, 39, 0.95);

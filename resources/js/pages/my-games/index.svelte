@@ -71,7 +71,7 @@
             {@const totalViews = gameStats?.page_views_unique || 0}
             {@const totalDownloads = gameStats?.custom_link_clicks_unique || 0}
             {@const itchioVisits = gameStats?.external_project_unique || 0}
-            <Card variant="glass" padding="none" class="overflow-hidden">
+            <Card variant="flat" padding="none" class="overflow-hidden">
                 <Link href={route('games.show', g.slug)} class="block">
                     {#if g.thumb_url}
                         <img
@@ -82,9 +82,7 @@
                                 : 'object-cover'} transition-opacity hover:opacity-90"
                         />
                     {:else}
-                        <div
-                            class="flex h-36 w-full items-center justify-center bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                        >
+                        <div class="flex h-36 w-full items-center justify-center bg-surface-alt text-fg-muted transition-colors">
                             <div class="text-center">
                                 <GamepadIcon class="mx-auto mb-2 h-8 w-8 opacity-50" />
                                 <div class="text-sm font-medium">No Image</div>
@@ -93,7 +91,7 @@
                     {/if}
                 </Link>
                 <div class="space-y-2 p-4">
-                    <div class="font-semibold text-gray-900 dark:text-white">{g.name}</div>
+                    <div class="font-semibold text-fg">{g.name}</div>
                     {#if g.has_additional_links}
                         <Badge tone="success" size="sm">Has download links</Badge>
                     {:else}
@@ -101,9 +99,9 @@
                     {/if}
 
                     {#if gameStats && (totalViews > 0 || totalDownloads > 0 || itchioVisits > 0)}
-                        <div class="space-y-1 rounded-lg bg-gray-50 p-2 dark:bg-gray-700/50">
-                            <div class="text-xs font-medium text-gray-700 dark:text-gray-300">Last 30 days:</div>
-                            <div class="flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-400">
+                        <div class="space-y-1 rounded-lg bg-surface-alt p-2">
+                            <div class="text-xs font-medium text-fg-muted">Last 30 days:</div>
+                            <div class="flex flex-wrap gap-3 text-xs text-fg">
                                 {#if totalViews > 0}
                                     <div class="flex items-center gap-1">
                                         <EyeIcon class="h-3 w-3" />
@@ -138,6 +136,6 @@
     </div>
 
     {#if hasItchio && games.length === 0}
-        <div class="text-center text-gray-600 dark:text-gray-400">No owned games were detected for your itch.io account.</div>
+        <div class="text-center text-fg-muted">No owned games were detected for your itch.io account.</div>
     {/if}
 </div>

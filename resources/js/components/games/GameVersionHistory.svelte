@@ -9,7 +9,7 @@
     import CharacterStatsModal from '@/components/CharacterStatsModal.svelte';
     import FileStatsModal from '@/components/FileStatsModal.svelte';
     import LoadingSpinner from '@/components/LoadingSpinner.svelte';
-    import { Button, Card } from '@/components/ui';
+    import { Button, Card, Select } from '@/components/ui';
     import { formatLocalDate } from '@/utils/date-formatting';
     import { getLanguageFlag, getVersionWordCount } from '@/utils/game-show';
     import type { GameVersion, PaginationMeta, SupportedLanguage } from '@/types/game-show';
@@ -86,40 +86,46 @@
 </script>
 
 {#if currentVersions.length > 0}
-    <Card id="versions" padding="lg" class="mb-6 scroll-mt-28">
-        <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Version History</h2>
+    <Card id="versions" variant="flat" padding="lg" class="mb-6 scroll-mt-28">
+        <h2 class="mb-4 text-xl font-semibold text-fg">Version History</h2>
 
         {#if latestVersion && (canBrowseLatestDialogue || latestVersionHasRouteMap)}
             <div class="mb-4 flex gap-3">
                 {#if canBrowseLatestDialogue}
-                    <a
+                    <Button
                         href={route('dialogue.browser', { game: gameSlug, versionId: latestVersion.id })}
-                        class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-xs font-semibold tracking-widest text-white uppercase transition hover:bg-blue-500 focus:border-blue-700 focus:ring focus:ring-blue-300 focus:outline-none active:bg-blue-700 disabled:opacity-25"
+                        inertia={false}
+                        variant="solid"
+                        tone="primary"
+                        class="text-xs font-semibold tracking-widest uppercase"
                     >
                         Browse Dialogue
-                    </a>
+                    </Button>
                 {/if}
                 {#if latestVersionHasRouteMap}
-                    <a
+                    <Button
                         href={route('games.route-map', { game: gameSlug })}
-                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold tracking-widest text-gray-700 uppercase transition hover:bg-gray-50 focus:border-gray-500 focus:ring focus:ring-gray-300 focus:outline-none active:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                        inertia={false}
+                        variant="outline"
+                        tone="neutral"
+                        class="text-xs font-semibold tracking-widest uppercase"
                     >
                         Route Map
-                    </a>
+                    </Button>
                 {/if}
             </div>
         {/if}
 
-        <Card variant="outline" padding="sm" class="my-3">
-            <h3 class="mb-3 text-base font-medium text-gray-900 dark:text-gray-100">Compare Versions</h3>
+        <Card variant="flat" padding="sm" class="my-3">
+            <h3 class="mb-3 text-base font-medium text-fg">Compare Versions</h3>
             <div class="flex flex-col items-end gap-4 sm:flex-row">
                 <div>
-                    <label for="compareFromVersionId" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-400">From Version</label>
-                    <select
+                    <Select
                         id="compareFromVersionId"
+                        label="From Version"
                         value={compareFromVersionId ?? ''}
                         onchange={(event) => onCompareFromChange(parseVersionId((event.currentTarget as HTMLSelectElement).value))}
-                        class="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 sm:w-auto dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                        class="w-full sm:w-auto"
                     >
                         <option value="">Select version...</option>
                         {#each currentVersions as version (version.id)}
@@ -127,15 +133,15 @@
                                 <option value={version.id}>{versionOptionLabel(version)}</option>
                             {/if}
                         {/each}
-                    </select>
+                    </Select>
                 </div>
                 <div>
-                    <label for="compareToVersionId" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-400">To Version</label>
-                    <select
+                    <Select
                         id="compareToVersionId"
+                        label="To Version"
                         value={compareToVersionId ?? ''}
                         onchange={(event) => onCompareToChange(parseVersionId((event.currentTarget as HTMLSelectElement).value))}
-                        class="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 sm:w-auto dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                        class="w-full sm:w-auto"
                     >
                         <option value="">Select version...</option>
                         {#each currentVersions as version (version.id)}
@@ -143,7 +149,7 @@
                                 <option value={version.id}>{versionOptionLabel(version)}</option>
                             {/if}
                         {/each}
-                    </select>
+                    </Select>
                 </div>
                 <div>
                     <Button
@@ -161,14 +167,14 @@
 
         <div class="space-y-4">
             {#each currentVersions as version (version.id)}
-                <Card variant="outline" padding="sm">
+                <Card variant="flat" padding="sm">
                     <div class="flex flex-col gap-4 sm:flex-row">
                         <div class="flex flex-1 flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                             <div class="flex w-full items-center">
-                                <div class="font-medium text-gray-900 dark:text-gray-100">{formatLocalDate(version.published_at)}</div>
+                                <div class="font-medium text-fg">{formatLocalDate(version.published_at)}</div>
                             </div>
                             <div class="flex w-full items-center">
-                                <div class="font-medium text-gray-900 dark:text-gray-100">Version {version.version}</div>
+                                <div class="font-medium text-fg">Version {version.version}</div>
                             </div>
                             <div class="flex w-full items-center">
                                 <div class="flex flex-wrap gap-1">
@@ -206,8 +212,8 @@
                                 </div>
                             </div>
                             <div class="flex w-full items-center text-sm whitespace-nowrap sm:w-auto">
-                                <span class="text-gray-700 dark:text-gray-300">Words:</span>
-                                <span class="ml-1 text-gray-900 dark:text-gray-100">{getVersionWordCount(version)}</span>
+                                <span class="text-fg-muted">Words:</span>
+                                <span class="ml-1 text-fg">{getVersionWordCount(version)}</span>
                             </div>
                         </div>
                     </div>
@@ -220,7 +226,7 @@
                                 onclick={() => onLoadCharacterStats(version.id)}
                                 disabled={characterStatsLoading === version.id || fileStatsLoading === version.id}
                                 loading={characterStatsLoading === version.id}
-                                class="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400"
+                                class="inline-flex items-center gap-2 text-sm"
                             >
                                 {#if characterStatsLoading === version.id}
                                     <LoadingSpinner size="sm" />
@@ -233,7 +239,7 @@
                         {#if versionHasRouteData[version.id] === true || version.has_route_data === true}
                             <a
                                 href={route('games.route-map', { game: gameSlug }) + '?version_id=' + version.id}
-                                class="inline-flex items-center text-sm text-blue-600 hover:underline dark:text-blue-400"
+                                class="inline-flex items-center text-sm text-fg-muted underline-offset-2 hover:text-fg hover:underline"
                             >
                                 Route Map
                             </a>
@@ -246,7 +252,7 @@
                                 onclick={() => onLoadFileStats(version.id)}
                                 disabled={characterStatsLoading === version.id || fileStatsLoading === version.id}
                                 loading={fileStatsLoading === version.id}
-                                class="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400"
+                                class="inline-flex items-center gap-2 text-sm"
                             >
                                 {#if fileStatsLoading === version.id}
                                     <LoadingSpinner size="sm" />
@@ -259,7 +265,7 @@
                         {#if canDownloadOptimizedArchives && versionOptimizedArchiveAvailability[version.id] === true}
                             <a
                                 href={route('my-games.optimized-download', { game: gameSlug, version: version.id })}
-                                class="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline dark:text-blue-400"
+                                class="inline-flex items-center gap-2 text-sm text-fg-muted underline-offset-2 hover:text-fg hover:underline"
                             >
                                 <ArrowDownTrayIcon class="h-4 w-4" />
                                 Download archive

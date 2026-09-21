@@ -6,9 +6,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Game;
 use App\Models\Tag;
+use App\Services\GamesSearchResultHydrator;
 use App\Services\HomePageCacheService;
 use App\Services\MeilisearchService;
 use App\Support\Seo\MetaTags;
+use App\Support\ViewPreference;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +19,12 @@ use Inertia\Response;
 
 class HomeController extends Controller
 {
+    /**
+     * Teasers per section. The grid shows the first five, the list needs six rows
+     * (two balanced columns of three), so both layouts are served from one payload.
+     */
+    private const TEASER_LIMIT = 6;
+
     public function __construct(
         private MeilisearchService $meilisearchService
     ) {}
@@ -42,15 +50,21 @@ class HomeController extends Controller
         }
 
         $teaserVersion = HomePageCacheService::getTeaserVersion();
-        $cacheKey = "home.teasers.v{$teaserVersion}." . md5(implode(',', $ignoredGameIds));
+        // The "layout" segment retires teaser payloads cached before the grid/list toggle existed.
+        $cacheKey = "home.teasers.layout1.v{$teaserVersion}." . md5(implode(',', $ignoredGameIds));
 
+        $view = ViewPreference::mode(ViewPreference::HOME_COOKIE);
+
+        // Six per section: the list needs two columns of three and the grid shows the
+        // first five, so a visitor can flip layouts without another request.
         $sharedTeasers = Cache::remember($cacheKey, now()->addDay(), function () use ($ignoredGameIds) {
             return [
-                'recentlyAdded' => $this->getGameTeasers('first_visible_at', 'desc', 4, $ignoredGameIds),
-                'recentlyUpdated' => $this->getGameTeasers('latest_version_published_at', 'desc', 4, $ignoredGameIds),
-                'mostPopular' => $this->getGameTeasers('trending_score', 'desc', 4, $ignoredGameIds),
+                'recentlyAdded' => $this->getGameTeasers('first_visible_at', 'desc', self::TEASER_LIMIT, $ignoredGameIds),
+                'recentlyUpdated' => $this->getGameTeasers('latest_version_published_at', 'desc', self::TEASER_LIMIT, $ignoredGameIds),
+                'mostPopular' => $this->getGameTeasers('trending_score', 'desc', self::TEASER_LIMIT, $ignoredGameIds),
             ];
         });
+
         $teasers = $this->withCurrentUserTeaserData($sharedTeasers);
 
         $metaTags = new MetaTags(
@@ -68,6 +82,7 @@ class HomeController extends Controller
             'teasers' => $teasers,
             'metaTags' => $metaTags->toArray(),
             'ignoredGameIds' => $ignoredGameIds,
+            'homeView' => $view,
         ]);
     }
 
@@ -103,6 +118,7 @@ class HomeController extends Controller
                     $game->is_web = $game->latestVersion->is_web ?? false;
                     $game->latest_version_id = $game->latestVersion->id;
                     $game->latest_version_published_at = $game->latestVersion->published_at;
+                    $game->latest_version_number = $game->latestVersion->version;
                 } else {
                     $game->is_windows = false;
                     $game->is_linux = false;
@@ -111,6 +127,7 @@ class HomeController extends Controller
                     $game->is_web = false;
                     $game->latest_version_id = null;
                     $game->latest_version_published_at = null;
+                    $game->latest_version_number = null;
                 }
 
                 if ($game->latestVersion && $game->latestVersion->supportedLanguages) {
@@ -150,6 +167,8 @@ class HomeController extends Controller
                     $game->primary_word_count = null;
                     $game->primary_language_label = 'EN';
                 }
+
+                GamesSearchResultHydrator::stripForList($game);
             }
         }
 

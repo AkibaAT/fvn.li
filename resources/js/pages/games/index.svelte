@@ -1,5 +1,4 @@
 <script lang="ts">
-    import ArrowPathIcon from '@/components/icons/ArrowPath.svelte';
     import FunnelIcon from '@/components/icons/Funnel.svelte';
     import InformationCircleIcon from '@/components/icons/InformationCircle.svelte';
     import NoSymbolIcon from '@/components/icons/NoSymbol.svelte';
@@ -18,7 +17,8 @@
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { MetaTags as SeoMetaTags } from '@/types/meta-tags';
     import { router } from '@inertiajs/svelte';
-    import { Alert, Button, Card } from '@/components/ui';
+    import { Alert, Button, ViewToggle } from '@/components/ui';
+    import { VIEW_MODE_COOKIES, parseViewMode, writeViewModeCookie, type ViewMode } from '@/utils/view-mode';
 
     interface GamesIndexGame {
         id: number;
@@ -82,13 +82,24 @@
         metaTags: SeoMetaTags;
         ignoredCount?: number;
         ignoredGameIds?: number[];
+        /** Persisted catalogue layout, resolved from the `games_view` cookie. */
+        gamesView?: string;
     }
 
-    let { games, filters, currentFilters, metaTags, ignoredCount = 0, ignoredGameIds = [] }: GamesIndexProps = $props();
+    let { games, filters, currentFilters, metaTags, ignoredCount = 0, ignoredGameIds = [], gamesView = 'grid' }: GamesIndexProps = $props();
 
     let showFilters = $state(false);
 
-    const { updateFilters, toggleFilter, clearFilters, hasActiveFilters, buildActiveFilterChips, buildPageUrl } = useGameFilters({
+    // The cookie drives the server-rendered layout; the override keeps the toggle instant.
+    let viewOverride = $state<ViewMode | null>(null);
+    const viewMode = $derived<ViewMode>(viewOverride ?? parseViewMode(gamesView));
+
+    function setViewMode(next: ViewMode) {
+        viewOverride = next;
+        writeViewModeCookie(VIEW_MODE_COOKIES.games, next);
+    }
+
+    const { updateFilters, toggleFilter, clearFilters, buildActiveFilterChips, buildPageUrl } = useGameFilters({
         getCurrentFilters: () => currentFilters,
         getFilters: () => filters,
         onGamesPage: true,
@@ -128,7 +139,7 @@
             current_page?: number;
             last_page?: number;
         };
-        const perPageVal = Number(rawMeta.per_page ?? currentFilters.perPage ?? 8) || 8;
+        const perPageVal = Number(rawMeta.per_page ?? currentFilters.perPage ?? 10) || 10;
         const total = Number(rawMeta.total ?? rawTop.total ?? games?.data?.length ?? 0) || 0;
         const current = Number(rawMeta.current_page ?? rawTop.current_page ?? 1) || 1;
         const last = Number(rawMeta.last_page ?? rawTop.last_page ?? Math.max(1, Math.ceil(total / perPageVal))) || 1;
@@ -163,17 +174,35 @@
     onGamesPage={true}
 />
 
-<div class="space-y-8">
-    <PageHeader title="Browse Visual Novels" />
+<div class="space-y-5 max-sm:space-y-4">
+    <PageHeader title="Visual novels" count={`${gamesMeta.total.toLocaleString()} titles`} class="mb-0">
+        {#snippet actions()}
+            <ViewToggle value={viewMode} onchange={setViewMode} label="Game list layout" />
+        {/snippet}
+    </PageHeader>
 
-    <Card variant="glass" padding="none" class="-mt-2 px-4 py-3 shadow-none">
-        <div class="flex flex-col gap-3 min-[56rem]:flex-row min-[56rem]:items-center min-[56rem]:justify-between">
-            <div class="flex flex-wrap items-center gap-2 min-[56rem]:flex-1">
-                <ActiveFilterChips chips={buildActiveFilterChips()} onClearAll={clearFilters} {getPlatformIcon} {getStorePlatformIcon} />
-            </div>
+    <div class="flex flex-wrap items-center gap-2">
+        <div class="order-last flex flex-wrap items-center gap-2 md:order-first">
+            <button
+                type="button"
+                onclick={() => {
+                    showFilters = !showFilters;
+                }}
+                aria-expanded={showFilters}
+                aria-controls="filter-modal"
+                class="inline-flex h-[30px] items-center gap-1.5 rounded-md border border-border-strong bg-surface px-[11px] text-[13px] font-medium text-fg transition-colors hover:border-fg"
+            >
+                <FunnelIcon class="h-[13px] w-[13px]" />
+                Filters
+                {#if getActiveFilterCount() > 0}
+                    <span class="text-fg-faint">{getActiveFilterCount()}</span>
+                {/if}
+            </button>
 
-            <div class="hidden h-6 w-px bg-gray-300 min-[56rem]:block dark:bg-gray-600"></div>
+            <ActiveFilterChips chips={buildActiveFilterChips()} onClearAll={clearFilters} {getPlatformIcon} {getStorePlatformIcon} />
+        </div>
 
+        <div class="order-first flex w-full items-center gap-2 md:order-last md:ml-auto md:w-auto">
             <SortControls
                 currentSort={currentFilters.sort || ''}
                 currentDirection={currentFilters.direction === 'asc' || currentFilters.direction === 'desc' ? currentFilters.direction : 'desc'}
@@ -183,46 +212,18 @@
                 hasSearch={Boolean(currentFilters.search?.trim())}
             />
 
-            <div class="hidden h-6 w-px bg-gray-300 min-[56rem]:block dark:bg-gray-600"></div>
+            <span class="h-4 w-px bg-border" aria-hidden="true"></span>
 
-            <div class="flex flex-wrap items-center gap-2">
-                <Button
-                    type="button"
-                    variant="outline"
-                    tone="warning"
-                    size="sm"
-                    onclick={handleRandomGame}
-                    disabled={isRandomLoading}
-                    loading={isRandomLoading}
-                >
-                    {#if !isRandomLoading}
-                        <ArrowPathIcon class="h-3.5 w-3.5" />
-                    {/if}
-                    {isRandomLoading ? 'Loading...' : "I'm Feeling Lucky"}
-                </Button>
-
-                <Button
-                    type="button"
-                    variant="outline"
-                    tone="neutral"
-                    size="sm"
-                    onclick={() => {
-                        showFilters = !showFilters;
-                    }}
-                    aria-expanded={showFilters}
-                    aria-controls="filter-modal"
-                >
-                    <FunnelIcon class="h-4 w-4" />
-                    Filters
-                    {#if hasActiveFilters()}
-                        <span class="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-xs text-white">
-                            {getActiveFilterCount()}
-                        </span>
-                    {/if}
-                </Button>
-            </div>
+            <button
+                type="button"
+                onclick={handleRandomGame}
+                disabled={isRandomLoading}
+                class="text-[13px] text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+            >
+                {isRandomLoading ? 'Loading…' : 'Random title'}
+            </button>
         </div>
-    </Card>
+    </div>
 
     {#if currentFilters.usingDefaultLanguages}
         <Alert tone="note" layout="inline" role="status">
@@ -271,6 +272,7 @@
         games={games.data}
         {currentFilters}
         {ignoredGameIds}
+        {viewMode}
         onPlatformClick={(p) => toggleFilter('platform', p)}
         onLanguageClick={(iso) => toggleFilter('language', iso)}
         onTagClick={(tagId) => toggleFilter('tag', tagId)}
@@ -284,12 +286,12 @@
     />
 
     <Pagination
-        layout="full"
+        layout="pages"
         meta={gamesMeta}
         label="results"
         onChange={(page) => updateFilters({ page })}
         onPerPageChange={(perPage) => updateFilters({ perPage })}
-        perPageOptions={[8, 16, 24, 32]}
+        perPageOptions={[10, 20, 30, 50]}
         {buildPageUrl}
     />
 </div>

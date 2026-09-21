@@ -117,24 +117,20 @@
 </script>
 
 {#if !isAuthenticated}
-    <Card variant="soft" padding="sm" class="text-center">
-        <p class="text-sm text-gray-600 dark:text-gray-400">
-            <a href={route('login')} class="text-blue-600 underline underline-offset-2 dark:text-blue-400">Sign in</a>
+    <Card variant="flat" padding="sm" class="text-center">
+        <p class="text-sm text-fg-muted">
+            <a href={route('login')} class="text-fg underline underline-offset-2">Sign in</a>
             to leave a review for this game.
         </p>
     </Card>
 {:else if userReview && !isEditing}
-    <Card variant="outline" padding="sm" class="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/20">
+    <Card variant="flat" padding="sm">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">Your Review</span>
+                <span class="text-sm font-medium text-fg">Your Review</span>
                 <div class="flex items-center gap-0.5">
                     {#each Array(5) as _, i (i)}
-                        <StarIcon
-                            class="h-4 w-4 {i < userReview.rating
-                                ? 'fill-yellow-400 text-yellow-400'
-                                : 'fill-gray-300 text-gray-300 dark:fill-gray-600 dark:text-gray-600'}"
-                        />
+                        <StarIcon class="h-4 w-4 {i < userReview.rating ? 'fill-accent text-accent' : 'fill-border text-border'}" />
                     {/each}
                 </div>
             </div>
@@ -173,14 +169,14 @@
         {/if}
     </Card>
 {:else if isEditing}
-    <Card variant="outline" padding="sm">
-        <h3 class="mb-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+    <Card variant="flat" padding="sm">
+        <h3 class="mb-3 text-sm font-medium text-fg">
             {userReview ? 'Edit Your Review' : 'Write a Review'}
         </h3>
 
         <form onsubmit={handleSubmit}>
             <fieldset class="mb-3">
-                <legend class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Rating *</legend>
+                <legend class="mb-1 block text-xs text-fg-muted">Rating *</legend>
                 <div class="flex items-center gap-1">
                     {#each Array(5) as _, i (i)}
                         {@const starValue = i + 1}
@@ -198,19 +194,19 @@
                         >
                             <StarIcon
                                 class="h-7 w-7 cursor-pointer transition-colors {isActive
-                                    ? 'fill-yellow-400 text-yellow-400'
-                                    : 'fill-gray-300 text-gray-300 hover:fill-yellow-200 hover:text-yellow-200 dark:fill-gray-600 dark:text-gray-600'}"
+                                    ? 'fill-accent text-accent'
+                                    : 'fill-border text-border hover:fill-fg-faint'}"
                             />
                         </Button>
                     {/each}
                     {#if rating > 0}
-                        <span class="ml-2 text-sm text-gray-500 dark:text-gray-400">{rating}/5</span>
+                        <span class="ml-2 text-sm text-fg-faint">{rating}/5</span>
                     {/if}
                 </div>
             </fieldset>
 
             <div class="mb-3">
-                <label for="review-text" class="mb-1 block text-xs text-gray-500 dark:text-gray-400">Review (optional)</label>
+                <label for="review-text" class="mb-1 block text-xs text-fg-muted">Review (optional)</label>
                 <TinyMCEEditor
                     id="review-text"
                     ariaLabel="Review (optional)"

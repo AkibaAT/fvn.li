@@ -42,74 +42,60 @@
 </script>
 
 {#if !user}
-    <div class="flex items-center space-x-2">
-        <Link
-            href={route('login')}
-            class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white shadow-sm transition-all duration-200 hover:bg-blue-700 hover:shadow-md"
-        >
-            Login
-        </Link>
-    </div>
+    <Link href={route('login')} class="text-sm font-medium text-fg-muted transition-colors hover:text-fg">Log in</Link>
 {:else}
     <div class="relative" bind:this={userMenuRef}>
-        <Button
+        <button
             type="button"
-            variant="soft"
-            tone="neutral"
             onclick={() => (showUserMenu = !showUserMenu)}
-            class="flex items-center space-x-2 rounded-lg bg-gray-100 px-3 py-2 transition-colors duration-200 hover:bg-gray-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none dark:bg-gray-800 dark:hover:bg-gray-700"
+            class="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-surface px-1.5 text-fg-muted transition-colors hover:text-fg"
             aria-expanded={showUserMenu}
             aria-haspopup="menu"
             aria-controls="user-menu"
         >
             {#if user.avatar}
-                <img src={user.avatar} alt={user.name} class="h-6 w-6 rounded-full" referrerpolicy="no-referrer" />
+                <img src={user.avatar} alt={user.name} class="h-5 w-5 rounded-full" referrerpolicy="no-referrer" />
             {:else}
-                <div class="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
-                    <span class="text-xs font-bold text-white">
+                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-surface-alt">
+                    <span class="text-[10px] font-bold text-fg">
                         {user.name?.charAt(0)?.toUpperCase() ?? 'U'}
                     </span>
-                </div>
+                </span>
             {/if}
-            <span class="hidden text-sm font-medium text-gray-700 sm:inline dark:text-gray-300">
+            <span class="hidden max-w-24 truncate text-[13px] font-medium sm:inline">
                 {user.name}
             </span>
-            <ChevronDownIcon class="h-4 w-4 text-gray-500 transition-transform duration-200 {showUserMenu ? 'rotate-180' : ''}" />
-        </Button>
+            <ChevronDownIcon class="h-3.5 w-3.5 transition-transform duration-200 {showUserMenu ? 'rotate-180' : ''}" />
+        </button>
 
         {#if showUserMenu}
-            <div
-                id="user-menu"
-                class="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800"
-                role="menu"
-                aria-label="User menu"
-            >
+            <div id="user-menu" class="absolute right-0 z-50 mt-2 w-64 rounded-md border border-border bg-surface" role="menu" aria-label="User menu">
                 <div class="flex items-center gap-3 px-4 py-3">
                     {#if user.avatar}
                         <img src={user.avatar} alt={user.name} class="h-10 w-10 rounded-full" referrerpolicy="no-referrer" />
                     {:else}
-                        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-500">
-                            <span class="text-lg font-bold text-white">
+                        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-surface-alt">
+                            <span class="text-base font-bold text-fg">
                                 {user.name?.charAt(0)?.toUpperCase() ?? 'U'}
                             </span>
-                        </div>
+                        </span>
                     {/if}
                     <div class="min-w-0">
-                        <div class="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                        <div class="truncate text-[13px] font-medium text-fg">
                             {user.name}
                         </div>
                         {#if user.email}
-                            <div class="truncate text-sm text-gray-500 dark:text-gray-400">
+                            <div class="truncate text-[12px] text-fg-faint">
                                 {user.email}
                             </div>
                         {/if}
                     </div>
                 </div>
 
-                <div class="border-t border-gray-200 p-1.5 dark:border-gray-700" role="none">
+                <div class="border-t border-border p-1.5" role="none">
                     <Link
                         href={route('dashboard')}
-                        class="flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-950 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-white"
+                        class="flex w-full items-center rounded-md px-3 py-2 text-[13px] font-medium text-fg-muted transition-colors hover:bg-surface-alt hover:text-fg"
                         onclick={closeMenu}
                         role="menuitem"
                     >
@@ -118,7 +104,7 @@
 
                     <Link
                         href={route('lists.index')}
-                        class="flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-950 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-white"
+                        class="flex w-full items-center rounded-md px-3 py-2 text-[13px] font-medium text-fg-muted transition-colors hover:bg-surface-alt hover:text-fg"
                         onclick={closeMenu}
                         role="menuitem"
                     >
@@ -128,7 +114,7 @@
                     {#if canManageDiscordServers}
                         <Link
                             href={route('dashboard.discord.index')}
-                            class="flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-950 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-white"
+                            class="flex w-full items-center rounded-md px-3 py-2 text-[13px] font-medium text-fg-muted transition-colors hover:bg-surface-alt hover:text-fg"
                             onclick={closeMenu}
                             role="menuitem"
                         >

@@ -229,10 +229,10 @@
 
 <div class="space-y-4">
     <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Routing Rules</h3>
+        <h3 class="text-lg font-semibold text-fg">Routing Rules</h3>
         <button
             onclick={addRule}
-            class="inline-flex items-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
+            class="inline-flex items-center gap-2 rounded-md border border-dashed border-border-strong px-4 py-2 text-sm font-medium text-fg-muted transition-colors hover:border-fg hover:text-fg"
         >
             <PlusIcon class="h-4 w-4" />
             Add Rule
@@ -240,25 +240,23 @@
     </div>
 
     {#if !rules || rules.length === 0}
-        <div class="rounded-lg border border-dashed border-gray-300 py-8 text-center dark:border-gray-600">
-            <p class="text-sm text-gray-500 dark:text-gray-400">No routing rules configured. All notifications will go to the default channel.</p>
+        <div class="rounded-lg border border-dashed border-border-strong py-8 text-center">
+            <p class="text-sm text-fg-muted">No routing rules configured. All notifications will go to the default channel.</p>
         </div>
     {:else}
         <div class="space-y-3">
             {#each rules as rule (rule.id)}
-                <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                <div class="rounded-lg border border-border bg-surface">
                     <div class="flex items-center gap-3 p-4">
                         <button
                             onclick={() => toggleRule(rule.id)}
-                            class="relative h-6 w-11 shrink-0 rounded-full transition-colors {rule.enabled
-                                ? 'bg-blue-600'
-                                : 'bg-gray-300 dark:bg-gray-600'}"
+                            class="relative h-6 w-11 shrink-0 rounded-full transition-colors {rule.enabled ? 'bg-fg' : 'bg-border'}"
                             role="switch"
                             aria-checked={rule.enabled}
                             aria-label="Enable rule {rule.name}"
                         >
                             <span
-                                class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform {rule.enabled
+                                class="absolute top-0.5 h-5 w-5 rounded-full bg-surface transition-transform {rule.enabled
                                     ? 'left-[22px]'
                                     : 'left-0.5'}"
                             ></span>
@@ -272,19 +270,19 @@
                             aria-controls="{uid}-rule-{rule.id}"
                         >
                             <span class="min-w-0 flex-1">
-                                <span class="font-medium text-gray-900 dark:text-white">{rule.name}</span>
-                                <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">Priority: {rule.priority}</span>
+                                <span class="font-medium text-fg">{rule.name}</span>
+                                <span class="ml-2 text-xs text-fg-faint">Priority: {rule.priority}</span>
                             </span>
 
-                            <span class="hidden text-xs text-gray-500 sm:block dark:text-gray-400">
+                            <span class="hidden text-xs text-fg-faint sm:block">
                                 {summarizeConditions(rule.conditions)}
                             </span>
 
                             <span
-                                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium
+                                class="inline-flex rounded-[3px] border px-1.5 py-0.5 text-[11px] font-semibold tracking-[0.02em]
                                 {rule.action.type === 'ignore'
-                                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}"
+                                    ? 'border-red-600/50 text-red-700 dark:text-red-400'
+                                    : 'border-border-strong text-fg-muted'}"
                             >
                                 {rule.action.type === 'ignore'
                                     ? 'Ignore'
@@ -297,32 +295,30 @@
                                 if (confirm('Delete this rule?')) removeRule(rule.id);
                             }}
                             aria-label="Delete rule {rule.name}"
-                            class="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                            class="rounded-md p-1 text-fg-faint hover:text-red-600 dark:hover:text-red-400"
                         >
                             <TrashIcon class="h-4 w-4" />
                         </button>
 
-                        <ChevronDownIcon class="h-5 w-5 shrink-0 text-gray-400 transition-transform {expandedRule === rule.id ? 'rotate-180' : ''}" />
+                        <ChevronDownIcon class="h-5 w-5 shrink-0 text-fg-faint transition-transform {expandedRule === rule.id ? 'rotate-180' : ''}" />
                     </div>
 
                     {#if expandedRule === rule.id}
-                        <div id="{uid}-rule-{rule.id}" class="space-y-4 border-t border-gray-100 p-4 dark:border-gray-700">
+                        <div id="{uid}-rule-{rule.id}" class="space-y-4 border-t border-border p-4">
                             <div>
-                                <label for="{uid}-name-{rule.id}" class="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400"
-                                    >Rule Name</label
-                                >
+                                <label for="{uid}-name-{rule.id}" class="mb-1 block text-xs font-medium text-fg-muted">Rule Name</label>
                                 <input
                                     id="{uid}-name-{rule.id}"
                                     type="text"
                                     value={rule.name}
                                     oninput={(e) => updateRule(rule.id, { name: (e.target as HTMLInputElement).value })}
-                                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    class="w-full rounded-md border border-border bg-surface-alt px-3 py-2 text-sm text-fg focus:border-border-strong focus:outline-none"
                                 />
                             </div>
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label for="{uid}-priority-{rule.id}" class="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400"
+                                    <label for="{uid}-priority-{rule.id}" class="mb-1 block text-xs font-medium text-fg-muted"
                                         >Priority (lower = first)</label
                                     >
                                     <input
@@ -330,19 +326,16 @@
                                         type="number"
                                         value={rule.priority}
                                         oninput={(e) => updateRule(rule.id, { priority: parseInt((e.target as HTMLInputElement).value) || 0 })}
-                                        class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        class="w-full rounded-md border border-border bg-surface-alt px-3 py-2 text-sm text-fg focus:border-border-strong focus:outline-none"
                                     />
                                 </div>
                             </div>
 
                             <div>
                                 <div class="mb-2 flex items-center justify-between">
-                                    <span id="{uid}-conditions-{rule.id}" class="text-xs font-medium text-gray-500 dark:text-gray-400"
-                                        >Conditions (all must match)</span
-                                    >
-                                    <button
-                                        onclick={() => addCondition(rule.id)}
-                                        class="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">+ Add Condition</button
+                                    <span id="{uid}-conditions-{rule.id}" class="text-xs font-medium text-fg-muted">Conditions (all must match)</span>
+                                    <button onclick={() => addCondition(rule.id)} class="text-xs font-medium text-fg-muted hover:text-fg"
+                                        >+ Add Condition</button
                                     >
                                 </div>
                                 <div class="space-y-2" role="group" aria-labelledby="{uid}-conditions-{rule.id}">
@@ -352,7 +345,7 @@
                                                 aria-label="Condition {cIndex + 1} field"
                                                 value={condition.field}
                                                 onchange={(e) => handleFieldChange(rule.id, cIndex, (e.target as HTMLSelectElement).value)}
-                                                class="rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                class="rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg focus:border-border-strong focus:outline-none"
                                             >
                                                 {#each fieldOptions as opt (opt.value)}
                                                     <option value={opt.value}>{opt.label}</option>
@@ -363,7 +356,7 @@
                                                 value={condition.operator}
                                                 onchange={(e) =>
                                                     handleOperatorChange(rule.id, cIndex, condition, (e.target as HTMLSelectElement).value)}
-                                                class="rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                class="rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg focus:border-border-strong focus:outline-none"
                                             >
                                                 {#each getOperatorOptions(condition.field) as opt (opt.value)}
                                                     <option value={opt.value}>{opt.label}</option>
@@ -378,7 +371,7 @@
                                                                 valuePickerKey === `${rule.id}:${cIndex}` ? null : `${rule.id}:${cIndex}`;
                                                             if (valuePickerKey === null) valueSearch = '';
                                                         }}
-                                                        class="flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-2 py-1.5 text-left text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                        class="flex w-full items-center justify-between rounded-md border border-border bg-surface-alt px-2 py-1.5 text-left text-sm text-fg focus:border-border-strong focus:outline-none"
                                                     >
                                                         <span class="truncate">
                                                             {conditionValues(condition.value).join(', ') || 'Select values'}
@@ -386,16 +379,14 @@
                                                         <ChevronDownIcon class="h-4 w-4 shrink-0" />
                                                     </button>
                                                     {#if valuePickerKey === `${rule.id}:${cIndex}`}
-                                                        <div
-                                                            class="absolute z-20 mt-1 w-full rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
-                                                        >
+                                                        <div class="absolute z-20 mt-1 w-full rounded-md border border-border bg-surface">
                                                             <div class="p-2">
                                                                 <input
                                                                     type="text"
                                                                     bind:value={valueSearch}
                                                                     aria-label="Filter values"
                                                                     placeholder="Type to filter values..."
-                                                                    class="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                                    class="w-full rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                                                                 />
                                                             </div>
                                                             <div class="max-h-56 overflow-y-auto py-1">
@@ -405,11 +396,11 @@
                                                                     <button
                                                                         type="button"
                                                                         onclick={() => toggleMultiValue(rule.id, cIndex, String(option.value))}
-                                                                        class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                                                                        class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-fg hover:bg-surface-alt"
                                                                     >
                                                                         <span class="truncate">{option.label}</span>
                                                                         {#if conditionValues(condition.value).includes(String(option.value))}
-                                                                            <CheckIcon class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                                                            <CheckIcon class="h-4 w-4 text-fg" />
                                                                         {/if}
                                                                     </button>
                                                                 {/each}
@@ -428,7 +419,7 @@
                                                                     ? (e.target as HTMLSelectElement).value === 'true'
                                                                     : (e.target as HTMLSelectElement).value,
                                                         })}
-                                                    class="min-w-0 flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                    class="min-w-0 flex-1 rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg focus:border-border-strong focus:outline-none"
                                                 >
                                                     {#each getValueOptions(condition.field) as option (String(option.value))}
                                                         <option value={String(option.value)}>{option.label}</option>
@@ -443,14 +434,14 @@
                                                     aria-label="Condition {cIndex + 1} value"
                                                     placeholder="Value"
                                                     oninput={(e) => updateCondition(rule.id, cIndex, { value: (e.target as HTMLInputElement).value })}
-                                                    class="min-w-0 flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                    class="min-w-0 flex-1 rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg focus:border-border-strong focus:outline-none"
                                                 />
                                             {/if}
                                             {#if rule.conditions.length > 1}
                                                 <button
                                                     onclick={() => removeCondition(rule.id, cIndex)}
                                                     aria-label="Remove condition {cIndex + 1}"
-                                                    class="shrink-0 rounded p-1 text-gray-400 hover:text-red-600"
+                                                    class="shrink-0 rounded-md p-1 text-fg-faint hover:text-red-600"
                                                 >
                                                     <XMarkIcon class="h-4 w-4" />
                                                 </button>
@@ -461,8 +452,7 @@
                             </div>
 
                             <div>
-                                <span id="{uid}-action-{rule.id}" class="mb-2 block text-xs font-medium text-gray-500 dark:text-gray-400">Action</span
-                                >
+                                <span id="{uid}-action-{rule.id}" class="mb-2 block text-xs font-medium text-fg-muted">Action</span>
                                 <div class="flex flex-wrap items-center gap-4" role="group" aria-labelledby="{uid}-action-{rule.id}">
                                     <label class="flex items-center gap-2 text-sm">
                                         <input
@@ -470,9 +460,9 @@
                                             name="action-{rule.id}"
                                             checked={rule.action.type === 'ignore'}
                                             onchange={() => updateRule(rule.id, { action: { type: 'ignore' } })}
-                                            class="text-blue-600"
+                                            class="border-border bg-surface-alt accent-accent"
                                         />
-                                        <span class="text-gray-700 dark:text-gray-300">Ignore</span>
+                                        <span class="text-fg-muted">Ignore</span>
                                     </label>
                                     <label class="flex items-center gap-2 text-sm">
                                         <input
@@ -480,9 +470,9 @@
                                             name="action-{rule.id}"
                                             checked={rule.action.type === 'route'}
                                             onchange={() => updateRule(rule.id, { action: { type: 'route', channel_id: '' } })}
-                                            class="text-blue-600"
+                                            class="border-border bg-surface-alt accent-accent"
                                         />
-                                        <span class="text-gray-700 dark:text-gray-300">Route to channel</span>
+                                        <span class="text-fg-muted">Route to channel</span>
                                     </label>
                                     {#if rule.action.type === 'route'}
                                         <ChannelPicker

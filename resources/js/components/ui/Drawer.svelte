@@ -40,7 +40,7 @@
     let openerEl: HTMLElement | null = null;
 
     const titleId = $derived(labelledBy ?? `drawer-title-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`);
-    const panelClass = $derived(twMerge(clsx('ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-2xl dark:bg-gray-900', className)));
+    const panelClass = $derived(twMerge(clsx('ml-auto flex h-full w-full max-w-md flex-col border-l border-border bg-surface', className)));
 
     $effect(() => {
         if (!dialogEl) return;
@@ -62,7 +62,7 @@
 <dialog
     {id}
     bind:this={dialogEl}
-    class="h-full max-h-none w-full max-w-none border-0 bg-transparent p-0 backdrop:bg-black/50 backdrop:backdrop-blur-sm"
+    class="h-full max-h-none w-full max-w-none border-0 bg-transparent p-0 backdrop:bg-black/50"
     aria-modal="true"
     aria-labelledby={titleId}
     aria-describedby={describedBy}
@@ -78,8 +78,8 @@
     }}
 >
     <div bind:this={panelEl} class={panelClass}>
-        <div class="flex items-center justify-between gap-4 border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-            <h2 id={titleId} class="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
+        <div class="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
+            <h2 id={titleId} class="text-[17px] font-semibold tracking-[-0.015em] text-fg">{title}</h2>
             <div class="flex items-center gap-2">
                 {@render actions?.()}
                 <Button variant="ghost" tone="neutral" size="icon-sm" onclick={close} ariaLabel={closeLabel}>
@@ -93,7 +93,7 @@
         </div>
 
         {#if footer}
-            <div class="border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+            <div class="border-t border-border px-6 py-4">
                 {@render footer()}
             </div>
         {/if}

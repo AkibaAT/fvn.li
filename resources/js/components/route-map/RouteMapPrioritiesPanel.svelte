@@ -32,15 +32,15 @@
     } = $props();
 </script>
 
-<div class="mb-4 border-b border-gray-200 pb-4 dark:border-gray-700">
-    <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Route Priorities</h3>
-    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Earlier preferences win over later ones. Path length is only used as a tiebreaker.</p>
+<div class="mb-4 border-b border-border pb-4">
+    <h3 class="text-sm font-semibold text-fg">Route Priorities</h3>
+    <p class="mt-1 text-xs text-fg-faint">Earlier preferences win over later ones. Path length is only used as a tiebreaker.</p>
 
     <div class="mt-3 space-y-2">
         {#each routePreferences as pref, index (`${pref.variable}:${pref.mode}:${pref.value ?? ''}:${index}`)}
-            <div class="rounded border border-gray-200 px-2 py-1.5 text-xs dark:border-gray-700">
+            <div class="rounded-md border border-border px-2 py-1.5 text-xs">
                 <div class="flex items-center justify-between gap-2">
-                    <span class="font-mono text-gray-700 dark:text-gray-300">
+                    <span class="font-mono text-fg-muted">
                         {formatRoutePreference(pref)}
                     </span>
                     <div class="flex items-center gap-1">
@@ -82,7 +82,7 @@
 
     <div class="mt-3 space-y-2">
         <select
-            class="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+            class="w-full cursor-pointer rounded-md border border-border bg-surface-alt px-2 py-1.5 text-xs text-fg transition-colors focus:border-border-strong focus:outline-none"
             value={preferenceVariable}
             onchange={(event) => onPreferenceVariableChange((event.currentTarget as HTMLSelectElement).value)}
         >
@@ -93,7 +93,7 @@
         </select>
 
         <select
-            class="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+            class="w-full cursor-pointer rounded-md border border-border bg-surface-alt px-2 py-1.5 text-xs text-fg transition-colors focus:border-border-strong focus:outline-none"
             value={preferenceMode}
             onchange={(event) => onPreferenceModeChange((event.currentTarget as HTMLSelectElement).value as RoutePreference['mode'])}
         >
@@ -105,7 +105,7 @@
         {#if preferenceMode === 'equals'}
             <input
                 type="text"
-                class="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                class="w-full rounded-md border border-border bg-surface-alt px-2 py-1.5 text-xs text-fg transition-colors placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                 placeholder="Desired value"
                 value={preferenceValue}
                 oninput={(event) => onPreferenceValueChange(event.currentTarget.value)}

@@ -8,10 +8,12 @@ use App\Models\Rater;
 use App\Models\Rating;
 use App\Models\User;
 use App\Models\UserGameProgress;
+use App\Models\VersionLanguageStats;
 use App\Models\VnList;
 use App\Models\VnListEntry;
 use App\Services\VnListCacheService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 
@@ -653,4 +655,42 @@ it('invalidates public list generations through the configured Redis cache conne
         config(['cache.default' => $previous]);
         Cache::purge('audit_lists');
     }
+});
+
+it('includes the card facts the row renders: authors, store, community score and word counts', function () {
+    $owner = User::factory()->create();
+
+    DB::table('iso_639_3_languages')->insertOrIgnore([
+        [
+            'id' => 'eng', 'scope' => 'I', 'type' => 'L', 'ref_name' => 'English',
+            'part1' => 'en', 'flag_code' => 'gb', 'created_at' => now(), 'updated_at' => now(),
+        ],
+        [
+            'id' => 'jpn', 'scope' => 'I', 'type' => 'L', 'ref_name' => 'Japanese',
+            'part1' => 'ja', 'flag_code' => 'jp', 'created_at' => now(), 'updated_at' => now(),
+        ],
+    ]);
+
+    [$list, $game] = makeListWithEntry($owner, [], [
+        'authors' => 'Ada Lovelace<br>Grace Hopper',
+        'platform' => 'steam',
+        'rating_score' => 4.5,
+        'rating_count' => 12,
+        'source_language_id' => 'jpn',
+    ]);
+
+    $version = GameVersion::factory()->for($game)->latest()->create(['version' => '2.1.0']);
+    VersionLanguageStats::create(['game_version_id' => $version->id, 'iso_code' => 'eng', 'words' => 20000]);
+    VersionLanguageStats::create(['game_version_id' => $version->id, 'iso_code' => 'jpn', 'words' => 12345]);
+
+    $props = $this->actingAs($owner)->get(route('lists.show', $list))->assertOk()->viewData('page')['props'];
+    $row = $props['vnList']['entries'][0]['game'];
+
+    expect($row['authors'])->toBe('Ada Lovelace<br>Grace Hopper')
+        ->and($row['platform'])->toBe('steam')
+        ->and($row['rating_score'])->toBe(4.5)
+        ->and($row['rating_count'])->toBe(12)
+        ->and($row['english_word_count'])->toBe(20000)
+        ->and($row['primary_word_count'])->toBe(12345)
+        ->and($row['primary_language_label'])->toBe('JA');
 });

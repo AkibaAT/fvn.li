@@ -52,13 +52,13 @@
 </script>
 
 <Dialog open={isOpen} onClose={closeDialog} title="Report Review" size="sm">
-    <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+    <p class="mb-4 text-sm text-fg-muted">
         Report the review by <strong>{reviewerName}</strong> for violating community guidelines.
     </p>
 
     <form onsubmit={handleSubmit}>
         <fieldset class="mb-4">
-            <legend class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Reason *</legend>
+            <legend class="mb-2 block text-sm font-medium text-fg-muted">Reason *</legend>
             <div class="space-y-2">
                 {#each REPORT_REASONS as r (r.value)}
                     <label class="flex cursor-pointer items-center gap-2">
@@ -68,9 +68,9 @@
                             value={r.value}
                             checked={reason === r.value}
                             onchange={(e) => (reason = (e.target as HTMLInputElement).value)}
-                            class="text-blue-600 focus:ring-blue-500 dark:border-gray-600"
+                            class="h-4 w-4 shrink-0 cursor-pointer border-border bg-surface-alt accent-accent"
                         />
-                        <span class="text-sm text-gray-700 dark:text-gray-300">{r.label}</span>
+                        <span class="text-sm text-fg-muted">{r.label}</span>
                     </label>
                 {/each}
             </div>

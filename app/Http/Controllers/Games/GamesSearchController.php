@@ -12,6 +12,7 @@ use App\Services\GameFilterService;
 use App\Services\GamesSearchMetaBuilder;
 use App\Services\GamesSearchResultHydrator;
 use App\Services\MeilisearchService;
+use App\Support\ViewPreference;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -43,7 +44,7 @@ class GamesSearchController extends Controller
         $defaultSort = $isSearching ? 'relevance' : 'first_visible_at';
         $sortField = $request->get('sort', $defaultSort);
         $sortDirection = $request->get('direction', 'desc');
-        $perPage = min(32, max(8, (int) $request->get('perPage', 8)));
+        $perPage = min(96, max(8, (int) $request->get('perPage', 10)));
 
         $usingDefaultLanguages = false;
         if (! $request->has('selectedLanguages') && ! $request->has('noDefaults') && Auth::check()) {
@@ -162,6 +163,7 @@ class GamesSearchController extends Controller
             'metaTags' => $metaTags->toArray(),
             'ignoredCount' => $ignoredCount,
             'ignoredGameIds' => $allIgnoredGameIds,
+            'gamesView' => ViewPreference::mode(ViewPreference::GAMES_COOKIE, $request),
         ]);
     }
 

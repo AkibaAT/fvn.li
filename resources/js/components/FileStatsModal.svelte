@@ -52,19 +52,19 @@
     {#if hasData}
         <div class="space-y-6">
             <div>
-                <h3 class="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">
+                <h3 class="mb-4 text-lg font-medium text-fg">
                     Version {fileStatsData?.version?.version}
                 </h3>
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                     {#each fileStatsData?.file_categories || [] as category, index (index)}
-                        <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
-                            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        <div class="rounded-lg border border-border bg-surface-alt p-4">
+                            <div class="text-sm font-medium text-fg-muted">
                                 {category.category.charAt(0).toUpperCase() + category.category.slice(1)}
                             </div>
-                            <div class="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">
+                            <div class="mt-1 text-xl font-semibold text-fg">
                                 {category.total_count.toLocaleString()}
                             </div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">
+                            <div class="text-sm text-fg-muted">
                                 {formatBytes(category.total_size)}
                             </div>
                         </div>
@@ -75,33 +75,24 @@
             <div class="space-y-6">
                 {#each nonEmptyCategories as category, index (index)}
                     <div>
-                        <h4 class="mb-2 text-base font-medium text-gray-900 dark:text-gray-100">
+                        <h4 class="mb-2 text-base font-medium text-fg">
                             {category.category.charAt(0).toUpperCase() + category.category.slice(1)} Files
                         </h4>
-                        <div class="overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+                        <div class="overflow-hidden rounded-lg border border-border bg-surface-alt">
+                            <table class="min-w-full divide-y divide-border">
                                 <thead>
                                     <tr>
-                                        <th class="px-4 py-2 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-                                            >Type</th
-                                        >
-                                        <th class="px-4 py-2 text-right text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-                                            >Count</th
-                                        >
-                                        <th class="px-4 py-2 text-right text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-                                            >Size</th
-                                        >
+                                        <th class="px-4 py-2 text-left text-xs font-medium tracking-wider text-fg-muted uppercase">Type</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium tracking-wider text-fg-muted uppercase">Count</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium tracking-wider text-fg-muted uppercase">Size</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-gray-200 dark:divide-gray-600">
+                                <tbody class="divide-y divide-border">
                                     {#each category.file_types as fileType, typeIndex (typeIndex)}
                                         <tr>
-                                            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{fileType.extension}</td>
-                                            <td class="px-4 py-2 text-right text-sm text-gray-900 dark:text-gray-100"
-                                                >{fileType.count.toLocaleString()}</td
-                                            >
-                                            <td class="px-4 py-2 text-right text-sm text-gray-900 dark:text-gray-100">{formatBytes(fileType.size)}</td
-                                            >
+                                            <td class="px-4 py-2 text-sm text-fg">{fileType.extension}</td>
+                                            <td class="px-4 py-2 text-right text-sm text-fg">{fileType.count.toLocaleString()}</td>
+                                            <td class="px-4 py-2 text-right text-sm text-fg">{formatBytes(fileType.size)}</td>
                                         </tr>
                                     {/each}
                                 </tbody>
@@ -112,7 +103,7 @@
             </div>
         </div>
     {:else}
-        <div class="py-8 text-center text-gray-500 dark:text-gray-400">
+        <div class="py-8 text-center text-fg-muted">
             {#if statsLoading}
                 <div class="flex flex-col items-center gap-3">
                     <LoadingSpinner size="lg" />

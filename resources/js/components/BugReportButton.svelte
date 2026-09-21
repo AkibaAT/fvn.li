@@ -81,7 +81,7 @@
     onclick={() => (isOpen = true)}
     variant="ghost"
     tone="neutral"
-    class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+    class="text-fg-muted hover:text-fg"
     aria-label="Report a bug"
     title="Report a bug"
 >
@@ -106,15 +106,15 @@
             readonly
             label="Page URL"
             fieldClass="mb-4"
-            class="bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+            class="bg-surface-alt text-fg-muted"
         />
 
         {#if Object.keys(pageInfo.params).length > 0}
             <div class="mb-4">
-                <p class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Page Parameters</p>
-                <div class="rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700">
+                <p class="mb-1 block text-sm font-medium text-fg-muted">Page Parameters</p>
+                <div class="rounded-lg border border-border bg-surface-alt px-3 py-2 text-sm">
                     {#each Object.entries(pageInfo.params) as [key, value] (key)}
-                        <div class="text-gray-600 dark:text-gray-300">
+                        <div class="text-fg-muted">
                             <span class="font-medium">{key}:</span>
                             {value}
                         </div>

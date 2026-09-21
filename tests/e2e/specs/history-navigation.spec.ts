@@ -68,8 +68,8 @@ for (const viewport of [
             await page.goto(`/games?noDefaults=1&search=${encodeURIComponent(fixture.gameSearch)}`);
             const search =
                 viewport.width < 1024
-                    ? page.getByPlaceholder('Search games, authors, tags...').filter({ visible: true })
-                    : page.getByRole('textbox', { name: 'Search games, authors, and tags' });
+                    ? page.getByPlaceholder('Search titles, authors, tags').filter({ visible: true })
+                    : page.getByRole('textbox', { name: 'Search titles, authors, and tags' });
             if (viewport.width < 1024) await page.getByRole('button', { name: 'Show search' }).click();
             await expect(search).toHaveValue(fixture.gameSearch);
             await navigateToRatings(page);
@@ -136,20 +136,22 @@ for (const scope of ['ratings', 'rater']) {
 }
 
 test('game pagination and sort changes restore their controls and results', async ({ page }) => {
-    await page.goto(`/games?noDefaults=1&search=${encodeURIComponent(fixture.gameSearch)}`);
-    await page.getByRole('link', { name: 'Go to page 2', exact: true }).click();
-    await expect(page.getByLabel('Select page number')).toHaveValue('2');
+    // Pin the page size so the fixture search spans multiple pages regardless of the default.
+    await page.goto(`/games?noDefaults=1&perPage=8&search=${encodeURIComponent(fixture.gameSearch)}`);
+    const pageButton = (n: number) => page.getByRole('button', { name: `Go to page ${n}`, exact: true });
+    await pageButton(2).click();
+    await expect(pageButton(2)).toHaveAttribute('aria-current', 'page');
     const sort = page.getByLabel('Sort by', { exact: true });
     const oldSort = await sort.inputValue();
     await sort.selectOption('name');
     await expect(page).toHaveURL(/sort=name/);
     await page.goBack();
     await expect(sort).toHaveValue(oldSort);
-    await expect(page.getByLabel('Select page number')).toHaveValue('2');
+    await expect(pageButton(2)).toHaveAttribute('aria-current', 'page');
     await page.goBack();
-    await expect(page.getByLabel('Select page number')).toHaveValue('1');
+    await expect(pageButton(1)).toHaveAttribute('aria-current', 'page');
     await page.goForward();
-    await expect(page.getByLabel('Select page number')).toHaveValue('2');
+    await expect(pageButton(2)).toHaveAttribute('aria-current', 'page');
 });
 
 test('dialogue filters restore through Back, Forward and refresh', async ({ page }) => {

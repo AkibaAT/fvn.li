@@ -42,7 +42,7 @@
 <div class="mx-auto max-w-2xl space-y-8">
     <PageHeader title="Create New List" />
 
-    <Card variant="glass">
+    <Card variant="flat">
         <form onsubmit={handleSubmit} class="space-y-6">
             <TextInput type="text" id="name" bind:value={formData.name} required label="List Name" placeholder="Enter list name..." />
 
@@ -57,9 +57,7 @@
 
             <div>
                 <Checkbox bind:checked={formData.is_public} label="Make this list public" />
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Public lists can be viewed by anyone, private lists are only visible to you
-                </p>
+                <p class="mt-1 text-xs text-fg-faint">Public lists can be viewed by anyone, private lists are only visible to you</p>
             </div>
 
             <div class="flex justify-end space-x-3 pt-4">

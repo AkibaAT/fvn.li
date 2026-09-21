@@ -83,7 +83,7 @@
         {onClose}
         labelledBy="screenshot-lightbox-title"
         size="full"
-        class="h-dvh max-h-dvh w-screen max-w-none rounded-none border-0 bg-black text-white dark:bg-black"
+        class="h-dvh max-h-dvh w-screen max-w-none rounded-none border-0 bg-black text-white"
         bodyClass="flex h-full max-h-none flex-col p-0"
     >
         <h2 id="screenshot-lightbox-title" class="sr-only">Screenshots{gameName ? ` for ${gameName}` : ''}</h2>
@@ -91,7 +91,7 @@
             type="button"
             variant="ghost"
             tone="neutral"
-            class="absolute inset-0 hover:bg-transparent dark:hover:bg-transparent"
+            class="absolute inset-0 hover:bg-transparent"
             ariaLabel="Close lightbox"
             onclick={onClose}
         ></Button>
@@ -107,7 +107,7 @@
                     e.stopPropagation();
                     onClose();
                 }}
-                class="bg-opacity-90 hover:bg-opacity-100 cursor-pointer rounded-full bg-white p-2 text-black transition-colors"
+                class="cursor-pointer rounded-full bg-white p-2 text-black transition-colors"
                 ariaLabel="Close lightbox"
             >
                 <XLinesIcon class="h-6 w-6" />
@@ -125,7 +125,7 @@
                         e.stopPropagation();
                         navigate('prev');
                     }}
-                    class="bg-opacity-90 hover:bg-opacity-100 absolute left-4 z-20 cursor-pointer rounded-full bg-white p-3 text-black transition-colors"
+                    class="absolute left-4 z-20 cursor-pointer rounded-full bg-white p-3 text-black transition-colors"
                     style="top: 50%; transform: translateY(-50%)"
                     ariaLabel="Previous screenshot"
                 >
@@ -138,7 +138,7 @@
                     type="button"
                     variant="ghost"
                     tone="neutral"
-                    class="flex h-full w-full items-center justify-center overflow-hidden transition-transform duration-300 hover:bg-transparent dark:hover:bg-transparent {isZoomed
+                    class="flex h-full w-full items-center justify-center overflow-hidden transition-transform duration-300 hover:bg-transparent {isZoomed
                         ? 'scale-150 cursor-zoom-out'
                         : 'cursor-zoom-in'}"
                     onclick={(e) => {
@@ -169,7 +169,7 @@
                         e.stopPropagation();
                         navigate('next');
                     }}
-                    class="bg-opacity-90 hover:bg-opacity-100 absolute right-4 z-20 cursor-pointer rounded-full bg-white p-3 text-black transition-colors"
+                    class="absolute right-4 z-20 cursor-pointer rounded-full bg-white p-3 text-black transition-colors"
                     style="top: 50%; transform: translateY(-50%)"
                     ariaLabel="Next screenshot"
                 >
@@ -178,7 +178,7 @@
             {/if}
         </div>
 
-        <div class="bg-opacity-80 relative z-10 flex flex-shrink-0 items-center justify-between bg-black px-4 py-2">
+        <div class="relative z-10 flex flex-shrink-0 items-center justify-between bg-black px-4 py-2">
             {#if screenshots.length > 1}
                 <div class="mr-4 flex flex-1 justify-center overflow-hidden">
                     <div
@@ -195,9 +195,9 @@
                                     e.stopPropagation();
                                     index = i;
                                 }}
-                                class="flex-shrink-0 cursor-pointer overflow-hidden rounded transition-all duration-300 {i === index
-                                    ? 'scale-110 border-4 border-white opacity-100 shadow-lg'
-                                    : 'border-2 border-transparent opacity-60 hover:scale-105 hover:opacity-100'}"
+                                class="flex-shrink-0 cursor-pointer overflow-hidden rounded transition-colors {i === index
+                                    ? 'border-4 border-white'
+                                    : 'border-2 border-transparent hover:border-fg-muted'}"
                                 ariaLabel="Go to screenshot {i + 1}"
                             >
                                 <img
@@ -218,7 +218,7 @@
                     href={screenshots[index]?.original_url || screenshots[index]?.url}
                     target="_blank"
                     rel="noopener"
-                    class="rounded bg-white px-3 py-1 text-sm font-medium text-black hover:bg-gray-100"
+                    class="rounded bg-white px-3 py-1 text-sm font-medium text-black underline-offset-2 hover:underline"
                     onclick={(e) => e.stopPropagation()}
                 >
                     Open original

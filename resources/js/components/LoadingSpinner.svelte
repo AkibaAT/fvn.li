@@ -29,7 +29,7 @@
     let classes = $derived(
         twMerge(
             'animate-spin rounded-full border-2',
-            currentColor ? 'border-current border-t-transparent' : 'border-gray-300 border-t-blue-600',
+            currentColor ? 'border-current border-t-transparent' : 'border-border border-t-accent',
             sizeClasses[size],
             className,
         ),

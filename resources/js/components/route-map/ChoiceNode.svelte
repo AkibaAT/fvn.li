@@ -25,11 +25,7 @@
     .var-changes {
         font-size: 10px;
         font-family: ui-monospace, monospace;
-        color: #78716c;
+        color: var(--text-faint);
         margin-top: 2px;
-    }
-
-    :global(.dark) .var-changes {
-        color: #a8a29e;
     }
 </style>

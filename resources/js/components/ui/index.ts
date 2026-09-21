@@ -14,4 +14,8 @@ export { default as Switch } from './Switch.svelte';
 export { default as Field } from './Field.svelte';
 export { default as PlatformIcon } from './PlatformIcon.svelte';
 export { default as Stars } from './Stars.svelte';
+export { default as Rating } from './Rating.svelte';
+export { default as Flag } from './Flag.svelte';
+/** @public Grid/list layout switch shared by the catalogue pages. */
+export { default as ViewToggle } from './ViewToggle.svelte';
 export * from './tones';

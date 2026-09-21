@@ -1,7 +1,6 @@
 <script lang="ts">
     import { refreshPage } from '@/utils/refreshPage';
     import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
-    import PlusCircleIcon from '@/components/icons/PlusCircle.svelte';
     import { notify } from '@/components/Toast.svelte';
     import { page } from '@inertiajs/svelte';
     import { untrack } from 'svelte';
@@ -13,8 +12,8 @@
         storeVnList,
         toggleUserProgressUpdates,
     } from '@/api/lists';
-    import { Badge, Button, Dialog, TextInput, Checkbox } from '@/components/ui';
-    import { formatListType, listTypeDotClass, listTypeTone } from '@/components/ui/tones';
+    import { Button, Dialog, TextInput, Checkbox } from '@/components/ui';
+    import { formatListType, listTypeDotClass } from '@/components/ui/tones';
 
     let {
         gameId,
@@ -194,19 +193,6 @@
         }
     };
 
-    const primaryListType = $derived(
-        (() => {
-            const priorityOrder = ['reading', 'completed', 'plan_to_read', 'on_hold', 'dropped'];
-            for (const type of priorityOrder) {
-                if (userLists.some((list) => list.type === type && listStates[list.id])) {
-                    return type;
-                }
-            }
-            return null;
-        })(),
-    );
-
-    const badgeTone = $derived(listTypeTone(primaryListType ?? undefined));
     const userListsInGame = $derived(userLists.filter((list) => listStates[list.id]));
 
     const defaultListTypes = ['plan_to_read', 'reading', 'completed', 'on_hold', 'dropped'];
@@ -218,29 +204,34 @@
 </script>
 
 {#if isAuthenticated}
-    <div class="border-t border-gray-100 pt-3 dark:border-gray-700/50">
-        <div class="flex flex-wrap gap-2">
-            <Button
+    <div class="mt-3">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] leading-none">
+            <button
+                type="button"
                 onclick={async () => {
                     showListDialog = true;
                     await loadUserListsForDialog();
                 }}
-                size="sm"
+                class="cursor-pointer text-fg-muted transition-colors hover:text-fg"
             >
-                <PlusCircleIcon class="h-4 w-4" />
                 {userListsInGame.length > 0 ? 'Manage in Lists' : 'Add to Lists'}
-            </Button>
+            </button>
 
             {#if userListsInGame.length > 0}
-                <Button onclick={() => (showUserLists = !showUserLists)} variant="soft" tone="neutral" size="sm">
+                <button
+                    type="button"
+                    onclick={() => (showUserLists = !showUserLists)}
+                    aria-expanded={showUserLists}
+                    class="inline-flex cursor-pointer items-center gap-1 text-fg-muted transition-colors hover:text-fg"
+                >
                     <span>My Lists</span>
-                    <Badge tone={badgeTone} size="sm">{userListsInGame.length}</Badge>
-                    <ChevronDownIcon class="h-4 w-4 transition-transform {showUserLists ? 'rotate-180' : ''}" />
-                </Button>
+                    <span>{userListsInGame.length}</span>
+                    <ChevronDownIcon class="h-3 w-3 transition-transform {showUserLists ? 'rotate-180' : ''}" />
+                </button>
             {/if}
 
             {#if !isPaid}
-                <label class="flex cursor-pointer items-center gap-2">
+                <label class="flex cursor-pointer items-center gap-1.5 text-fg-muted transition-colors hover:text-fg">
                     <input
                         type="checkbox"
                         checked={notificationStatus}
@@ -248,18 +239,18 @@
                         disabled={isTogglingNotifications}
                         class="sr-only"
                     />
-                    <div
-                        class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors {notificationStatus
-                            ? 'bg-blue-600'
-                            : 'bg-gray-300 dark:bg-gray-600'} {isTogglingNotifications ? 'opacity-50' : ''}"
+                    <span
+                        class="relative inline-flex h-3.5 w-6 items-center rounded-full transition-colors {notificationStatus
+                            ? 'bg-fg'
+                            : 'bg-border'} {isTogglingNotifications ? 'opacity-50' : ''}"
                     >
                         <span
-                            class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform {notificationStatus
-                                ? 'translate-x-5'
-                                : 'translate-x-1'}"
+                            class="inline-block h-2.5 w-2.5 transform rounded-full bg-surface transition-transform {notificationStatus
+                                ? 'translate-x-3'
+                                : 'translate-x-0.5'}"
                         ></span>
-                    </div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400">
+                    </span>
+                    <span>
                         {isTogglingNotifications ? 'Updating...' : notificationStatus ? 'Notifications on' : 'Notifications off'}
                     </span>
                 </label>
@@ -268,27 +259,19 @@
 
         {#if userListsInGame.length > 0 && showUserLists}
             <div class="mt-3">
-                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700/50 dark:bg-gray-800/50">
-                    <h3 class="mb-3 text-sm font-medium text-gray-900 dark:text-gray-100">My Lists</h3>
+                <div class="rounded-lg border border-border bg-surface-alt p-4">
+                    <h3 class="mb-3 text-[12.5px] font-semibold text-fg">My Lists</h3>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         {#each userListsInGame as list (list.id)}
-                            <div class="flex flex-col rounded-lg border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="min-w-0 flex-1">
-                                        <a
-                                            href={route('lists.show', list.id)}
-                                            class="block truncate font-medium text-gray-900 hover:text-blue-600 dark:text-gray-100 dark:hover:text-blue-400"
-                                        >
-                                            {list.name}
-                                        </a>
-                                        <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                            {formatListType(list.type)}
-                                            {#if list.is_public}
-                                                <Badge tone="primary" size="sm" class="ml-1">Public</Badge>
-                                            {/if}
-                                        </div>
+                            <div class="flex flex-col rounded-md border border-border bg-surface p-3">
+                                <div class="min-w-0">
+                                    <a href={route('lists.show', list.id)} class="block truncate text-[12.5px] font-medium text-fg hover:underline">
+                                        {list.name}
+                                    </a>
+                                    <div class="mt-1 text-[12px] text-fg-faint">
+                                        {formatListType(list.type)}
+                                        {#if list.is_public}<span class="ml-1">· Public</span>{/if}
                                     </div>
-                                    <Badge tone={listTypeTone(list.type)} size="sm" class="flex-shrink-0">{formatListType(list.type)}</Badge>
                                 </div>
                             </div>
                         {/each}
@@ -308,7 +291,7 @@
 
             <div class="space-y-6">
                 <div>
-                    <h4 class="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Default Lists</h4>
+                    <h4 class="mb-2 text-[12.5px] font-medium text-fg-muted">Default Lists</h4>
                     <div class="space-y-1">
                         {#each defaultListTypes as listType (listType)}
                             {@const list = allLists.find((l) => l.type === listType)}
@@ -336,7 +319,7 @@
                 </div>
 
                 <div>
-                    <h4 class="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Custom Lists</h4>
+                    <h4 class="mb-2 text-[12.5px] font-medium text-fg-muted">Custom Lists</h4>
                     <div class="space-y-1">
                         {#each customLists as list (list.id)}
                             {@const isInList = listStates[list.id]}
@@ -358,7 +341,7 @@
                         {/each}
                     </div>
 
-                    <div class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+                    <div class="mt-4 border-t border-border pt-4">
                         <form onsubmit={handleCreateList}>
                             <div class="flex gap-2">
                                 <TextInput
@@ -366,7 +349,7 @@
                                     bind:value={newListName}
                                     placeholder="New list name"
                                     fieldClass="flex-1"
-                                    class="border-0 bg-gray-100 py-1 dark:bg-gray-700"
+                                    class="border-0 bg-surface-alt py-1"
                                     required
                                 />
                                 <Button type="submit" disabled={!newListName.trim() || isCreatingList} size="sm">
@@ -374,12 +357,7 @@
                                 </Button>
                             </div>
                             <div class="mt-2 flex items-center">
-                                <Checkbox
-                                    id="is_public_{gameId}"
-                                    bind:checked={newListIsPublic}
-                                    label="Make this list public"
-                                    class="dark:bg-gray-800"
-                                />
+                                <Checkbox id="is_public_{gameId}" bind:checked={newListIsPublic} label="Make this list public" />
                             </div>
                         </form>
                     </div>

@@ -43,24 +43,23 @@ test('game page review saves survive Back', async ({ page }, info) => {
 });
 
 for (const width of [1440, 375]) {
-    test(`game card tags and languages expand and collapse at ${width}px`, async ({ page }, info) => {
+    test(`game card caps tags and keeps language glyphs at ${width}px`, async ({ page }, info) => {
         await page.setViewportSize({ width, height: 1000 });
         await page.goto(`/games?noDefaults=1&search=${encodeURIComponent(f.originalName)}`);
-        const more = page.getByRole('button', { name: 'Show 2 more tags', exact: true });
-        await more.click();
-        await expect(page.locator('[data-tag-id]')).toHaveCount(12);
-        await page.getByRole('button', { name: 'Show 1 more languages', exact: true }).click();
-        await expect(page.getByRole('button', { name: 'Show less', exact: true })).toHaveCount(2);
+
+        // The dense card joins the first five tags with commas and folds the rest into +N.
+        await expect(page.locator('[data-tag-id]')).toHaveCount(5);
+        await expect(page.getByText('+7', { exact: true })).toBeVisible();
+
         const tag = page.locator('[data-tag-id]').last();
         await tag.scrollIntoViewIfNeeded();
         await expect(tag).toBeInViewport();
         await tag.click({ trial: true });
-        await shot(page, info, 'expanded-card');
-        await page.getByRole('button', { name: 'Show less', exact: true }).last().click();
-        await expect(more).toBeVisible();
-        await expect(page.locator('[data-tag-id]')).toHaveCount(10);
-        await page.getByRole('button', { name: 'Show less', exact: true }).click();
-        await expect(page.getByRole('button', { name: 'Show 1 more languages', exact: true })).toBeVisible();
+        await shot(page, info, 'capped-card');
+
+        // Cards render every supported language glyph (English first, Polish last).
+        await expect(page.getByRole('button', { name: 'English', exact: true })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'pol', exact: true })).toBeVisible();
     });
 }
 

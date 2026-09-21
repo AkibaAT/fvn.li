@@ -80,18 +80,18 @@
     });
 </script>
 
-<a
-    href="#main-content"
-    class="skip-link rounded-lg bg-blue-600 px-4 py-2 font-medium text-white shadow-lg ring-offset-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
->
-    Skip to main content
-</a>
+<a href="#main-content" class="skip-link rounded-lg bg-accent px-4 py-2 font-medium text-on-accent"> Skip to main content </a>
 
-<div class="flex min-h-screen flex-col bg-gray-50 dark:bg-[#060a16]">
+<div class="flex min-h-screen flex-col bg-page text-fg">
     <Header />
     <FlashMessages message={flash?.message} error={flash?.error} />
 
-    <main id="main-content" tabindex="-1" class="main-content flex-1 scroll-mt-28 {isFullWidth ? 'full-width' : 'py-8'}" aria-label="Main content">
+    <main
+        id="main-content"
+        tabindex="-1"
+        class="main-content flex-1 scroll-mt-16 {isFullWidth ? 'full-width' : 'pt-5 pb-8 sm:pt-7 sm:pb-10 lg:pt-9 lg:pb-12'}"
+        aria-label="Main content"
+    >
         {#if isFullWidth}
             {@render children()}
         {:else}

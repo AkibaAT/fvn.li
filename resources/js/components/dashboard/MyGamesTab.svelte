@@ -69,9 +69,9 @@
     {#if hasItchio}
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
-                <ItchioIcon class="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <span class="text-sm text-gray-600 dark:text-gray-400"
-                    >Connected: <span class="font-medium text-gray-900 dark:text-white">{itchioData.username}.itch.io</span>
+                <ItchioIcon class="text-itchio h-5 w-5" />
+                <span class="text-sm text-fg-muted"
+                    >Connected: <span class="font-medium text-fg">{itchioData.username}.itch.io</span>
                     &middot; {myGames.length}
                     {myGames.length === 1 ? 'game' : 'games'}</span
                 >
@@ -88,7 +88,7 @@
             {@const totalViews = gameStats?.page_views_unique || 0}
             {@const totalDownloads = gameStats?.custom_link_clicks_unique || 0}
             {@const itchioVisits = gameStats?.external_project_unique || 0}
-            <Card variant="glass" padding="none" class="overflow-hidden shadow-none">
+            <Card variant="flat" padding="none" class="overflow-hidden">
                 <Link href={route('games.show', g.slug)} class="block">
                     {#if g.thumb_url}
                         <img
@@ -99,9 +99,7 @@
                                 : 'object-cover'} transition-opacity hover:opacity-90"
                         />
                     {:else}
-                        <div
-                            class="flex h-36 w-full items-center justify-center bg-gray-100 text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                        >
+                        <div class="flex h-36 w-full items-center justify-center bg-surface-alt text-fg-muted transition-colors hover:bg-border">
                             <div class="text-center">
                                 <PhotoIcon class="mx-auto mb-1 h-8 w-8 opacity-50" stroke-width="1.5" />
                                 <div class="text-sm font-medium">No Image</div>
@@ -110,17 +108,17 @@
                     {/if}
                 </Link>
                 <div class="space-y-2 p-4">
-                    <div class="font-semibold text-gray-900 dark:text-white">{g.name}</div>
+                    <div class="font-semibold text-fg">{g.name}</div>
                     {#if g.has_additional_links}
                         <div class="text-xs text-green-700 dark:text-green-400">Has download links</div>
                     {:else}
-                        <div class="text-xs text-gray-500 dark:text-gray-400">No download links</div>
+                        <div class="text-xs text-fg-faint">No download links</div>
                     {/if}
 
                     {#if gameStats && (totalViews > 0 || totalDownloads > 0 || itchioVisits > 0)}
-                        <div class="space-y-1 rounded-lg bg-gray-50 p-2 dark:bg-gray-700/50">
-                            <div class="text-xs font-medium text-gray-700 dark:text-gray-300">Last 30 days:</div>
-                            <div class="flex flex-wrap gap-3 text-xs text-gray-600 dark:text-gray-400">
+                        <div class="space-y-1 rounded-lg border border-border bg-surface-alt p-2">
+                            <div class="text-xs font-medium text-fg-muted">Last 30 days:</div>
+                            <div class="flex flex-wrap gap-3 text-xs text-fg-muted">
                                 {#if totalViews > 0}
                                     <div class="flex items-center gap-1">
                                         <EyeIcon class="h-3 w-3" />
@@ -146,7 +144,7 @@
                     <div class="pt-2">
                         <Link
                             href={route('my-games.edit', { game: g.slug })}
-                            class="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+                            class="inline-flex items-center rounded-md bg-accent px-3 py-1.5 text-sm text-on-accent hover:opacity-90"
                         >
                             <span>Edit</span>
                         </Link>
@@ -157,6 +155,6 @@
     </div>
 
     {#if hasItchio && myGames.length === 0}
-        <div class="text-center text-gray-600 dark:text-gray-400">No owned games were detected for your itch.io account.</div>
+        <div class="text-center text-fg-muted">No owned games were detected for your itch.io account.</div>
     {/if}
 </div>

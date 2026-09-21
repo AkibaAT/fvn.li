@@ -108,13 +108,11 @@
 </script>
 
 <div class="space-y-6">
-    <p class="text-sm text-gray-600 dark:text-gray-400">
-        Customize how search results are filtered for you. These preferences apply across the site by default.
-    </p>
+    <p class="text-sm text-fg-muted">Customize how search results are filtered for you. These preferences apply across the site by default.</p>
 
-    <Card padding="lg">
-        <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Language Preferences</h2>
-        <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
+    <Card variant="flat" padding="lg">
+        <h2 class="mb-4 text-lg font-semibold text-fg">Language Preferences</h2>
+        <p class="mb-3 text-sm text-fg-muted">
             Set your preferred languages to auto-filter the games list. When set, the games page will show only games available in these languages by
             default.
         </p>
@@ -126,9 +124,7 @@
                     tone={selectedLanguages.includes(iso) ? 'primary' : 'neutral'}
                     onclick={() => toggleLanguagePreference(iso)}
                     disabled={savingLanguages}
-                    class="rounded-full px-3 py-1 text-sm transition-colors {selectedLanguages.includes(iso)
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
+                    class="rounded-full px-3 py-1 text-sm transition-colors"
                 >
                     <span class="fi fi-{lang.flag_code} mr-1 rounded-xs"></span>
                     {lang.ref_name}
@@ -149,16 +145,16 @@
         </div>
     </Card>
 
-    <Card padding="lg">
+    <Card variant="flat" padding="lg">
         <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Excluded Tags</h2>
+            <h2 class="text-lg font-semibold text-fg">Excluded Tags</h2>
             {#if excludedTags.length > 0}
-                <span class="rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                <span class="rounded-[3px] border border-red-600/50 px-1.5 py-0.5 text-[11px] font-semibold text-red-700 dark:text-red-400"
                     >{excludedTags.length} excluded</span
                 >
             {/if}
         </div>
-        <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
+        <p class="mb-3 text-sm text-fg-muted">
             Select tags to exclude from game search results by default. Games with any of these tags will be hidden unless you explicitly include
             them.
         </p>
@@ -166,7 +162,7 @@
             type="text"
             bind:value={tagSearch}
             placeholder="Search tags..."
-            class="mb-3 w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            class="mb-3 w-full rounded-md border border-border bg-surface-alt px-3 py-2 text-sm text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
         />
         <div class="flex max-h-64 flex-wrap gap-2 overflow-y-auto">
             {#each filteredTags as [tagId, label] (tagId)}
@@ -176,9 +172,7 @@
                     tone={excludedTags.includes(Number(tagId)) ? 'danger' : 'neutral'}
                     onclick={() => toggleExcludedTag(Number(tagId))}
                     disabled={savingExcludedTags}
-                    class="rounded-full px-3 py-1 text-sm transition-colors {excludedTags.includes(Number(tagId))
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
+                    class="rounded-full px-3 py-1 text-sm transition-colors"
                 >
                     {label}
                 </Button>
@@ -205,7 +199,7 @@
                         excludedTagDraft = [];
                         saveExcludedTags();
                     }}
-                    class="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
+                    class="rounded-md px-4 py-2 text-sm font-medium"
                 >
                     Clear All
                 </Button>
@@ -213,21 +207,21 @@
         </div>
     </Card>
 
-    <Card padding="lg">
+    <Card variant="flat" padding="lg">
         <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Ignored Games</h2>
-            <span class="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+            <h2 class="text-lg font-semibold text-fg">Ignored Games</h2>
+            <span class="rounded-[3px] border border-border-strong px-1.5 py-0.5 text-[11px] font-semibold text-fg-muted"
                 >{ignoredGamesCount} game{ignoredGamesCount !== 1 ? 's' : ''}</span
             >
         </div>
-        <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
+        <p class="mb-3 text-sm text-fg-muted">
             Games you've ignored won't appear in search results by default. You can manage your ignored games here.
         </p>
         {#if ignoredGames.length > 0}
             <div class="space-y-2">
                 {#each ignoredGames as game (game.id)}
-                    <div class="flex items-center justify-between rounded-lg bg-gray-50 p-2 dark:bg-gray-700/50">
-                        <Link href={route('games.show', game.slug)} class="truncate text-sm text-blue-600 hover:underline dark:text-blue-400"
+                    <div class="flex items-center justify-between rounded-lg border border-border bg-surface-alt p-2">
+                        <Link href={route('games.show', game.slug)} class="truncate text-sm text-fg-muted hover:text-fg hover:underline"
                             >{game.name}</Link
                         >
                         <Button
@@ -243,8 +237,8 @@
             </div>
         {:else}
             <div class="py-6 text-center">
-                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">No ignored games</div>
-                <div class="text-xs text-gray-400 dark:text-gray-500">
+                <div class="text-sm font-medium text-fg-muted">No ignored games</div>
+                <div class="text-xs text-fg-faint">
                     You haven't ignored any games yet. Click the ignore button on any game card to hide it from search results.
                 </div>
             </div>

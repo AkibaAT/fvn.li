@@ -48,10 +48,10 @@
     );
 </script>
 
-<Card padding="lg" class="shadow">
+<Card variant="flat" padding="lg">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{heading}</h2>
-        <div class="text-sm text-gray-500 dark:text-gray-400">
+        <h2 class="text-xl font-semibold text-fg">{heading}</h2>
+        <div class="text-sm text-fg-faint">
             {formatLocalDate(stats.first_rating) ?? '—'} - {formatLocalDate(stats.latest_rating) ?? '—'}
         </div>
     </div>
@@ -59,9 +59,9 @@
     <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         {#each tiles as tile (tile.label)}
             <div>
-                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{tile.label}</div>
-                <div class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{tile.value}</div>
-                {#if tile.detail}<div class="text-sm text-gray-500 dark:text-gray-400">{tile.detail}</div>{/if}
+                <div class="text-sm font-medium text-fg-muted">{tile.label}</div>
+                <div class="mt-1 text-2xl font-semibold text-fg">{tile.value}</div>
+                {#if tile.detail}<div class="text-sm text-fg-faint">{tile.detail}</div>{/if}
             </div>
         {/each}
     </div>
@@ -70,7 +70,7 @@
         {#each distributions as distribution (distribution.title)}
             {@const block = distribution.block as StatsBlock}
             <div>
-                <h3 class="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">{distribution.title} Rating Distribution</h3>
+                <h3 class="mb-4 text-lg font-medium text-fg">{distribution.title} Rating Distribution</h3>
                 <RatingDistributionBars distribution={block.rating_distribution} total={block.total_ratings} />
             </div>
         {/each}

@@ -38,32 +38,30 @@
         backLabel="Back to Dashboard"
     />
 
-    <Card variant="glass" padding="lg" class="shadow-none">
+    <Card variant="flat" padding="lg">
         {#if hasNotifications}
             <div class="space-y-4">
-                <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-white">Your Notifications</h2>
+                <h2 class="mb-4 text-xl font-semibold text-fg">Your Notifications</h2>
                 {#each notifications as notification (notification.id)}
-                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+                    <div class="rounded-lg border border-border bg-surface-alt p-4">
                         <div class="flex items-start space-x-3">
                             <div class="mt-0.5 flex-shrink-0">
-                                <InformationCircleIcon class="h-5 w-5 text-gray-500" />
+                                <InformationCircleIcon class="h-5 w-5 text-fg-muted" />
                             </div>
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                                    <h3 class="text-lg font-medium text-fg">
                                         {#if notification.url}
-                                            <Link href={notification.url} class="text-blue-600 hover:underline dark:text-blue-400"
-                                                >{notification.title}</Link
-                                            >
+                                            <Link href={notification.url} class="text-fg hover:underline">{notification.title}</Link>
                                         {:else}
                                             {notification.title}
                                         {/if}
                                     </h3>
-                                    <span class="text-sm text-gray-500 dark:text-gray-400">
+                                    <span class="text-sm text-fg-faint">
                                         {formatDateTimeWithTimezone(notification.created_at)}
                                     </span>
                                 </div>
-                                <p class="mt-1 text-gray-600 dark:text-gray-400">
+                                <p class="mt-1 text-fg-muted">
                                     {notification.message}
                                 </p>
                             </div>
@@ -73,8 +71,8 @@
             </div>
         {:else}
             <div class="py-12 text-center">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white">No Notifications</h3>
-                <p class="mt-1 text-gray-500 dark:text-gray-400">
+                <h3 class="text-lg font-medium text-fg">No Notifications</h3>
+                <p class="mt-1 text-fg-muted">
                     {hasAnyNotifications ? "You don't have any notifications for this date." : 'There are no notifications available for this date.'}
                 </p>
             </div>
@@ -82,7 +80,7 @@
     </Card>
 
     <div class="flex items-center justify-between">
-        <Link href={route('dashboard')} class="inline-flex items-center space-x-2 text-blue-600 transition-colors hover:text-blue-700">
+        <Link href={route('dashboard')} class="inline-flex items-center space-x-2 text-fg-muted transition-colors hover:text-fg">
             <ArrowLeftIcon class="h-5 w-5" />
             <span>Back to Dashboard</span>
         </Link>

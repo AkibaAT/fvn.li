@@ -125,7 +125,7 @@
     @vite('resources/js/app.ts')
     @routes
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 min-h-screen antialiased">
+<body class="bg-page text-fg min-h-screen antialiased">
 @inertia
 </body>
 </html>

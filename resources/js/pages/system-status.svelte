@@ -93,8 +93,8 @@
     <RatingTrends {ratingStats} />
     <ReleaseYearDistribution {releaseYearStats} />
     {#if healthSummary && monitoredTasks}
-        <section class="space-y-6 border-t border-gray-200 pt-10 dark:border-gray-800">
-            <h2 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Scheduled tasks</h2>
+        <section class="space-y-6 border-t border-border pt-10">
+            <h2 class="text-2xl font-semibold tracking-tight text-fg">Scheduled tasks</h2>
             <TasksSummary {healthSummary} />
             <TasksList {monitoredTasks} />
         </section>

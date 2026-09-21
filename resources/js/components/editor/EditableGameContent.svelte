@@ -236,16 +236,13 @@
         <div class="flex flex-wrap items-center gap-2 {controlsTarget ? '' : 'absolute top-2 right-2'}" bind:this={controlsEl}>
             {#if hasCustomPage && !isLoadingViewMode}
                 <div class="mr-2 flex items-center gap-1">
-                    <span class="mr-2 text-xs text-gray-600 dark:text-gray-400">Visitors see:</span>
+                    <span class="mr-2 text-xs text-fg-muted">Visitors see:</span>
                     <Button
                         type="button"
                         variant={viewMode === 'original' ? 'solid' : 'soft'}
                         tone={viewMode === 'original' ? 'primary' : 'neutral'}
                         size="xs"
                         onclick={() => handleViewModeChange('original')}
-                        class="rounded px-2 py-1 text-xs transition-colors {viewMode === 'original'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
                         title="Show visitors original itch.io content"
                     >
                         itch.io
@@ -256,9 +253,6 @@
                         tone={viewMode === 'custom' ? 'primary' : 'neutral'}
                         size="xs"
                         onclick={() => handleViewModeChange('custom')}
-                        class="rounded px-2 py-1 text-xs transition-colors {viewMode === 'custom'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}"
                         title="Show visitors custom content"
                     >
                         Custom
@@ -266,14 +260,7 @@
                 </div>
             {/if}
             {#if hasCustomPage && onPreviewingVisitorViewChange}
-                <Button
-                    type="button"
-                    variant="solid"
-                    tone="neutral"
-                    size="xs"
-                    onclick={() => onPreviewingVisitorViewChange(!previewingVisitorView)}
-                    class="rounded bg-gray-700 px-2 py-1 text-xs text-white shadow-md hover:bg-gray-800 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
-                >
+                <Button type="button" variant="solid" tone="neutral" size="xs" onclick={() => onPreviewingVisitorViewChange(!previewingVisitorView)}>
                     {previewingVisitorView ? 'Exit preview' : 'Preview visitor view'}
                 </Button>
             {/if}
@@ -294,9 +281,7 @@
                         {isReverting ? 'Reverting...' : 'Revert'}
                     </Button>
                     {#if showRevertMenu}
-                        <div
-                            class="absolute top-full right-0 z-50 mt-1 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800"
-                        >
+                        <div class="absolute top-full right-0 z-50 mt-1 w-48 rounded-lg border border-border bg-surface">
                             <div class="py-1">
                                 <Button
                                     type="button"
@@ -306,7 +291,7 @@
                                         showRevertMenu = false;
                                         handleRevert({ name: true });
                                     }}
-                                    class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    class="block w-full px-4 py-2 text-left text-sm"
                                 >
                                     Revert Name
                                 </Button>
@@ -318,7 +303,7 @@
                                         showRevertMenu = false;
                                         handleRevert();
                                     }}
-                                    class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    class="block w-full px-4 py-2 text-left text-sm"
                                 >
                                     Revert Description Only
                                 </Button>
@@ -330,7 +315,7 @@
                                         showRevertMenu = false;
                                         handleRevert({ screenshots: true });
                                     }}
-                                    class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    class="block w-full px-4 py-2 text-left text-sm"
                                 >
                                     Revert Screenshots
                                 </Button>
@@ -342,7 +327,7 @@
                                         showRevertMenu = false;
                                         handleRevert({ thumbnail: true });
                                     }}
-                                    class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    class="block w-full px-4 py-2 text-left text-sm"
                                 >
                                     Revert Thumbnail
                                 </Button>
@@ -354,7 +339,7 @@
                                         showRevertMenu = false;
                                         handleRevert({ name: true, screenshots: true, thumbnail: true });
                                     }}
-                                    class="block w-full border-t border-gray-200 px-4 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    class="block w-full border-t border-border px-4 py-2 text-left text-sm font-semibold"
                                 >
                                     Revert Everything
                                 </Button>
@@ -364,19 +349,15 @@
                 </div>
             {/if}
             {#if !previewingVisitorView}
-                <Button type="button" variant="solid" tone="primary" size="xs" onclick={handleEdit} class="shadow-md">Edit</Button>
+                <Button type="button" variant="solid" tone="primary" size="xs" onclick={handleEdit}>Edit</Button>
             {/if}
         </div>
     {/if}
 
-    <div
-        class="game_description prose max-w-none text-gray-600 dark:text-gray-300 dark:prose-invert {isEditing
-            ? 'rounded border-2 border-blue-300'
-            : ''}"
-    >
+    <div class="game_description prose max-w-none text-fg-muted dark:prose-invert {isEditing ? 'rounded-md border border-border-strong' : ''}">
         {#if isEditing}
             {#if showEditorLoading}
-                <div class="flex h-64 items-center justify-center text-sm text-gray-500 dark:text-gray-400">Loading editor...</div>
+                <div class="flex h-64 items-center justify-center text-sm text-fg-muted">Loading editor...</div>
             {/if}
             <TinyMCEEditor
                 content={editContent}

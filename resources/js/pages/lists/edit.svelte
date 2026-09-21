@@ -77,20 +77,20 @@
 <div class="mx-auto max-w-2xl space-y-8">
     <PageHeader title="Edit List" backHref={route('lists.show', vnList.id)} backLabel="Back to list" />
 
-    <Card variant="glass">
+    <Card variant="flat">
         <form onsubmit={handleSubmit} class="space-y-6">
             <TextInput type="text" id="name" bind:value={formData.name} required label="List Name" placeholder="Enter list name..." />
 
             <div>
-                <p class="block text-sm font-medium text-gray-700 dark:text-gray-300">List Type</p>
-                <div class="mt-1 rounded-md border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
-                    <span class="text-sm text-gray-900 dark:text-gray-100">
+                <p class="block text-sm font-medium text-fg-muted">List Type</p>
+                <div class="mt-1 rounded-md border border-border bg-surface-alt p-3">
+                    <span class="text-sm text-fg">
                         {formatListType(vnList.type)}
                         {vnList.is_default ? ' (Default)' : ''}
                     </span>
                 </div>
                 {#if vnList.is_default}
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">The type of a default list cannot be changed</p>
+                    <p class="mt-1 text-xs text-fg-faint">The type of a default list cannot be changed</p>
                 {/if}
             </div>
 
@@ -105,9 +105,7 @@
 
             <div>
                 <Checkbox bind:checked={formData.is_public} label="Make this list public" />
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Public lists can be viewed by anyone, private lists are only visible to you
-                </p>
+                <p class="mt-1 text-xs text-fg-faint">Public lists can be viewed by anyone, private lists are only visible to you</p>
             </div>
 
             <div class="flex justify-between pt-4">

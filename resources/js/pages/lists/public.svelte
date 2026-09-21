@@ -1,6 +1,7 @@
 <script lang="ts">
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import MagnifyingGlassIcon from '@/components/icons/MagnifyingGlass.svelte';
+    import ClipboardIcon from '@/components/icons/Clipboard.svelte';
     import XMarkIcon from '@/components/icons/XMark.svelte';
     import { untrack } from 'svelte';
     import { SvelteURLSearchParams } from 'svelte/reactivity';
@@ -9,7 +10,7 @@
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import { Link, router } from '@inertiajs/svelte';
     import { shouldIntercept } from '@inertiajs/core';
-    import { Alert, Button, Card } from '@/components/ui';
+    import { Alert, Button, Card, Select, TextInput } from '@/components/ui';
 
     interface FilterGame {
         id: number;
@@ -166,24 +167,18 @@
 <div class="space-y-8">
     <PageHeader title="Public Visual Novel Lists">
         {#snippet actions()}
-            <Link
-                href={route('lists.index')}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
-                >My Lists</Link
-            >
+            <Button href={route('lists.index')} variant="outline" tone="neutral">
+                <ClipboardIcon class="h-5 w-5" />
+                My Lists
+            </Button>
         {/snippet}
     </PageHeader>
 
-    <Card variant="glass" padding="md" class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <Card variant="flat" padding="md" class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form onsubmit={handleSearch} class="flex max-w-md flex-1 gap-2">
             <div class="relative flex-1">
-                <input
-                    type="text"
-                    bind:value={searchInput}
-                    placeholder="Search by user or VN name..."
-                    class="w-full rounded-lg border border-gray-300 bg-white py-2 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
-                />
-                <MagnifyingGlassIcon class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <TextInput type="text" bind:value={searchInput} placeholder="Search by user or VN name..." class="pr-4 pl-10" />
+                <MagnifyingGlassIcon class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-fg-faint" />
                 {#if currentSearch}
                     <Button
                         type="button"
@@ -201,27 +196,27 @@
             <Button type="submit" variant="solid" tone="primary" disabled={isLoading}>Search</Button>
         </form>
         <div class="flex items-center gap-2">
-            <label for="sort" class="text-sm text-gray-600 dark:text-gray-400">Sort by:</label>
-            <select
+            <label for="sort" class="text-sm text-fg-muted">Sort by:</label>
+            <Select
                 id="sort"
                 value={currentSort}
                 onchange={(e) => handleSortChange((e.target as HTMLSelectElement).value)}
                 disabled={isLoading}
-                class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                class="w-auto"
             >
                 <option value="default">Default</option>
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
                 <option value="most_entries">Most Games</option>
                 <option value="recently_updated">Recently Updated</option>
-            </select>
+            </Select>
         </div>
     </Card>
 
     {#if currentSearch}
-        <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+        <div class="flex items-center gap-2 text-sm text-fg-muted">
             <span>Showing results for:</span>
-            <span class="rounded-full bg-blue-100 px-3 py-1 font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">"{currentSearch}"</span>
+            <span class="rounded-full bg-surface-alt px-3 py-1 font-medium text-fg">"{currentSearch}"</span>
             <Button type="button" variant="link" tone="primary" onclick={clearSearch}>Clear</Button>
         </div>
     {/if}
@@ -238,8 +233,8 @@
         </Alert>
     {/if}
 
-    <Card variant="glass" padding="lg">
-        <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700">
+    <Card variant="flat" padding="lg">
+        <div class="flex flex-wrap gap-2 border-b border-border">
             {#each tabs as tab (tab.key)}
                 <a
                     href={route('lists.public', {
@@ -255,9 +250,9 @@
                         e.preventDefault();
                         handleTabChange(tab.key);
                     }}
-                    class="rounded-t-lg px-4 py-2 text-sm font-medium transition-colors {type === tab.key
-                        ? 'border-b-2 border-blue-600 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
+                    class="rounded-t-md px-4 py-2 text-sm font-medium transition-colors {type === tab.key
+                        ? 'border-b-2 border-accent text-fg'
+                        : 'text-fg-muted hover:text-fg'}"
                 >
                     {tab.label} ({tab.count})
                 </a>

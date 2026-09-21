@@ -56,7 +56,7 @@
     let editControlsContainer = $state<HTMLElement | undefined>(undefined);
 </script>
 
-<Card padding="lg" class="mb-6">
+<Card variant="flat" padding="lg" class="mb-6">
     <div class="flex flex-col gap-6 md:flex-row">
         {#if game.is_visible && (currentThumbnail || editPermissions.canEdit)}
             <div class="group relative shrink-0">
@@ -67,15 +67,11 @@
                         class="max-h-52 max-w-64 rounded-lg {game.platform === 'steam' ? 'object-contain' : 'object-cover'}"
                     />
                 {:else}
-                    <div
-                        class="flex h-36 w-64 items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-600 dark:bg-gray-900 dark:text-gray-400"
-                    >
-                        No thumbnail
-                    </div>
+                    <div class="flex h-36 w-64 items-center justify-center rounded-lg bg-surface-alt text-sm text-fg-muted">No thumbnail</div>
                 {/if}
                 {#if editPermissions.canEdit}
                     <label
-                        class="absolute top-2 right-2 cursor-pointer rounded-full bg-blue-600 p-2 text-white shadow-lg transition-colors focus-within:ring-2 focus-within:ring-blue-500 hover:bg-blue-700"
+                        class="absolute top-2 right-2 cursor-pointer rounded-md bg-accent p-2 text-on-accent transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent hover:opacity-90"
                     >
                         {#if isUploadingThumbnail}
                             <LoadingSpinner size="sm" currentColor isBusy={false} />
@@ -106,7 +102,7 @@
                     {#if editPermissions.canEdit}
                         <EditableGameName {game} {previewingVisitorView} previewName={visitorName} {onNameUpdate} />
                     {:else}
-                        <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{game.effective_name}</h1>
+                        <h1 class="text-3xl font-bold tracking-tight text-fg">{game.effective_name}</h1>
                     {/if}
                 </div>
                 <div class="flex flex-col gap-2 sm:flex-row">
@@ -115,7 +111,7 @@
                             url={game.primary_url}
                             platform={game.platform}
                             gameId={game.id}
-                            class="inline-flex items-center gap-2 font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                            class="inline-flex items-center gap-2 font-medium text-fg-muted transition-colors hover:text-fg"
                         />
                     {/if}
                 </div>
@@ -142,17 +138,17 @@
                     {/if}
 
                     {#if game.is_nsfw}
-                        <Badge tone="danger" size="sm">NSFW</Badge>
+                        <Badge tone="neutral" size="sm">NSFW</Badge>
                     {/if}
                     {#if game.is_on_sale}
-                        <Badge tone="primary" size="sm">
+                        <Badge tone="neutral" size="sm">
                             Sale{typeof game.discount_percentage === 'number' ? ` -${game.discount_percentage}%` : ''}
                         </Badge>
                     {/if}
                     {#if game.is_paid}
-                        <Badge tone="primary" size="sm">
+                        <Badge tone="neutral" size="sm">
                             {#if game.is_on_sale && game.formatted_current_price && game.formatted_original_price}
-                                <span class="mr-1 text-blue-500 line-through dark:text-blue-400">{game.formatted_original_price}</span>
+                                <span class="mr-1 text-fg-faint line-through">{game.formatted_original_price}</span>
                                 {game.formatted_current_price}
                             {:else}
                                 {game.formatted_current_price || 'Paid'}
@@ -160,14 +156,14 @@
                         </Badge>
                     {/if}
                     {#if game.has_demo}
-                        <Badge tone="success" size="sm">Demo</Badge>
+                        <Badge tone="neutral" size="sm">Demo</Badge>
                     {/if}
                 </div>
                 <div id="edit-controls-container" bind:this={editControlsContainer}></div>
             </div>
 
             {#if game.authors}
-                <div class="mb-3 text-gray-600 dark:text-gray-300">
+                <div class="mb-3 text-fg-muted">
                     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                     <div>{@html game.authors}</div>
                 </div>
@@ -206,10 +202,10 @@
             />
         </div>
     {:else}
-        <div class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+        <div class="mt-4 border-t border-border pt-4">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div class="text-sm text-gray-600 dark:text-gray-400">
-                    <Link href={route('login')} class="text-blue-600 underline underline-offset-2 dark:text-blue-400">Log in</Link>
+                <div class="text-sm text-fg-muted">
+                    <Link href={route('login')} class="text-fg underline underline-offset-2">Log in</Link>
                     to track your reading progress
                 </div>
             </div>

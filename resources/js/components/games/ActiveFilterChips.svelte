@@ -2,7 +2,6 @@
     import GlobeIcon from '@/components/icons/Globe.svelte';
     import Itchio from '@/components/icons/Itchio.svelte';
     import Steam from '@/components/icons/Steam.svelte';
-    import { Button } from '@/components/ui';
     import type { PlatformIconMeta } from '@/hooks/usePlatformIcons';
 
     interface ActiveChip {
@@ -24,39 +23,38 @@
     let { chips, onClearAll, getPlatformIcon, getStorePlatformIcon }: Props = $props();
 </script>
 
-{#if chips.length === 0}
-    <span class="text-sm text-gray-600 dark:text-gray-400">No active filters</span>
-{:else}
-    <span class="mr-1 text-sm font-medium text-gray-800 dark:text-gray-200">Active filters:</span>
+{#if chips.length > 0}
     {#each chips as chip (chip.key)}
-        <span
-            class="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-800 dark:border-blue-400/30 dark:bg-blue-500/15 dark:text-blue-100"
-        >
+        <span class="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 text-[13px] text-fg">
             {#if chip.type === 'language' && chip.flagCode}
-                <span class="fi fi-{chip.flagCode} mr-0.5 rounded-xs"></span>
+                <span class="fi fi-{chip.flagCode} rounded-xs"></span>
             {/if}
             {#if chip.type === 'platform' && chip.value && getPlatformIcon(chip.value)}
                 {@const iconMeta = getPlatformIcon(chip.value)}
                 {@const Icon = iconMeta.icon}
-                <Icon class="mr-0.5 h-4 w-4 {iconMeta.color}" />
+                <Icon class="h-3.5 w-3.5 text-fg-muted" />
             {/if}
             {#if chip.type === 'storePlatform' && chip.value && getStorePlatformIcon?.(chip.value)}
-                {@const iconMeta = getStorePlatformIcon?.(chip.value)}
                 {#if chip.value === 'itch_io'}
-                    <Itchio class="h-4 w-4 {iconMeta?.color} mr-0.5" />
+                    <Itchio class="h-3.5 w-3.5 text-fg-muted" monochrome />
                 {:else if chip.value === 'steam'}
-                    <Steam class="h-4 w-4 {iconMeta?.color} mr-0.5" />
+                    <Steam class="h-3.5 w-3.5 text-fg-muted" monochrome />
                 {:else if chip.value === 'other'}
-                    <GlobeIcon class="h-4 w-4 {iconMeta?.color} mr-0.5" />
+                    <GlobeIcon class="h-3.5 w-3.5 text-fg-muted" />
                 {/if}
             {/if}
             {chip.label}
             {#if chip.onClear}
-                <Button type="button" variant="link" tone="neutral" size="xs" ariaLabel="Remove {chip.label}" onclick={chip.onClear} class="ml-1">
+                <button
+                    type="button"
+                    onclick={chip.onClear}
+                    aria-label="Remove {chip.label}"
+                    class="inline-flex h-4 w-4 items-center justify-center text-fg-faint transition-colors hover:text-fg"
+                >
                     &times;
-                </Button>
+                </button>
             {/if}
         </span>
     {/each}
-    <Button type="button" variant="link" tone="danger" size="xs" onclick={onClearAll} class="ml-1">Reset all</Button>
+    <button type="button" onclick={onClearAll} class="text-[13px] text-fg-muted transition-colors hover:text-fg">Clear</button>
 {/if}

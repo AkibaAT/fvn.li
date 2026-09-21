@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/svelte';
 import { SvelteURLSearchParams } from 'svelte/reactivity';
+import { formatAuthorsInline } from '@/utils/game-card-display';
 import type { GameCardPlatform } from './usePlatformIcons';
 
 export interface GameCardGame {
@@ -98,14 +99,7 @@ export function useGameCard({
         return null;
     };
 
-    // Authors formatting
-    const authorsInlineHtml = game.authors
-        ? game.authors
-              .replace(/<br\s*\/?>(\s*)/gi, ' ')
-              .replace(/\n+/g, ' ')
-              .replace(/\s{2,}/g, ' ')
-              .trim()
-        : '';
+    const authorsInlineHtml = formatAuthorsInline(game.authors);
 
     // Navigation helpers
     const navigateWith = (params: Record<string, string | string[] | boolean>) => {

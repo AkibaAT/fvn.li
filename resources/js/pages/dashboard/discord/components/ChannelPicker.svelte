@@ -57,26 +57,26 @@
         {id}
         type="button"
         onclick={() => (open = !open)}
-        class="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+        class="flex w-full items-center justify-between rounded-md border border-border bg-surface-alt px-3 py-2 text-left text-sm text-fg focus:border-border-strong focus:outline-none"
         aria-expanded={open}
         aria-haspopup="listbox"
     >
         <span class="truncate">{selected ? `${prefix}${selected.name}` : placeholder}</span>
-        <ChevronDownIcon class="h-4 w-4 text-gray-400" />
+        <ChevronDownIcon class="h-4 w-4 text-fg-faint" />
     </button>
     {#if open}
-        <div class="absolute z-30 mt-1 w-full rounded-lg border border-gray-200 bg-white p-2 shadow-xl dark:border-gray-600 dark:bg-gray-800">
+        <div class="absolute z-30 mt-1 w-full rounded-lg border border-border bg-surface p-2">
             <input
                 type="search"
                 bind:value={search}
                 placeholder={searchPlaceholder}
-                class="mb-2 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                class="mb-2 w-full rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
             />
             <div class="max-h-52 overflow-y-auto" role="listbox">
                 {#if allowNone}
                     <button
                         type="button"
-                        class="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                        class="block w-full rounded-md px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-surface-alt hover:text-fg"
                         onclick={() => choose(null)}
                     >
                         {noneLabel}
@@ -85,9 +85,9 @@
                 {#each filteredItems as item (item.id)}
                     <button
                         type="button"
-                        class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 {item.id ===
+                        class="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm text-fg hover:bg-surface-alt {item.id ===
                         value
-                            ? 'bg-indigo-50 dark:bg-indigo-900/30'
+                            ? 'bg-surface-alt font-medium'
                             : ''}"
                         onclick={() => choose(item.id)}
                     >
@@ -95,7 +95,7 @@
                         {#if item.nsfw}<span class="text-xs text-red-500">NSFW</span>{/if}
                     </button>
                 {:else}
-                    <p class="px-2 py-3 text-center text-sm text-gray-500">{emptyLabel}</p>
+                    <p class="px-2 py-3 text-center text-sm text-fg-muted">{emptyLabel}</p>
                 {/each}
             </div>
         </div>

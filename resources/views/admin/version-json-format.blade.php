@@ -1,14 +1,14 @@
 <x-filament::page>
     <x-filament::section>
-        <h1 class="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Game Version JSON Format</h1>
+        <h1 class="text-2xl font-bold mb-4 text-fg">Game Version JSON Format</h1>
 
-        <p class="mb-4 text-gray-700 dark:text-white">
+        <p class="mb-4 text-fg-muted">
             This page explains the JSON format used for importing and exporting game version data.
             You can use the "Export JSON" action on any existing version to get a template for creating new versions.
         </p>
 
-        <h2 class="text-xl font-semibold mt-6 mb-2 text-gray-900 dark:text-white">Basic Structure</h2>
-        <pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-auto mb-4 text-gray-800 dark:text-white">
+        <h2 class="text-xl font-semibold mt-6 mb-2 text-fg">Basic Structure</h2>
+        <pre class="bg-surface-alt p-4 rounded-lg overflow-auto mb-4 text-fg">
 {
     "version": "1.0.0",
     "published_at": "2023-01-01T00:00:00+00:00",
@@ -26,13 +26,13 @@
 }
         </pre>
 
-        <h2 class="text-xl font-semibold mt-6 mb-2 text-gray-900 dark:text-white">Character Stats</h2>
-        <p class="mb-4 text-gray-700 dark:text-white">
+        <h2 class="text-xl font-semibold mt-6 mb-2 text-fg">Character Stats</h2>
+        <p class="mb-4 text-fg-muted">
             The <code
-                class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">character_stats</code>
+                class="bg-surface-alt px-1 rounded text-fg">character_stats</code>
             array contains statistics for each character in each language:
         </p>
-        <pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-auto mb-4 text-gray-800 dark:text-white">
+        <pre class="bg-surface-alt p-4 rounded-lg overflow-auto mb-4 text-fg">
 "character_stats": [
     {
         "character_id": "protagonist",
@@ -49,13 +49,13 @@
 ]
         </pre>
 
-        <h2 class="text-xl font-semibold mt-6 mb-2 text-gray-900 dark:text-white">Language Stats</h2>
-        <p class="mb-4 text-gray-700 dark:text-white">
+        <h2 class="text-xl font-semibold mt-6 mb-2 text-fg">Language Stats</h2>
+        <p class="mb-4 text-fg-muted">
             The <code
-                class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">language_stats</code>
+                class="bg-surface-alt px-1 rounded text-fg">language_stats</code>
             array contains overall statistics for each language:
         </p>
-        <pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-auto mb-4 text-gray-800 dark:text-white">
+        <pre class="bg-surface-alt p-4 rounded-lg overflow-auto mb-4 text-fg">
 "language_stats": [
     {
         "iso_code": "eng",
@@ -70,12 +70,12 @@
 ]
         </pre>
 
-        <h2 class="text-xl font-semibold mt-6 mb-2 text-gray-900 dark:text-white">Supported Languages</h2>
-        <p class="mb-4 text-gray-700 dark:text-white">
-            The <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">supported_languages</code>
+        <h2 class="text-xl font-semibold mt-6 mb-2 text-fg">Supported Languages</h2>
+        <p class="mb-4 text-fg-muted">
+            The <code class="bg-surface-alt px-1 rounded text-fg">supported_languages</code>
             array lists all languages supported by this version:
         </p>
-        <pre class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-auto mb-4 text-gray-800 dark:text-white">
+        <pre class="bg-surface-alt p-4 rounded-lg overflow-auto mb-4 text-fg">
 "supported_languages": [
     {
         "iso_code": "eng",
@@ -88,25 +88,25 @@
 ]
         </pre>
 
-        <h2 class="text-xl font-semibold mt-6 mb-2 text-gray-900 dark:text-white">Notes</h2>
-        <ul class="list-disc pl-6 mb-4 text-gray-700 dark:text-white">
-            <li>All fields except <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">version</code>
+        <h2 class="text-xl font-semibold mt-6 mb-2 text-fg">Notes</h2>
+        <ul class="list-disc pl-6 mb-4 text-fg-muted">
+            <li>All fields except <code class="bg-surface-alt px-1 rounded text-fg">version</code>
                 and <code
-                    class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">published_at</code>
+                    class="bg-surface-alt px-1 rounded text-fg">published_at</code>
                 are optional
             </li>
             <li>If <code
-                    class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">published_at</code>
+                    class="bg-surface-alt px-1 rounded text-fg">published_at</code>
                 is not provided, the current date and time will be used
             </li>
-            <li>Platform fields (<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">is_windows</code>,
-                etc.) default to <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">false</code>
+            <li>Platform fields (<code class="bg-surface-alt px-1 rounded text-fg">is_windows</code>,
+                etc.) default to <code class="bg-surface-alt px-1 rounded text-fg">false</code>
                 if not provided
             </li>
-            <li>The <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">character_stats</code>,
+            <li>The <code class="bg-surface-alt px-1 rounded text-fg">character_stats</code>,
                 <code
-                    class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">language_stats</code>,
-                and <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-white">supported_languages</code>
+                    class="bg-surface-alt px-1 rounded text-fg">language_stats</code>,
+                and <code class="bg-surface-alt px-1 rounded text-fg">supported_languages</code>
                 arrays can be empty or omitted
             </li>
         </ul>

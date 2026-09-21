@@ -7,21 +7,26 @@
 
 @source '../views';
 
-/*
-  The default border color has changed to `currentColor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
+@theme inline {
+    --color-page: var(--page);
+    --color-surface: var(--surface);
+    --color-surface-alt: var(--surface-alt);
+    --color-border: var(--border);
+    --color-border-strong: var(--border-strong);
+    --color-fg: var(--text);
+    --color-fg-muted: var(--text-muted);
+    --color-fg-faint: var(--text-faint);
+    --color-accent: var(--accent);
+    --color-on-accent: var(--on-accent);
+}
 
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
 @layer base {
     *,
     ::after,
     ::before,
     ::backdrop,
     ::file-selector-button {
-        border-color: var(--color-gray-200, currentColor);
+        border-color: var(--border);
     }
 
     button,
@@ -38,18 +43,8 @@
     }
 
     :where(a[href], button, input, select, textarea, summary, [role='button'], [role='tab'], [tabindex]:not([tabindex='-1'])):focus-visible {
-        outline: 3px solid #facc15 !important;
-        outline-offset: 3px !important;
-        box-shadow:
-            0 0 0 1px #111827,
-            0 0 0 6px rgb(37 99 235 / 0.65) !important;
-    }
-
-    .dark :where(a[href], button, input, select, textarea, summary, [role='button'], [role='tab'], [tabindex]:not([tabindex='-1'])):focus-visible {
-        outline-color: #fde047 !important;
-        box-shadow:
-            0 0 0 1px #020617,
-            0 0 0 6px rgb(147 197 253 / 0.75) !important;
+        outline: 2px solid var(--accent) !important;
+        outline-offset: 2px !important;
     }
 }
 

@@ -78,11 +78,11 @@
         {#each Object.entries(PROVIDERS) as [provider, config] (provider)}
             {@const isConnected = connectedProviders.includes(provider)}
             {@const accountData = socialAccounts[provider]}
-            <div class="rounded-lg border p-4 transition-colors hover:bg-gray-50/50 dark:border-gray-700 dark:hover:bg-gray-700/30">
+            <div class="rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         {#if config.iconType === 'discord'}
-                            <DiscordIcon class="h-6 w-6 text-indigo-500" />
+                            <DiscordIcon class="h-6 w-6 text-[#5865F2]" />
                         {:else if config.iconType === 'google'}
                             <GoogleIcon class="h-6 w-6" />
                         {:else if config.iconType === 'itchio'}
@@ -90,9 +90,9 @@
                         {:else if config.iconType === 'steam'}
                             <Steam class="h-6 w-6" />
                         {:else if config.iconType === 'telegram'}
-                            <TelegramIcon class="h-6 w-6 text-blue-500" />
+                            <TelegramIcon class="h-6 w-6 text-[#229ED9]" />
                         {/if}
-                        <span class="font-medium text-gray-900 dark:text-white">
+                        <span class="font-medium text-fg">
                             {config.name}
                         </span>
                     </div>
@@ -105,7 +105,7 @@
                                         <img src={accountData.avatar} alt="{config.name} avatar" class="h-6 w-6 rounded-full" />
                                     {/if}
                                     {#if accountData.display_name}
-                                        <span class="text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="text-sm text-fg-muted">
                                             {accountData.display_name}
                                         </span>
                                     {/if}
@@ -126,13 +126,7 @@
                             </Button>
                         </div>
                     {:else}
-                        <Button
-                            type="button"
-                            variant="link"
-                            tone="primary"
-                            onclick={() => handleConnect(provider)}
-                            class="text-sm font-medium text-blue-700 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                        >
+                        <Button type="button" variant="link" tone="primary" onclick={() => handleConnect(provider)} class="text-sm font-medium">
                             Connect
                         </Button>
                     {/if}

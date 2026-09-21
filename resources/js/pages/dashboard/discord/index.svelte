@@ -52,7 +52,7 @@
             {#snippet actions()}
                 <a
                     href={route('auth.redirect', 'discord')}
-                    class="inline-flex items-center gap-2 rounded-lg bg-[#5865F2] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4752C4]"
+                    class="inline-flex items-center gap-2 rounded-md bg-[#5865F2] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4752C4]"
                 >
                     <DiscordIcon class="h-5 w-5" />
                     Connect Discord
@@ -62,12 +62,12 @@
     {:else if loading}
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {#each Array(6) as _, i (i)}
-                <Card variant="glass" padding="lg" class="animate-pulse shadow-none">
+                <Card variant="flat" padding="lg" class="animate-pulse">
                     <div class="flex items-center gap-4">
-                        <div class="h-12 w-12 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+                        <div class="h-12 w-12 rounded-full bg-border"></div>
                         <div class="flex-1 space-y-2">
-                            <div class="h-4 w-3/4 rounded bg-gray-200 dark:bg-gray-700"></div>
-                            <div class="h-3 w-1/2 rounded bg-gray-200 dark:bg-gray-700"></div>
+                            <div class="h-4 w-3/4 rounded bg-border"></div>
+                            <div class="h-3 w-1/2 rounded bg-border"></div>
                         </div>
                     </div>
                 </Card>
@@ -81,16 +81,14 @@
             {/snippet}
         </Alert>
     {:else if guilds.length === 0}
-        <Card variant="glass" padding="lg" class="p-12 text-center shadow-none">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">No servers found</h3>
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                You don't manage any Discord servers where you have admin or "Manage Server" permissions.
-            </p></Card
+        <Card variant="flat" padding="lg" class="p-12 text-center">
+            <h3 class="text-lg font-semibold text-fg">No servers found</h3>
+            <p class="mt-2 text-sm text-fg-muted">You don't manage any Discord servers where you have admin or "Manage Server" permissions.</p></Card
         >
     {:else}
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {#each guilds as guild (guild.id)}
-                <Card variant="glass" padding="none" class="overflow-hidden transition-shadow hover:shadow-xl">
+                <Card variant="flat" padding="none" class="overflow-hidden transition-colors hover:border-border-strong">
                     <div class="p-6">
                         <div class="flex items-center gap-4">
                             {#if guild.icon}
@@ -103,7 +101,7 @@
                                 </div>
                             {/if}
                             <div class="min-w-0 flex-1">
-                                <h3 class="truncate font-semibold text-gray-900 dark:text-white">{guild.name}</h3>
+                                <h3 class="truncate font-semibold text-fg">{guild.name}</h3>
                                 <div class="mt-1 flex items-center gap-2">
                                     {#if guild.owner}
                                         <Badge tone="warning" size="sm">Owner</Badge>
@@ -127,7 +125,7 @@
                             {#if guild.has_bot && guild.server}
                                 <Link
                                     href={route('dashboard.discord.server', { server: guild.server.id })}
-                                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+                                    class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors hover:opacity-90"
                                 >
                                     <CogIcon class="h-4 w-4" />
                                     Configure
@@ -137,7 +135,7 @@
                                     href={guild.bot_install_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#5865F2] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4752C4]"
+                                    class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#5865F2] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4752C4]"
                                 >
                                     <PlusIcon class="h-4 w-4" />
                                     Add to Server

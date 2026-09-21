@@ -233,14 +233,14 @@
             <button
                 onclick={sendTestNotification}
                 disabled={sendingTest || !config.notification_channel_id}
-                class="inline-flex items-center gap-2 rounded-lg border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-900/30"
+                class="inline-flex items-center gap-2 rounded-md border border-border-strong bg-surface px-4 py-2 text-sm font-medium text-fg transition-colors hover:border-fg disabled:cursor-not-allowed disabled:opacity-50"
             >
                 {sendingTest ? 'Sending test...' : 'Send Test Notification'}
             </button>
             <button
                 onclick={() => saveConfig()}
                 disabled={saving}
-                class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+                class="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent transition-colors hover:opacity-90 disabled:opacity-50"
             >
                 {#if saving}
                     <LoadingSpinner size="sm" currentColor isBusy={false} />
@@ -255,7 +255,7 @@
 
     {#if loading}
         <div class="flex items-center justify-center py-20">
-            <LoadingSpinner size="lg" class="text-indigo-600 dark:text-indigo-400" currentColor label="Loading Discord server settings" />
+            <LoadingSpinner size="lg" class="text-fg-muted" currentColor label="Loading Discord server settings" />
         </div>
     {:else if error}
         <Alert title="Failed to load server" tone="danger">
@@ -265,7 +265,7 @@
             {/snippet}
         </Alert>
     {:else}
-        <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
+        <div class="mb-6 border-b border-border">
             <div class="-mb-px flex flex-wrap gap-x-6" aria-label="Server config tabs" role="tablist">
                 {#each tabs as tab (tab.id)}
                     <button
@@ -273,8 +273,8 @@
                         role="tab"
                         aria-selected={activeTab === tab.id}
                         class="border-b-2 px-1 py-3 text-sm font-medium transition-colors {activeTab === tab.id
-                            ? 'border-indigo-500 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
-                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300'}"
+                            ? 'border-accent text-fg'
+                            : 'border-transparent text-fg-muted hover:border-border-strong hover:text-fg'}"
                     >
                         {tab.label}
                     </button>
@@ -283,13 +283,13 @@
         </div>
 
         {#if activeTab === 'general'}
-            <Card variant="glass" padding="lg">
-                <h2 class="mb-6 text-lg font-semibold text-gray-900 dark:text-white">General Settings</h2>
+            <Card variant="flat" padding="lg">
+                <h2 class="mb-6 text-lg font-semibold text-fg">General Settings</h2>
                 <div class="space-y-6">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="font-medium text-gray-700 dark:text-gray-300">Server Active</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Enable or disable notifications for this server</div>
+                            <div class="font-medium text-fg">Server Active</div>
+                            <div class="text-sm text-fg-muted">Enable or disable notifications for this server</div>
                         </div>
                         <Switch
                             checked={Boolean(server?.is_active)}
@@ -309,10 +309,8 @@
                     </div>
 
                     <div>
-                        <label for="notification-channel" class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                            >Default Notification Channel</label
-                        >
-                        <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">Select the channel where notifications will be sent by default</p>
+                        <label for="notification-channel" class="block text-sm font-medium text-fg-muted">Default Notification Channel</label>
+                        <p class="mb-2 text-xs text-fg-muted">Select the channel where notifications will be sent by default</p>
                         {#if channels.length > 0}
                             <ChannelPicker
                                 id="notification-channel"
@@ -335,7 +333,7 @@
                                     const val = (e.target as HTMLInputElement).value.trim();
                                     saveConfig({ notification_channel_id: val || null } as Partial<ServerConfig>);
                                 }}
-                                class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                class="mt-1 w-full rounded-md border border-border bg-surface-alt px-3 py-2 text-sm text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                             />
                             <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
                                 Channel sync has not run yet. Paste a channel ID manually for now.
@@ -344,8 +342,8 @@
                     </div>
 
                     <div>
-                        <label for="ping-role" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Ping Role ID</label>
-                        <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">Role to ping when notifications are sent (optional)</p>
+                        <label for="ping-role" class="block text-sm font-medium text-fg-muted">Ping Role ID</label>
+                        <p class="mb-2 text-xs text-fg-muted">Role to ping when notifications are sent (optional)</p>
                         {#if roles.length > 0}
                             <ChannelPicker
                                 id="ping-role"
@@ -369,7 +367,7 @@
                                     const val = (e.target as HTMLInputElement).value.trim();
                                     saveConfig({ ping_role_id: val || null } as Partial<ServerConfig>);
                                 }}
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                class="w-full rounded-md border border-border bg-surface-alt px-3 py-2 text-sm text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                             />
                             <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
                                 Role sync is not available. Paste a role ID manually for now.
@@ -379,10 +377,8 @@
 
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="font-medium text-gray-700 dark:text-gray-300">Include Game Description</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">
-                                Add the description to generated embeds. Custom embeds control their own layout.
-                            </div>
+                            <div class="font-medium text-fg">Include Game Description</div>
+                            <div class="text-sm text-fg-muted">Add the description to generated embeds. Custom embeds control their own layout.</div>
                         </div>
                         <Switch
                             checked={config.include_game_description}
@@ -395,10 +391,8 @@
 
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="font-medium text-gray-700 dark:text-gray-300">Include Thumbnail</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">
-                                Add the thumbnail to generated embeds. Custom embeds control their own layout.
-                            </div>
+                            <div class="font-medium text-fg">Include Thumbnail</div>
+                            <div class="text-sm text-fg-muted">Add the thumbnail to generated embeds. Custom embeds control their own layout.</div>
                         </div>
                         <Switch
                             checked={config.include_thumbnail}
@@ -411,10 +405,8 @@
 
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="font-medium text-gray-700 dark:text-gray-300">Include Ratings</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">
-                                Add ratings to generated embeds. Custom embeds control their own layout.
-                            </div>
+                            <div class="font-medium text-fg">Include Ratings</div>
+                            <div class="text-sm text-fg-muted">Add ratings to generated embeds. Custom embeds control their own layout.</div>
                         </div>
                         <Switch
                             checked={config.include_ratings}
@@ -442,8 +434,8 @@
 
         {#if activeTab === 'embeds'}
             <div class="space-y-6">
-                <Card variant="glass" padding="lg">
-                    <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">New Game Embed</h2>
+                <Card variant="flat" padding="lg">
+                    <h2 class="mb-4 text-lg font-semibold text-fg">New Game Embed</h2>
                     <EmbedEditor
                         template={config.new_game_embed || {}}
                         notificationType="new_game"
@@ -452,8 +444,8 @@
                         onchange={handleNewGameEmbedChange}
                     />
                 </Card>
-                <Card variant="glass" padding="lg">
-                    <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Update Embed</h2>
+                <Card variant="flat" padding="lg">
+                    <h2 class="mb-4 text-lg font-semibold text-fg">Update Embed</h2>
                     <EmbedEditor
                         template={config.update_embed || {}}
                         notificationType="update"
@@ -466,37 +458,27 @@
         {/if}
 
         {#if activeTab === 'history'}
-            <Card variant="glass" padding="lg">
-                <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Notification History</h2>
+            <Card variant="flat" padding="lg">
+                <h2 class="mb-4 text-lg font-semibold text-fg">Notification History</h2>
                 {#if server?.notification_history && server.notification_history.length > 0}
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <table class="min-w-full divide-y divide-border">
                             <thead>
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-                                        >Game</th
-                                    >
-                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-                                        >Type</th
-                                    >
-                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-                                        >Status</th
-                                    >
-                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-                                        >Channel</th
-                                    >
-                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
-                                        >Sent At</th
-                                    >
+                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase">Game</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase">Type</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase">Status</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase">Channel</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium tracking-wider text-fg-muted uppercase">Sent At</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <tbody class="divide-y divide-border">
                                 {#each server.notification_history as entry (entry.id)}
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                        <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                    <tr class="hover:bg-surface-alt">
+                                        <td class="px-4 py-3 text-sm text-fg">
                                             {entry.game?.name || `Game #${entry.game_id}`}
                                         </td>
-                                        <td class="px-4 py-3 text-sm text-gray-600 capitalize dark:text-gray-400">
+                                        <td class="px-4 py-3 text-sm text-fg-muted capitalize">
                                             {entry.notification_type?.replace('_', ' ')}
                                         </td>
                                         <td class="px-4 py-3 text-sm">
@@ -507,10 +489,10 @@
                                                 <div class="mt-1 text-xs text-red-500">{entry.error_message}</div>
                                             {/if}
                                         </td>
-                                        <td class="px-4 py-3 font-mono text-sm text-gray-600 dark:text-gray-400">
+                                        <td class="px-4 py-3 font-mono text-sm text-fg-muted">
                                             {entry.channel_id}
                                         </td>
-                                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <td class="px-4 py-3 text-sm text-fg-muted">
                                             {formatLocalDateTime(entry.sent_at)}
                                         </td>
                                     </tr>
@@ -519,7 +501,7 @@
                         </table>
                     </div>
                 {:else}
-                    <div class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No notification history yet</div>
+                    <div class="py-8 text-center text-sm text-fg-muted">No notification history yet</div>
                 {/if}
             </Card>
         {/if}

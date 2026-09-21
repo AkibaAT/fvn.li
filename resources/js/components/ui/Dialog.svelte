@@ -56,7 +56,7 @@
     const shellClass = $derived(
         twMerge(
             clsx(
-                'm-auto max-h-[90vh] w-[calc(100%-2rem)] overflow-hidden rounded-lg border border-gray-200 bg-white p-0 text-gray-900 shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100',
+                'm-auto max-h-[90vh] w-[calc(100%-2rem)] overflow-hidden rounded-lg border border-border bg-surface p-0 text-fg backdrop:bg-black/50',
                 sizeClasses[size],
                 className,
             ),
@@ -104,8 +104,8 @@
     }}
 >
     {#if title}
-        <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-            <h2 id={titleId} class="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
+        <div class="flex items-center justify-between border-b border-border px-6 py-4">
+            <h2 id={titleId} class="text-[17px] font-semibold tracking-[-0.015em] text-fg">{title}</h2>
             <Button variant="ghost" tone="neutral" size="icon-sm" onclick={close} ariaLabel={closeLabel}>
                 <XMarkIcon class="h-4 w-4" />
             </Button>
@@ -117,7 +117,7 @@
     </div>
 
     {#if footer}
-        <div class="flex justify-end gap-3 border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+        <div class="flex justify-end gap-3 border-t border-border px-6 py-4">
             {@render footer()}
         </div>
     {/if}

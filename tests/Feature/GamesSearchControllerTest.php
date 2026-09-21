@@ -179,12 +179,12 @@ it('resets an out of range meilisearch page back to page one', function () {
     $this->mock(MeilisearchService::class, function (MockInterface $mock) use ($game) {
         $mock->shouldReceive('searchGames')
             ->once()
-            ->with('*', Mockery::type('array'), 8, 5, 'first_visible_at', 'desc', [])
-            ->andReturn(paginatorForGames([], 1, 8, 5));
+            ->with('*', Mockery::type('array'), 10, 5, 'first_visible_at', 'desc', [])
+            ->andReturn(paginatorForGames([], 1, 10, 5));
         $mock->shouldReceive('searchGames')
             ->once()
-            ->with('*', Mockery::type('array'), 8, 1, 'first_visible_at', 'desc', [])
-            ->andReturn(paginatorForGames([$game], 1, 8, 1));
+            ->with('*', Mockery::type('array'), 10, 1, 'first_visible_at', 'desc', [])
+            ->andReturn(paginatorForGames([$game], 1, 10, 1));
     });
 
     $response = $this->get(route('games.index', ['page' => 5]));
@@ -365,4 +365,25 @@ it('retains safety, language, platform, reading time, and sort filters during an
         'excludedTags' => [$tag->id], 'readingTime' => 'medium', 'sort' => 'trending_score',
     ]))->assertOk();
     expect(array_column($response->viewData('page')['props']['games']['data'], 'id'))->toBe([$first->id, $second->id]);
+});
+
+it('reports the stored games layout preference', function () {
+    $game = makeSearchGame(['name' => 'Layout Preference Game']);
+
+    $this->mock(MeilisearchService::class, function (MockInterface $mock) use ($game) {
+        $mock->shouldReceive('searchGames')
+            ->times(3)
+            ->andReturn(paginatorForGames([$game], 1, 10, 1));
+    });
+
+    $gridProps = $this->get(route('games.index'))->assertOk()->viewData('page')['props'];
+    expect($gridProps['gamesView'])->toBe('grid');
+
+    $listProps = $this->withUnencryptedCookie('games_view', 'list')
+        ->get(route('games.index'))->assertOk()->viewData('page')['props'];
+    expect($listProps['gamesView'])->toBe('list');
+
+    $unknownProps = $this->withUnencryptedCookie('games_view', 'carousel')
+        ->get(route('games.index'))->assertOk()->viewData('page')['props'];
+    expect($unknownProps['gamesView'])->toBe('grid');
 });

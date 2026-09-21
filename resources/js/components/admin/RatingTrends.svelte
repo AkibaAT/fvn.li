@@ -206,11 +206,11 @@
 </script>
 
 <section class="space-y-6">
-    <h2 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Rating history</h2>
+    <h2 class="text-2xl font-semibold tracking-tight text-fg">Rating history</h2>
 
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <Card variant="outline" padding="lg" class="border-gray-200 shadow-none dark:border-gray-700 dark:bg-gray-800/60">
-            <h3 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">All ratings</h3>
+        <Card variant="flat" padding="lg">
+            <h3 class="mb-4 text-xl font-semibold text-fg">All ratings</h3>
             <div class="relative h-[240px] w-full">
                 {#if ChartComponent}
                     <ChartComponent data={allRatingsData} options={chartOptions} plugins={chartPlugins} style="height: 240px; width: 100%" />
@@ -218,8 +218,8 @@
             </div>
         </Card>
 
-        <Card variant="outline" padding="lg" class="border-gray-200 shadow-none dark:border-gray-700 dark:bg-gray-800/60">
-            <h3 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Listed games</h3>
+        <Card variant="flat" padding="lg">
+            <h3 class="mb-4 text-xl font-semibold text-fg">Listed games</h3>
             <div class="relative h-[240px] w-full">
                 {#if ChartComponent}
                     <ChartComponent data={listedGamesData} options={chartOptions} plugins={chartPlugins} style="height: 240px; width: 100%" />

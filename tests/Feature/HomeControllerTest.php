@@ -99,7 +99,7 @@ describe('Home Page Game Cards', function () {
             ) use ($ignoredGame) {
                 expect($query)->toBe('')
                     ->and($filters)->toBe([])
-                    ->and($perPage)->toBe(4)
+                    ->and($perPage)->toBe(6)
                     ->and($page)->toBe(1)
                     ->and($sortDirection)->toBe('desc')
                     ->and($sortField)->toBeIn(['first_visible_at', 'latest_version_published_at', 'trending_score'])
@@ -118,11 +118,13 @@ describe('Home Page Game Cards', function () {
         $firstGame = $props['teasers']['recentlyAdded'][0];
 
         expect($props['ignoredGameIds'])->toBe([$ignoredGame->id])
+            ->and($props['homeView'])->toBe('grid')
             ->and($firstGame['id'])->toBe($game->id)
             ->and($firstGame['is_windows'])->toBeTrue()
             ->and($firstGame['is_mac'])->toBeTrue()
             ->and($firstGame['is_web'])->toBeTrue()
             ->and($firstGame['latest_version_id'])->toBe($version->id)
+            ->and($firstGame['latest_version_number'])->toBe($version->version)
             ->and($firstGame['english_word_count'])->toBe(12345)
             ->and($firstGame['primary_word_count'])->toBe(12345)
             ->and($firstGame['primary_language_label'])->toBe('EN')
@@ -185,5 +187,36 @@ describe('Home Page Game Cards', function () {
             ->and($guestGame['id'])->toBe($game->id)
             ->and($guestGame['user_progress'])->toBe([])
             ->and($guestGame['user_list_memberships'])->toBe([]);
+    });
+
+    test('home teasers ship both layouts and honour the stored layout preference', function () {
+        Cache::flush();
+
+        $games = Game::factory()->count(6)->create(['is_visible' => true]);
+
+        $search = Mockery::mock(MeilisearchService::class);
+        $search
+            ->shouldReceive('searchGames')
+            ->times(3)
+            ->withArgs(fn (string $query, array $filters, int $perPage) => $query === '' && $filters === [] && $perPage === 6)
+            ->andReturnUsing(fn () => new LengthAwarePaginator((new Game)->newCollection($games->all()), $games->count(), 6, 1));
+
+        app()->instance(MeilisearchService::class, $search);
+
+        $gridProps = $this->get(route('home'))->assertOk()->viewData('page')['props'];
+
+        expect($gridProps['homeView'])->toBe('grid')
+            ->and($gridProps['teasers']['recentlyAdded'])->toHaveCount(6)
+            ->and($gridProps['teasers']['recentlyUpdated'])->toHaveCount(6)
+            ->and($gridProps['teasers']['mostPopular'])->toHaveCount(6);
+
+        $listProps = $this->withUnencryptedCookie('home_view', 'list')->get(route('home'))->assertOk()->viewData('page')['props'];
+
+        expect($listProps['homeView'])->toBe('list')
+            ->and($listProps['teasers']['recentlyAdded'])->toHaveCount(6);
+
+        $unknownProps = $this->withUnencryptedCookie('home_view', 'carousel')->get(route('home'))->assertOk()->viewData('page')['props'];
+
+        expect($unknownProps['homeView'])->toBe('grid');
     });
 });

@@ -6,6 +6,8 @@
 
     interface Props {
         title: string;
+        /** Optional count rendered inline after the title, at baseline. */
+        count?: string;
         description?: string;
         backHref?: string;
         backLabel?: string;
@@ -19,6 +21,7 @@
 
     let {
         title,
+        count,
         description,
         backHref,
         backLabel = 'Back',
@@ -35,10 +38,7 @@
     {#if backHref}
         <Link
             href={backHref}
-            class={clsx(
-                'mb-3 inline-flex text-sm font-medium text-gray-600 transition-colors hover:text-gray-950 dark:text-gray-400 dark:hover:text-white',
-                align === 'center' && 'justify-center',
-            )}
+            class={clsx('mb-3 inline-flex text-sm font-medium text-fg-muted transition-colors hover:text-fg', align === 'center' && 'justify-center')}
         >
             {backLabel}
         </Link>
@@ -51,13 +51,15 @@
             {/if}
 
             <div class="min-w-0">
-                <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{title}</h1>
+                <h1 class="text-[28px] leading-[1.15] font-bold tracking-[-0.025em] text-fg max-sm:text-[22px]">
+                    {title}{#if count}<span class="ml-2.5 align-baseline text-[14px] font-normal text-fg-faint">{count}</span>{/if}
+                </h1>
 
                 {#if description}
                     <p
                         class={clsx(
-                            'mt-2 text-base whitespace-pre-line text-gray-600 dark:text-gray-400',
-                            descriptionWidth === 'readable' && 'max-w-3xl',
+                            'mt-2 text-[15px] leading-[1.5] whitespace-pre-line text-fg-muted max-sm:text-[14px]',
+                            descriptionWidth === 'readable' && 'max-w-[640px]',
                         )}
                     >
                         {description}
@@ -65,7 +67,7 @@
                 {/if}
 
                 {#if metadata}
-                    <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">{@render metadata()}</div>
+                    <div class="mt-2 text-[13px] text-fg-faint">{@render metadata()}</div>
                 {/if}
             </div>
         </div>

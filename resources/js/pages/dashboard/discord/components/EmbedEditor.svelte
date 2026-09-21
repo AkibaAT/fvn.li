@@ -364,12 +364,12 @@
     <div class="space-y-4">
         <div class="flex items-center justify-between">
             <div class="flex gap-2">
-                <span class="text-sm font-medium text-gray-500 capitalize dark:text-gray-400">{notificationType.replace('_', ' ')} Embed</span>
+                <span class="text-sm font-medium text-fg-muted capitalize">{notificationType.replace('_', ' ')} Embed</span>
                 <button
                     onclick={toggleJsonMode}
-                    class="rounded px-2 py-0.5 text-xs font-medium transition-colors {jsonMode
-                        ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'}"
+                    class="rounded-md px-2 py-0.5 text-xs font-medium transition-colors {jsonMode
+                        ? 'bg-fg text-surface'
+                        : 'bg-surface-alt text-fg-muted hover:text-fg'}"
                 >
                     {jsonMode ? 'Visual' : 'JSON'}
                 </button>
@@ -378,28 +378,24 @@
                 <div class="relative">
                     <button
                         onclick={() => (showVariableMenu = !showVariableMenu)}
-                        class="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
+                        class="rounded-md bg-surface-alt px-2 py-0.5 text-xs font-medium text-fg-muted hover:text-fg"
                     >
                         Copy Variable
                     </button>
                     {#if showVariableMenu}
-                        <div
-                            class="absolute right-0 z-50 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
-                        >
+                        <div class="absolute right-0 z-50 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-border bg-surface">
                             {#each Object.entries(groupedVariables) as [group, vars] (group)}
-                                <div
-                                    class="border-b border-gray-100 px-3 py-1 text-xs font-semibold text-gray-500 last:border-0 dark:border-gray-700 dark:text-gray-400"
-                                >
+                                <div class="border-b border-border px-3 py-1 text-xs font-semibold text-fg-faint last:border-0">
                                     {group}
                                 </div>
                                 {#each vars as v (v.token)}
                                     <button
                                         onclick={() => copyVariable(v.token)}
-                                        class="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-gray-700"
+                                        class="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-surface-alt"
                                         title="Click to copy: {v.token}"
                                     >
-                                        <span class="text-gray-700 dark:text-gray-300">{v.label}</span>
-                                        <code class="rounded bg-gray-100 px-1 text-gray-500 dark:bg-gray-700 dark:text-gray-400">{v.token}</code>
+                                        <span class="text-fg-muted">{v.label}</span>
+                                        <code class="rounded bg-surface-alt px-1 text-fg-muted">{v.token}</code>
                                     </button>
                                 {/each}
                             {/each}
@@ -409,7 +405,7 @@
                 <button
                     onclick={previewWithGame}
                     disabled={previewLoading || !!jsonError}
-                    class="rounded bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-200 disabled:opacity-50 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50"
+                    class="rounded-md bg-surface-alt px-2 py-0.5 text-xs font-medium text-fg-muted transition-colors hover:text-fg disabled:opacity-50"
                 >
                     {previewLoading ? 'Loading...' : 'Preview with Game'}
                 </button>
@@ -417,11 +413,11 @@
         </div>
 
         <div class="mb-3 flex flex-wrap gap-2">
-            <span class="text-xs text-gray-500 dark:text-gray-400">Presets:</span>
+            <span class="text-xs text-fg-faint">Presets:</span>
             {#each Object.keys(presets) as name (name)}
                 <button
                     onclick={() => applyPreset(name)}
-                    class="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
+                    class="rounded-md bg-surface-alt px-2 py-0.5 text-xs font-medium text-fg-muted transition-colors hover:text-fg"
                 >
                     {name}
                 </button>
@@ -436,13 +432,13 @@
                 aria-invalid={!!jsonError}
                 aria-describedby={jsonError ? `${uid}-json-error` : undefined}
                 rows={16}
-                class="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                class="w-full rounded-md border border-border bg-surface-alt px-3 py-2 font-mono text-sm text-fg focus:border-border-strong focus:outline-none"
                 spellcheck="false"></textarea>
             {#if jsonError}<p id="{uid}-json-error" role="alert" class="text-sm text-red-600 dark:text-red-400">{jsonError}</p>{/if}
         {:else}
             <div class="space-y-3">
                 <div>
-                    <label for="{uid}-title" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Title</label>
+                    <label for="{uid}-title" class="block text-xs font-medium text-fg-muted">Title</label>
                     <input
                         id="{uid}-title"
                         type="text"
@@ -452,11 +448,11 @@
                                 title = (e.target as HTMLInputElement).value;
                             })}
                         placeholder={'{game.name}'}
-                        class="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        class="mt-1 w-full rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                     />
                 </div>
                 <div>
-                    <label for="{uid}-url" class="block text-xs font-medium text-gray-700 dark:text-gray-300">URL</label>
+                    <label for="{uid}-url" class="block text-xs font-medium text-fg-muted">URL</label>
                     <input
                         id="{uid}-url"
                         type="text"
@@ -466,11 +462,11 @@
                                 tmplUrl = (e.target as HTMLInputElement).value;
                             })}
                         placeholder={'{game.url}'}
-                        class="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        class="mt-1 w-full rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                     />
                 </div>
                 <div>
-                    <label for="{uid}-desc" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Description</label>
+                    <label for="{uid}-desc" class="block text-xs font-medium text-fg-muted">Description</label>
                     <textarea
                         id="{uid}-desc"
                         value={desc}
@@ -480,11 +476,11 @@
                             })}
                         rows={3}
                         placeholder={'{game.description}'}
-                        class="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        class="mt-1 w-full rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                     ></textarea>
                 </div>
                 <div>
-                    <label for="{uid}-color" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Color</label>
+                    <label for="{uid}-color" class="block text-xs font-medium text-fg-muted">Color</label>
                     <div class="mt-1 flex items-center gap-2">
                         <input
                             id="{uid}-color"
@@ -505,12 +501,12 @@
                                 })}
                             aria-label="Color value"
                             placeholder="#5865F2 or 5763719"
-                            class="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                            class="flex-1 rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                         />
                     </div>
                 </div>
                 <div>
-                    <label for="{uid}-thumbnail" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Thumbnail URL</label>
+                    <label for="{uid}-thumbnail" class="block text-xs font-medium text-fg-muted">Thumbnail URL</label>
                     <input
                         id="{uid}-thumbnail"
                         type="text"
@@ -520,11 +516,11 @@
                                 thumbnailUrl = (e.target as HTMLInputElement).value;
                             })}
                         placeholder={'{game.thumbnail}'}
-                        class="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        class="mt-1 w-full rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                     />
                 </div>
                 <div>
-                    <label for="{uid}-image" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Image URL</label>
+                    <label for="{uid}-image" class="block text-xs font-medium text-fg-muted">Image URL</label>
                     <input
                         id="{uid}-image"
                         type="text"
@@ -534,11 +530,11 @@
                                 imageUrl = (e.target as HTMLInputElement).value;
                             })}
                         placeholder={'{game.screenshot}'}
-                        class="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        class="mt-1 w-full rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                     />
                 </div>
                 <div>
-                    <span id="{uid}-footer" class="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300">Footer</span>
+                    <span id="{uid}-footer" class="mb-2 block text-xs font-medium text-fg-muted">Footer</span>
                     <div class="grid grid-cols-2 gap-2" role="group" aria-labelledby="{uid}-footer">
                         <input
                             type="text"
@@ -549,7 +545,7 @@
                                     footerText = (e.target as HTMLInputElement).value;
                                 })}
                             placeholder="Footer text"
-                            class="rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                            class="rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                         />
                         <input
                             type="text"
@@ -562,20 +558,18 @@
                                     footerIconUrl = (e.target as HTMLInputElement).value;
                                 })}
                             placeholder="Footer icon URL"
-                            class="rounded-md border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                            class="rounded-md border border-border bg-surface-alt px-2 py-1.5 text-sm text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                         />
                     </div>
                 </div>
                 <div>
                     <div class="mb-2 flex items-center justify-between">
-                        <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Fields</span>
-                        <button onclick={addField} class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
-                            >+ Add Field</button
-                        >
+                        <span class="text-xs font-medium text-fg-muted">Fields</span>
+                        <button onclick={addField} class="text-xs font-medium text-fg-muted hover:text-fg">+ Add Field</button>
                     </div>
                     <div class="space-y-2">
                         {#each fields as field, i (i)}
-                            <div class="flex items-start gap-2 rounded-lg border border-gray-200 p-2 dark:border-gray-700">
+                            <div class="flex items-start gap-2 rounded-lg border border-border p-2">
                                 <div class="min-w-0 flex-1 space-y-1">
                                     <input
                                         type="text"
@@ -583,7 +577,7 @@
                                         aria-label="Field {i + 1} name"
                                         placeholder="Field name"
                                         oninput={(e) => updateField(i, 'name', (e.target as HTMLInputElement).value)}
-                                        class="w-full rounded border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        class="w-full rounded-md border border-border bg-surface-alt px-2 py-1 text-xs text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                                     />
                                     <input
                                         type="text"
@@ -591,15 +585,15 @@
                                         aria-label="Field {i + 1} value"
                                         placeholder="Field value"
                                         oninput={(e) => updateField(i, 'value', (e.target as HTMLInputElement).value)}
-                                        class="w-full rounded border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        class="w-full rounded-md border border-border bg-surface-alt px-2 py-1 text-xs text-fg placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
                                     />
                                 </div>
-                                <label class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+                                <label class="flex items-center gap-1 text-xs text-fg-muted">
                                     <input
                                         type="checkbox"
                                         checked={field.inline}
                                         onchange={() => updateField(i, 'inline', !field.inline)}
-                                        class="rounded text-indigo-600"
+                                        class="rounded-[3px] border-border bg-surface-alt accent-accent"
                                     />
                                     Inline
                                 </label>
@@ -608,7 +602,7 @@
                                         onclick={() => moveField(i, -1)}
                                         disabled={i === 0}
                                         aria-label="Move field {i + 1} up"
-                                        class="rounded p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                                        class="rounded-md p-0.5 text-fg-faint hover:text-fg disabled:opacity-30"
                                     >
                                         <ChevronDownIcon class="h-3 w-3 rotate-180" />
                                     </button>
@@ -616,7 +610,7 @@
                                         onclick={() => moveField(i, 1)}
                                         disabled={i === fields.length - 1}
                                         aria-label="Move field {i + 1} down"
-                                        class="rounded p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                                        class="rounded-md p-0.5 text-fg-faint hover:text-fg disabled:opacity-30"
                                     >
                                         <ChevronDownIcon class="h-3 w-3" />
                                     </button>
@@ -624,7 +618,7 @@
                                 <button
                                     onclick={() => removeField(i)}
                                     aria-label="Remove field {i + 1}"
-                                    class="rounded p-0.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                                    class="rounded-md p-0.5 text-fg-faint hover:text-red-600 dark:hover:text-red-400"
                                 >
                                     <XMarkIcon class="h-4 w-4" />
                                 </button>
@@ -638,8 +632,8 @@
 
     <div>
         <div class="sticky top-6">
-            <h3 class="mb-2 text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Live Preview</h3>
-            <div class="rounded-lg border-l-4 bg-[#2b2d31] p-4 shadow-xl" style="border-left-color: {previewColor}">
+            <h3 class="mb-2 text-xs font-medium text-fg-faint uppercase">Live Preview</h3>
+            <div class="rounded-lg border-l-4 bg-[#2b2d31] p-4" style="border-left-color: {previewColor}">
                 {#if previewLoading && !previewData}
                     <div class="text-sm text-[#dbdee1]">Rendering preview...</div>
                 {:else if previewError && !previewData}
@@ -683,7 +677,7 @@
                     {#if previewFooterText}
                         <div class="flex items-center gap-2 text-xs text-[#dbdee1]">
                             {#if previewFooterIcon}
-                                <div class="h-4 w-4 shrink-0 overflow-hidden rounded-full bg-gray-600">
+                                <div class="h-4 w-4 shrink-0 overflow-hidden rounded-full bg-border">
                                     <img src={previewFooterIcon} alt="" class="h-4 w-4 object-cover" onerror={() => {}} />
                                 </div>
                             {/if}
@@ -698,11 +692,9 @@
                 {/if}
             </div>
             {#if previewLoading && previewData}
-                <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">Refreshing preview...</div>
+                <div class="mt-2 text-xs text-fg-faint">Refreshing preview...</div>
             {:else if previewInitialized && !previewError}
-                <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    Preview is rendered with the same backend limits used for live Discord sends.
-                </div>
+                <div class="mt-2 text-xs text-fg-faint">Preview is rendered with the same backend limits used for live Discord sends.</div>
             {/if}
         </div>
     </div>

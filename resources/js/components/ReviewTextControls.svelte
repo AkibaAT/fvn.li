@@ -186,26 +186,26 @@
     }
 
     const widthGradient = $derived(
-        `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(((reviewWidth || 100) - 50) / 50) * 100}%, #e5e7eb ${(((reviewWidth || 100) - 50) / 50) * 100}%, #e5e7eb 100%)`,
+        `linear-gradient(to right, var(--accent) 0%, var(--accent) ${(((reviewWidth || 100) - 50) / 50) * 100}%, var(--border) ${(((reviewWidth || 100) - 50) / 50) * 100}%, var(--border) 100%)`,
     );
     const fontSizeGradient = $derived(
-        `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(((reviewFontSize || 100) - 75) / 75) * 100}%, #e5e7eb ${(((reviewFontSize || 100) - 75) / 75) * 100}%, #e5e7eb 100%)`,
+        `linear-gradient(to right, var(--accent) 0%, var(--accent) ${(((reviewFontSize || 100) - 75) / 75) * 100}%, var(--border) ${(((reviewFontSize || 100) - 75) / 75) * 100}%, var(--border) 100%)`,
     );
     const lineHeightGradient = $derived(
-        `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(((reviewLineHeight || 150) - 100) / 200) * 100}%, #e5e7eb ${(((reviewLineHeight || 150) - 100) / 200) * 100}%, #e5e7eb 100%)`,
+        `linear-gradient(to right, var(--accent) 0%, var(--accent) ${(((reviewLineHeight || 150) - 100) / 200) * 100}%, var(--border) ${(((reviewLineHeight || 150) - 100) / 200) * 100}%, var(--border) 100%)`,
     );
 </script>
 
 <Card padding="lg" class={className}>
     <div class="mb-6 flex items-center justify-between">
-        <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Review Text Controls</h3>
+        <h3 class="text-base font-semibold text-fg">Review Text Controls</h3>
         <Button type="button" variant="ghost" tone="neutral" size="sm" onclick={resetToDefault}>Reset to Default</Button>
     </div>
     <div class="grid grid-cols-1 gap-6">
         <div class="flex items-center justify-between">
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Width</span>
+            <span class="text-sm font-medium text-fg">Width</span>
             <div class="flex items-center gap-3">
-                <span class="text-sm text-gray-500 dark:text-gray-400">50%</span>
+                <span class="text-sm text-fg-faint">50%</span>
                 <input
                     type="range"
                     aria-label="Review text width"
@@ -213,20 +213,20 @@
                     max="100"
                     value={reviewWidth || 100}
                     oninput={(e) => (reviewWidth = parseInt((e.target as HTMLInputElement).value))}
-                    class="h-2 w-24 cursor-pointer appearance-none rounded-lg bg-gray-200 dark:bg-gray-700"
+                    class="h-2 w-24 cursor-pointer appearance-none rounded-md bg-surface-alt"
                     style:background={widthGradient}
                 />
-                <span class="text-sm text-gray-500 dark:text-gray-400">100%</span>
-                <span class="ml-3 min-w-[3.5rem] text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <span class="text-sm text-fg-faint">100%</span>
+                <span class="ml-3 min-w-[3.5rem] text-right text-sm font-semibold text-fg">
                     {reviewWidth || 100}%
                 </span>
             </div>
         </div>
 
         <div class="flex items-center justify-between">
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Font Size</span>
+            <span class="text-sm font-medium text-fg">Font Size</span>
             <div class="flex items-center gap-3">
-                <span class="text-sm text-gray-500 dark:text-gray-400">75%</span>
+                <span class="text-sm text-fg-faint">75%</span>
                 <input
                     type="range"
                     aria-label="Review font size"
@@ -234,20 +234,20 @@
                     max="150"
                     value={reviewFontSize || 100}
                     oninput={(e) => (reviewFontSize = parseInt((e.target as HTMLInputElement).value))}
-                    class="h-2 w-24 cursor-pointer appearance-none rounded-lg bg-gray-200 dark:bg-gray-700"
+                    class="h-2 w-24 cursor-pointer appearance-none rounded-md bg-surface-alt"
                     style:background={fontSizeGradient}
                 />
-                <span class="text-sm text-gray-500 dark:text-gray-400">150%</span>
-                <span class="ml-3 min-w-[3.5rem] text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <span class="text-sm text-fg-faint">150%</span>
+                <span class="ml-3 min-w-[3.5rem] text-right text-sm font-semibold text-fg">
                     {reviewFontSize || 100}%
                 </span>
             </div>
         </div>
 
         <div class="flex items-center justify-between">
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Line Height</span>
+            <span class="text-sm font-medium text-fg">Line Height</span>
             <div class="flex items-center gap-3">
-                <span class="text-sm text-gray-500 dark:text-gray-400">100%</span>
+                <span class="text-sm text-fg-faint">100%</span>
                 <input
                     type="range"
                     aria-label="Review line height"
@@ -255,11 +255,11 @@
                     max="300"
                     value={reviewLineHeight || 150}
                     oninput={(e) => (reviewLineHeight = parseInt((e.target as HTMLInputElement).value))}
-                    class="h-2 w-24 cursor-pointer appearance-none rounded-lg bg-gray-200 dark:bg-gray-700"
+                    class="h-2 w-24 cursor-pointer appearance-none rounded-md bg-surface-alt"
                     style:background={lineHeightGradient}
                 />
-                <span class="text-sm text-gray-500 dark:text-gray-400">300%</span>
-                <span class="ml-3 min-w-[3.5rem] text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <span class="text-sm text-fg-faint">300%</span>
+                <span class="ml-3 min-w-[3.5rem] text-right text-sm font-semibold text-fg">
                     {reviewLineHeight || 150}%
                 </span>
             </div>

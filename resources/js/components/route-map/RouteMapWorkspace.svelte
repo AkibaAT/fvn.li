@@ -145,8 +145,8 @@
 
     {#if !routeGraph?.has_graph_data}
         <div class="flex flex-col items-center justify-center py-20">
-            <div class="text-lg text-gray-500 dark:text-gray-400">Route graph data is generated when the game is parsed.</div>
-            <p class="mt-2 text-sm text-gray-400 dark:text-gray-500">This view will appear after the parser has produced route graph data.</p>
+            <div class="text-lg text-fg-muted">Route graph data is generated when the game is parsed.</div>
+            <p class="mt-2 text-sm text-fg-faint">This view will appear after the parser has produced route graph data.</p>
         </div>
     {:else}
         <RouteMapToolbar
@@ -175,7 +175,7 @@
         />
 
         <div class="flex gap-6" style="height: calc(100vh - 200px);">
-            <Card variant="outline" padding="none" class="flex-1 overflow-hidden dark:bg-gray-900" style="min-width: 0">
+            <Card variant="flat" padding="none" class="flex-1 overflow-hidden" style="min-width: 0">
                 <SvelteFlow
                     nodes={displayNodes as any[]}
                     edges={displayEdges as any[]}
@@ -189,7 +189,6 @@
                         onSelectNode(event.node?.id ?? null);
                     }}
                     onpaneclick={() => onSelectNode(null)}
-                    class=""
                 >
                     <RouteMapFitView {layoutVersion} />
                     <Background />
@@ -198,9 +197,9 @@
                         class="route-map-minimap"
                         width={260}
                         height={180}
-                        bgColor={colorMode === 'dark' ? '#0f172a' : '#f8fafc'}
+                        bgColor="var(--surface)"
                         maskColor={colorMode === 'dark' ? 'rgba(15, 23, 42, 0.48)' : 'rgba(15, 23, 42, 0.08)'}
-                        maskStrokeColor={colorMode === 'dark' ? '#93c5fd' : '#2563eb'}
+                        maskStrokeColor="var(--text-muted)"
                         maskStrokeWidth={2}
                         nodeColor={getMiniMapNodeColor}
                         nodeStrokeColor={getMiniMapNodeStrokeColor}
@@ -214,7 +213,7 @@
             </Card>
 
             {#if showSidebar}
-                <Card variant="outline" padding="sm" class="w-72 shrink-0 overflow-y-auto dark:bg-gray-900">
+                <Card variant="flat" padding="sm" class="w-72 shrink-0 overflow-y-auto">
                     {#if navigationTarget}
                         <RouteMapPathPanel
                             {navigationTarget}
@@ -270,13 +269,12 @@
         --rm-path-border: #3b82f6;
         --rm-seen-bg: #ecfdf5;
         --rm-seen-border: #10b981;
-        --rm-seen-shadow: rgba(16, 185, 129, 0.12);
         --rm-partial-bg: #f0fdf4;
         --rm-partial-border: #34d399;
-        --rm-partial-shadow: rgba(52, 211, 153, 0.12);
-        --rm-edge-label-bg: rgba(255, 255, 255, 0.95);
-        --rm-edge-label-text: #334155;
-        --rm-edge-label-border: rgba(148, 163, 184, 0.75);
+        /* Edge-label (condition) nodes ride the flat surface tokens. */
+        --rm-edge-label-bg: var(--surface);
+        --rm-edge-label-text: var(--text);
+        --rm-edge-label-border: var(--border-strong);
     }
 
     :global(.svelte-flow.dark) {
@@ -284,32 +282,22 @@
         --xy-node-choice-border: #d97706;
         --xy-node-hub-bg: #1e1b4b;
         --xy-node-hub-border: #818cf8;
-        --xy-node-border-default: 1px solid #64748b;
         --xy-edge-stroke-default: #94a3b8;
         --rm-path-bg: #1e3a5f;
         --rm-path-border: #60a5fa;
         --rm-seen-bg: #064e3b;
         --rm-seen-border: #34d399;
-        --rm-seen-shadow: rgba(52, 211, 153, 0.2);
         --rm-partial-bg: #052e16;
         --rm-partial-border: #6ee7b7;
-        --rm-partial-shadow: rgba(110, 231, 183, 0.15);
-        --rm-edge-label-bg: rgba(15, 23, 42, 0.92);
-        --rm-edge-label-text: #e2e8f0;
-        --rm-edge-label-border: rgba(100, 116, 139, 0.9);
     }
 
     :global(.route-map-minimap) {
-        border: 1px solid rgba(148, 163, 184, 0.65);
-        border-radius: 14px;
-        box-shadow:
-            0 10px 24px rgba(15, 23, 42, 0.16),
-            0 2px 6px rgba(15, 23, 42, 0.08);
+        border: 1px solid var(--border);
+        border-radius: 8px;
         overflow: hidden;
-        backdrop-filter: blur(6px);
     }
 
     :global(.route-map-minimap .svelte-flow__minimap-svg) {
-        border-radius: 14px;
+        border-radius: 8px;
     }
 </style>

@@ -447,8 +447,8 @@
                 const el = document.getElementById(hash.slice(1));
                 if (el) {
                     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    el.classList.add('bg-blue-50', 'dark:bg-blue-900/20', 'rounded-lg', 'transition-colors');
-                    setTimeout(() => el.classList.remove('bg-blue-50', 'dark:bg-blue-900/20'), 3000);
+                    el.classList.add('bg-surface-alt', 'rounded-md', 'transition-colors');
+                    setTimeout(() => el.classList.remove('bg-surface-alt'), 3000);
                 }
             }, 500);
         }
@@ -467,34 +467,34 @@
 {/if}
 
 <div
-    class="sticky top-[4.5rem] z-40 mb-5 flex flex-col gap-3 border-b border-gray-200 bg-gray-100 px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-gray-700 dark:bg-gray-900"
+    class="sticky top-[4.5rem] z-40 mb-5 flex flex-col gap-3 border-b border-border bg-surface px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
 >
-    <Link href={route('games.index')} class="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
+    <Link href={route('games.index')} class="inline-flex items-center text-fg-muted transition-colors hover:text-fg">
         <ChevronLeftIcon class="mr-1 h-5 w-5" />
         Back to Game List
     </Link>
     <nav class="flex w-full flex-wrap gap-x-4 gap-y-2 whitespace-nowrap sm:w-auto sm:flex-nowrap">
         {#if canSeeAnalytics && (clickStats || dailyStats)}
-            <a href="#analytics" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Analytics</a>
+            <a href="#analytics" class="text-sm text-fg-muted transition-colors hover:text-fg">Analytics</a>
         {/if}
         {#if game.is_visible}
-            <a href="#details" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Details</a>
+            <a href="#details" class="text-sm text-fg-muted transition-colors hover:text-fg">Details</a>
         {/if}
         {#if currentScreenshots && currentScreenshots.length > 0}
-            <a href="#screenshots" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Screenshots</a>
+            <a href="#screenshots" class="text-sm text-fg-muted transition-colors hover:text-fg">Screenshots</a>
         {/if}
         {#if game.additional_links && game.additional_links.length > 0}
-            <a href="#downloads" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Downloads</a>
+            <a href="#downloads" class="text-sm text-fg-muted transition-colors hover:text-fg">Downloads</a>
         {/if}
         {#if publicLists && publicLists.length > 0}
-            <a href="#featured-lists" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Lists</a>
+            <a href="#featured-lists" class="text-sm text-fg-muted transition-colors hover:text-fg">Lists</a>
         {/if}
         {#if gameVersions && gameVersions.data.length > 0}
-            <a href="#versions" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Versions</a>
+            <a href="#versions" class="text-sm text-fg-muted transition-colors hover:text-fg">Versions</a>
         {/if}
-        <a href="#reviews" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Reviews</a>
+        <a href="#reviews" class="text-sm text-fg-muted transition-colors hover:text-fg">Reviews</a>
         {#if similarGames && similarGames.length > 0}
-            <a href="#similar-games" class="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">Similar</a>
+            <a href="#similar-games" class="text-sm text-fg-muted transition-colors hover:text-fg">Similar</a>
         {/if}
     </nav>
 </div>
@@ -520,7 +520,7 @@
 
 {#if canSeeAnalytics && (clickStats || dailyStats)}
     <Card id="analytics" padding="lg" class="mb-6 scroll-mt-28">
-        <h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Analytics</h2>
+        <h2 class="mb-4 text-xl font-semibold text-fg">Analytics</h2>
         <GameStats {clickStats} {dailyStats} />
     </Card>
 {/if}
@@ -547,11 +547,11 @@
 {#if publicLists && publicLists.length > 0}
     <Card id="featured-lists" padding="lg" class="mb-6 scroll-mt-28">
         <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            <h2 class="text-xl font-semibold text-fg">
                 Featured in {publicListsCount} Public {publicListsCount === 1 ? 'List' : 'Lists'}
             </h2>
             {#if publicListsCount > publicLists.length}
-                <Link href={route('lists.public', { game: game.id })} class="text-sm text-blue-600 hover:underline dark:text-blue-400">
+                <Link href={route('lists.public', { game: game.id })} class="text-sm text-fg-muted transition-colors hover:text-fg">
                     View all {publicListsCount} lists
                 </Link>
             {/if}
@@ -561,35 +561,33 @@
                 {@const colors = getPublicListColors(list.type)}
                 <Link
                     href={route('lists.show', list.id)}
-                    class="group block rounded-lg border-l-4 {colors.border} bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-gray-700/50"
+                    class="group block rounded-lg border-y border-r border-l-4 border-border {colors.border} bg-surface p-4 transition-colors"
                 >
                     <div class="mb-2 flex items-start justify-between">
-                        <h3 class="font-medium text-gray-900 group-hover:text-blue-600 dark:text-gray-100 dark:group-hover:text-blue-400">
+                        <h3 class="font-medium text-fg">
                             {list.name}
                         </h3>
-                        <span
-                            class="ml-2 shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-600 dark:text-gray-300"
-                        >
+                        <span class="ml-2 shrink-0 rounded-[3px] border border-border-strong px-2 py-0.5 text-[11px] font-medium text-fg-muted">
                             {list.entries_count}
                             {list.entries_count === 1 ? 'game' : 'games'}
                         </span>
                     </div>
                     <div class="mb-2">
                         <span
-                            class="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold {colors.bg} {colors.text} {colors.darkBg} {colors.darkText}"
+                            class="inline-block rounded-[3px] px-2 py-0.5 text-[10px] font-semibold {colors.bg} {colors.text} {colors.darkBg} {colors.darkText}"
                         >
                             {list.type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
                         </span>
                     </div>
                     {#if list.description}
-                        <p class="mb-2 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">{list.description}</p>
+                        <p class="mb-2 line-clamp-2 text-sm text-fg-muted">{list.description}</p>
                     {/if}
-                    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <div class="flex items-center gap-2 text-xs text-fg-faint">
                         {#if list.user.avatar}
                             <img src={list.user.avatar} alt={list.user.name} class="h-5 w-5 rounded-full" />
                         {:else}
-                            <div class="flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-600">
-                                <span class="text-xs font-medium text-gray-600 dark:text-gray-300">{list.user.name.charAt(0).toUpperCase()}</span>
+                            <div class="flex h-5 w-5 items-center justify-center rounded-full bg-surface-alt">
+                                <span class="text-xs font-medium text-fg-muted">{list.user.name.charAt(0).toUpperCase()}</span>
                             </div>
                         {/if}
                         <span>by {list.user.name}</span>

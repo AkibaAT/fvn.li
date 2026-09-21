@@ -6,7 +6,8 @@
     import type { User, VnList } from '@/components/VnListCard.svelte';
     import PublicListResults from '@/components/lists/PublicListResults.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
-    import { Link, router } from '@inertiajs/svelte';
+    import { router } from '@inertiajs/svelte';
+    import { Button } from '@/components/ui';
 
     interface Props {
         lists: {
@@ -53,20 +54,14 @@
 <div class="space-y-8">
     <PageHeader title={`${user.name}'s Visual Novel Lists`}>
         {#snippet actions()}
-            <Link
-                href={route('lists.public')}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
-            >
-                <UsersIcon class="mr-2 h-5 w-5" />
+            <Button href={route('lists.public')} variant="outline" tone="neutral">
+                <UsersIcon class="h-5 w-5" />
                 All Public Lists
-            </Link>
-            <Link
-                href={route('lists.index')}
-                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
-            >
-                <ClipboardIcon class="mr-2 h-5 w-5" />
+            </Button>
+            <Button href={route('lists.index')}>
+                <ClipboardIcon class="h-5 w-5" />
                 My Lists
-            </Link>
+            </Button>
         {/snippet}
     </PageHeader>
 

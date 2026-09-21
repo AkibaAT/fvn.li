@@ -30,8 +30,8 @@
     </div>
 {:else}
     <div class="py-12 text-center">
-        <h2 class="mb-2 text-lg font-medium text-gray-900 dark:text-white">No public lists found</h2>
-        <p class="text-gray-600 dark:text-gray-400">{emptyMessage}</p>
+        <h2 class="mb-2 text-lg font-medium text-fg">No public lists found</h2>
+        <p class="text-fg-muted">{emptyMessage}</p>
     </div>
 {/if}
 

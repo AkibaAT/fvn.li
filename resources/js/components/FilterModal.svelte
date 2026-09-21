@@ -89,7 +89,7 @@
 
     <div class="space-y-8 p-6">
         <div>
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Content & Pricing</h3>
+            <h3 class="mb-4 text-sm font-semibold text-fg">Content & Pricing</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Content & Pricing"
@@ -105,7 +105,7 @@
         </div>
 
         <div>
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Status</h3>
+            <h3 class="mb-4 text-sm font-semibold text-fg">Status</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Status"
@@ -121,7 +121,7 @@
         </div>
 
         <div>
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Platforms</h3>
+            <h3 class="mb-4 text-sm font-semibold text-fg">Platforms</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Platforms"
@@ -137,7 +137,7 @@
         </div>
 
         <div>
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Store Platforms</h3>
+            <h3 class="mb-4 text-sm font-semibold text-fg">Store Platforms</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Store Platforms"
@@ -153,7 +153,7 @@
         </div>
 
         <div>
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Languages</h3>
+            <h3 class="mb-4 text-sm font-semibold text-fg">Languages</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Languages"
@@ -169,7 +169,7 @@
         </div>
 
         <div>
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Game Engine</h3>
+            <h3 class="mb-4 text-sm font-semibold text-fg">Game Engine</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Game Engines"
@@ -185,7 +185,7 @@
         </div>
 
         <div>
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Tags</h3>
+            <h3 class="mb-4 text-sm font-semibold text-fg">Tags</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Tags"
@@ -200,7 +200,7 @@
         </div>
 
         <div>
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Exclude Tags</h3>
+            <h3 class="mb-4 text-sm font-semibold text-fg">Exclude Tags</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Exclude Tags"
@@ -216,7 +216,7 @@
         </div>
 
         <div>
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Reading Time</h3>
+            <h3 class="mb-4 text-sm font-semibold text-fg">Reading Time</h3>
             <div class="space-y-3">
                 {#each Object.entries(filters.readingTimeOptions || readingTimeDefaults) as [value, label] (value)}
                     <Radio
@@ -224,7 +224,6 @@
                         {value}
                         {label}
                         checked={currentFilters.readingTime === value}
-                        class="text-violet-600 focus:ring-violet-500"
                         onchange={() => updateFilters({ readingTime: value })}
                     />
                 {/each}
@@ -235,7 +234,7 @@
         </div>
 
         <div>
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Game Jams</h3>
+            <h3 class="mb-4 text-sm font-semibold text-fg">Game Jams</h3>
             <div class="space-y-2">
                 <MultiSelect
                     title="Game Jams"

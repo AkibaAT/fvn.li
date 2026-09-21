@@ -225,6 +225,6 @@ test('visitor display choices persist in click order', async ({ page }, info) =>
             return d.data.current_view_mode;
         })
         .toBe('original');
-    await expect(page.getByTitle('Show visitors original itch.io content', { exact: true })).toHaveClass(/bg-blue-600/);
+    await expect(page.getByTitle('Show visitors original itch.io content', { exact: true })).toHaveClass(/bg-accent/);
     await shot(page, info, 'saved-visitor-mode');
 });

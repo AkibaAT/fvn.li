@@ -69,16 +69,14 @@
     }
 </script>
 
-<Card padding="lg">
-    <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Notification Settings</h2>
+<Card variant="flat" padding="lg">
+    <h2 class="mb-4 text-lg font-semibold text-fg">Notification Settings</h2>
     <div class="space-y-4">
         {#if vapidPublicKey}
             <div class="flex items-center gap-4">
                 <div class="flex-grow">
-                    <div class="font-medium text-gray-700 dark:text-gray-300">Browser Push Notifications</div>
-                    <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Receive game updates on this browser. Each device has its own subscription.
-                    </div>
+                    <div class="font-medium text-fg">Browser Push Notifications</div>
+                    <div class="mt-1 text-sm text-fg-muted">Receive game updates on this browser. Each device has its own subscription.</div>
                 </div>
                 <Switch
                     checked={preferences.browser_notifications_enabled}
@@ -92,10 +90,8 @@
         {#if hasDiscord}
             <div class="flex items-center gap-4">
                 <div class="flex-grow">
-                    <div class="font-medium text-gray-700 dark:text-gray-300">Discord Notifications</div>
-                    <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Receive direct messages without needing to share a server with the bot.
-                    </div>
+                    <div class="font-medium text-fg">Discord Notifications</div>
+                    <div class="mt-1 text-sm text-fg-muted">Receive direct messages without needing to share a server with the bot.</div>
                 </div>
                 <Switch
                     checked={preferences.discord_notifications_enabled}
@@ -107,8 +103,8 @@
         {/if}
 
         <div>
-            <div class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Notification Frequency</div>
-            <div class="mb-3 text-xs text-gray-500 dark:text-gray-400">Choose how often update notifications are delivered.</div>
+            <div class="mb-2 text-sm font-medium text-fg-muted">Notification Frequency</div>
+            <div class="mb-3 text-xs text-fg-muted">Choose how often update notifications are delivered.</div>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {#each [{ value: 'asap', label: 'As soon as possible', desc: 'Send each update immediately' }, { value: 'daily', label: 'Daily digest', desc: 'One daily update summary' }, { value: 'weekly', label: 'Weekly digest', desc: 'One weekly update summary' }] as frequency (frequency.value)}
                     <Button
@@ -118,10 +114,10 @@
                         aria-pressed={preferences.notification_digest === frequency.value}
                         onclick={() => updateDigest(frequency.value)}
                         disabled={saving}
-                        class="h-auto flex-col items-start rounded-lg p-3 text-left text-sm"
+                        class="h-auto flex-col items-start rounded-md p-3 text-left text-sm"
                     >
-                        <span class="font-medium text-gray-900 dark:text-white">{frequency.label}</span>
-                        <span class="mt-1 text-xs text-gray-700 dark:text-gray-300">{frequency.desc}</span>
+                        <span class="font-medium text-fg">{frequency.label}</span>
+                        <span class="mt-1 text-xs text-fg-muted">{frequency.desc}</span>
                     </Button>
                 {/each}
             </div>

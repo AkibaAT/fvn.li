@@ -33,7 +33,7 @@
             case 'steam':
                 return 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300';
             default:
-                return 'text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300';
+                return 'text-fg-muted hover:text-fg';
         }
     };
 

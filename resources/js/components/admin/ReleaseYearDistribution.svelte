@@ -154,10 +154,10 @@
 </script>
 
 <section class="space-y-6">
-    <h2 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Release years</h2>
+    <h2 class="text-2xl font-semibold tracking-tight text-fg">Release years</h2>
 
-    <Card variant="outline" class="border-gray-200 shadow-none dark:border-gray-700 dark:bg-gray-800/60">
-        <h3 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Listed games by release year</h3>
+    <Card variant="flat">
+        <h3 class="mb-4 text-xl font-semibold text-fg">Listed games by release year</h3>
         <div class="relative h-[300px] w-full">
             {#if ChartComponent}
                 <ChartComponent type="bar" data={chartData} options={chartOptions} style="height: 300px; width: 100%" />

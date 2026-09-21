@@ -118,10 +118,10 @@
 </script>
 
 {#if bugReports.length > 0}
-    <div class="rounded-lg border-2 border-amber-300 bg-amber-50 shadow-sm dark:border-amber-700 dark:bg-amber-900/20">
+    <div class="rounded-lg border border-amber-600/40 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/30">
         <div class="p-6">
             <div class="mb-4 flex items-center justify-between">
-                <h2 class="text-lg font-semibold text-amber-800 dark:text-amber-300">
+                <h2 class="text-lg font-semibold text-amber-900 dark:text-amber-200">
                     Your Bug Reports
                     {#if totalUnread > 0}
                         <Badge tone="danger" variant="solid" size="sm" class="ml-2">
@@ -129,7 +129,7 @@
                         </Badge>
                     {/if}
                 </h2>
-                <span class="text-sm text-amber-700 dark:text-amber-300">
+                <span class="text-sm text-amber-800 dark:text-amber-300">
                     {bugReports.length} active
                 </span>
             </div>
@@ -155,14 +155,14 @@
                                         </Badge>
                                     {/if}
                                 </div>
-                                <p class="line-clamp-2 text-sm text-gray-700 dark:text-gray-300">
+                                <p class="line-clamp-2 text-sm text-fg-muted">
                                     {report.description}
                                 </p>
-                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                <p class="mt-1 text-xs text-fg-faint">
                                     Reported {formatLocalDate(report.created_at)}
                                 </p>
                             </div>
-                            <ChevronRightIcon class="ml-2 h-5 w-5 flex-shrink-0 text-gray-400" />
+                            <ChevronRightIcon class="ml-2 h-5 w-5 flex-shrink-0 text-fg-faint" />
                         </div>
                     </Button>
                 {/each}
@@ -180,64 +180,57 @@
 >
     {#if loadingBugReport}
         <div class="flex items-center justify-center py-8">
-            <LoadingSpinner size="lg" class="text-blue-500" currentColor label="Loading bug report" />
+            <LoadingSpinner size="lg" class="text-fg-muted" currentColor label="Loading bug report" />
         </div>
     {:else if selectedBugReport}
-        <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/50">
+        <div class="mb-6 rounded-lg border border-border bg-surface-alt p-4">
             <div class="mb-3 flex items-center gap-2">
                 <Badge tone={getStatusBadgeTone(selectedBugReport.status_color)} size="sm">
                     {selectedBugReport.status_label}
                 </Badge>
-                <span class="text-xs text-gray-500 dark:text-gray-400">
+                <!-- `--text-faint` only clears AA on `--surface`, not on `--surface-alt`. -->
+                <span class="text-xs text-fg-muted">
                     Submitted {formatLocalDate(selectedBugReport.created_at)}
                 </span>
             </div>
 
-            <p class="mb-3 text-sm text-gray-700 dark:text-gray-300">
+            <p class="mb-3 text-sm text-fg-muted">
                 {selectedBugReport.description}
             </p>
 
-            <div class="text-xs text-gray-500 dark:text-gray-400">
+            <div class="text-xs text-fg-muted">
                 <strong>Page:</strong>
-                <a href={selectedBugReport.page_url} target="_blank" rel="noopener" class="text-blue-600 hover:underline dark:text-blue-400">
+                <a href={selectedBugReport.page_url} target="_blank" rel="noopener" class="text-fg-muted hover:text-fg hover:underline">
                     {selectedBugReport.page_title || selectedBugReport.page_url}
                 </a>
             </div>
         </div>
 
         <div class="mb-6">
-            <h4 class="mb-3 font-medium text-gray-900 dark:text-white">
+            <h4 class="mb-3 font-medium text-fg">
                 Conversation ({bugReportComments.length})
             </h4>
 
             {#if bugReportComments.length === 0}
-                <p class="text-sm text-gray-500 dark:text-gray-400">No comments yet. Add additional information below.</p>
+                <p class="text-sm text-fg-muted">No comments yet. Add additional information below.</p>
             {:else}
                 <div class="space-y-3">
                     {#each bugReportComments as comment (comment.id)}
                         <div
-                            class="rounded-lg p-3 {comment.is_from_admin
-                                ? 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                : 'border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'}"
+                            class="rounded-lg p-3 {comment.is_from_admin ? 'border-l-4 border-fg bg-surface-alt' : 'border border-border bg-surface'}"
                         >
                             <div class="mb-1 flex items-center gap-2">
-                                <span
-                                    class="text-sm font-medium {comment.is_from_admin
-                                        ? 'text-blue-700 dark:text-blue-400'
-                                        : 'text-gray-900 dark:text-white'}"
-                                >
+                                <span class="text-sm font-medium text-fg">
                                     {comment.user.name}
                                 </span>
                                 {#if comment.is_from_admin}
                                     <Badge tone="primary" size="sm">Staff</Badge>
                                 {/if}
-                                <span
-                                    class="text-xs {comment.is_from_admin ? 'text-gray-600 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}"
-                                >
+                                <span class="text-xs {comment.is_from_admin ? 'text-fg-muted' : 'text-fg-faint'}">
                                     {formatLocalDateTime(comment.created_at)}
                                 </span>
                             </div>
-                            <p class="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+                            <p class="text-sm whitespace-pre-wrap text-fg-muted">
                                 {comment.message}
                             </p>
                         </div>
@@ -267,11 +260,7 @@
                 </div>
             </div>
         {:else}
-            <div
-                class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-400"
-            >
-                You have closed this report.
-            </div>
+            <div class="rounded-lg border border-border bg-surface-alt p-4 text-center text-sm text-fg-muted">You have closed this report.</div>
         {/if}
     {/if}
     {#snippet footer()}

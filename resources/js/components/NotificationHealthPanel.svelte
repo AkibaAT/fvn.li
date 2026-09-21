@@ -90,10 +90,10 @@
 </script>
 
 {#if loading}
-    <p class="text-sm text-gray-500 dark:text-gray-400">Checking notification health…</p>
+    <p class="text-sm text-fg-muted">Checking notification health…</p>
 {:else if health}
     {@const discordStatus = computeChannelStatus('discord', health.discord)}
-    <div class="space-y-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+    <div class="space-y-4 border-t border-border pt-4">
         {#if vapidPublicKey}
             {@const browserStatus = computeChannelStatus('browser', health.browser, {
                 permission: typeof Notification === 'undefined' ? 'default' : Notification.permission,
@@ -102,14 +102,14 @@
             <section class="space-y-3" aria-labelledby="browser-notification-status">
                 <div>
                     <div class="flex items-center gap-2">
-                        <span id="browser-notification-status" class="font-medium text-gray-900 dark:text-white">Browser notification status</span>
+                        <span id="browser-notification-status" class="font-medium text-fg">Browser notification status</span>
                         <Badge tone={tone(browserStatus)}>{label(browserStatus)}</Badge>
                     </div>
                     {#if browserStatus === 'disabled'}
-                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Switch on browser notifications above to use this channel.</p>
+                        <p class="mt-1 text-sm text-fg-muted">Switch on browser notifications above to use this channel.</p>
                     {/if}
                     {#if browserStatus === 'action-needed'}
-                        <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
+                        <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-fg-muted">
                             {#if typeof Notification !== 'undefined' && Notification.permission === 'denied'}
                                 <li>Allow notifications for this site in your browser settings.</li>
                             {/if}
@@ -130,18 +130,15 @@
             </section>
         {/if}
 
-        <section
-            class="space-y-3 {vapidPublicKey ? 'border-t border-gray-200 pt-4 dark:border-gray-700' : ''}"
-            aria-labelledby="discord-notification-status"
-        >
+        <section class="space-y-3 {vapidPublicKey ? 'border-t border-border pt-4' : ''}" aria-labelledby="discord-notification-status">
             <div>
                 <div class="flex items-center gap-2">
-                    <span id="discord-notification-status" class="font-medium text-gray-900 dark:text-white">Discord notification status</span>
+                    <span id="discord-notification-status" class="font-medium text-fg">Discord notification status</span>
                     <Badge tone={tone(discordStatus)}>{label(discordStatus)}</Badge>
                     {#if health.discord.botOnline === false}<Badge tone="warning">Bot offline</Badge>{/if}
                 </div>
                 {#if discordStatus === 'disabled'}
-                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                    <p class="mt-1 text-sm text-fg-muted">
                         {health.discord.linked
                             ? 'Switch on Discord notifications above to use this channel.'
                             : 'Link your Discord account to use this channel.'}
@@ -149,7 +146,7 @@
                 {/if}
                 {#if discordStatus === 'action-needed'}
                     {#if health.discord.dmStatus === 'undeliverable'}
-                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                        <p class="mt-1 text-sm text-fg-muted">
                             {health.discord.dmStatusReason === 'account_missing'
                                 ? 'The linked Discord account no longer exists.'
                                 : `Discord refused the last direct message${
@@ -159,12 +156,12 @@
                                   }.`}
                         </p>
                     {/if}
-                    <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
+                    <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-fg-muted">
                         {#if health.discord.dmStatusReason === 'account_missing'}
                             <li>Unlink the old Discord account, then link your current account.</li>
                         {:else if !health.discord.linked}<li>Link your Discord account.</li>{/if}
                         {#if health.discord.userInstallUrl && !health.discord.userInstalledAt}<li>
-                                <a class="text-indigo-600 underline dark:text-indigo-400" href={health.discord.userInstallUrl}
+                                <a class="text-fg-muted underline hover:text-fg" href={health.discord.userInstallUrl}
                                     >Add the FVN.li app to your Discord account</a
                                 >, then choose &ldquo;Add to my apps&rdquo;. No shared server is needed.
                             </li>{/if}
@@ -181,9 +178,7 @@
                     <Button type="button" variant="solid" tone="primary" disabled={testing !== null} onclick={() => testChannel('discord')}
                         >{testing === 'discord' ? 'Waiting for Discord…' : 'Send test DM'}</Button
                     >
-                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                        The bot checks for queued notifications once a minute, so a test may take up to 75 seconds.
-                    </p>
+                    <p class="text-sm text-fg-muted">The bot checks for queued notifications once a minute, so a test may take up to 75 seconds.</p>
                 </div>
             {/if}
         </section>
