@@ -184,12 +184,12 @@ class GameArchiveOptimizerDockerRunner
         $hostAppDir = rtrim((string) config('services.archive_optimizer.host_app_dir', ''), '/');
         if ($hostAppDir !== '') {
             $appPath = rtrim((string) config('services.archive_optimizer.app_path', '/app'), '/');
-            foreach (['app', 'bootstrap', 'config', 'resources', 'routes', 'vendor'] as $path) {
+            foreach (['app', 'bootstrap', 'composer.json', 'config', 'public', 'resources', 'routes', 'vendor'] as $path) {
                 $command[] = '--mount';
                 $command[] = "type=bind,source={$hostAppDir}/{$path},target={$appPath}/{$path},readonly";
             }
             $command[] = '--tmpfs';
-            $command[] = "{$appPath}/bootstrap/cache:rw,nosuid,nodev,noexec,mode=0770,size=16m";
+            $command[] = "{$appPath}/bootstrap/cache:rw,nosuid,nodev,noexec,uid=33,gid=33,mode=0770,size=16m";
         }
 
         // The compiled scripts are regenerated with the game's own runtime, and

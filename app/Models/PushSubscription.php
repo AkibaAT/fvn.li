@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Support\HostAddresses;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -50,22 +51,18 @@ class PushSubscription extends Model
             return self::isPublicIp($host);
         }
 
-        $records = @dns_get_record($host, DNS_A | DNS_AAAA);
-        if (! is_array($records) || $records === []) {
+        $addresses = HostAddresses::resolve($host);
+        if ($addresses === []) {
             return false;
         }
 
-        $hasPublicIp = false;
-        foreach ($records as $record) {
-            $ip = $record['ip'] ?? $record['ipv6'] ?? null;
-            if (! is_string($ip) || ! self::isPublicIp($ip)) {
+        foreach ($addresses as $ip) {
+            if (! self::isPublicIp($ip)) {
                 return false;
             }
-
-            $hasPublicIp = true;
         }
 
-        return $hasPublicIp;
+        return true;
     }
 
     private static function isPublicIp(string $ip): bool

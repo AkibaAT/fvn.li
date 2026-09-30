@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Support\HostAddresses;
 use Dom\HTMLDocument;
 use Exception;
 use GuzzleHttp\Client;
@@ -340,27 +341,16 @@ class ItchDownloadUrlResolver
             return $host;
         }
 
-        $records = dns_get_record($host, DNS_A + DNS_AAAA);
-        if ($records === false || $records === []) {
+        $addresses = HostAddresses::resolve($host);
+        if ($addresses === []) {
             throw new RuntimeException("Could not resolve {$description} host: {$host}");
         }
 
-        $firstPublicIp = null;
-        foreach ($records as $record) {
-            $ip = $record['ip'] ?? $record['ipv6'] ?? null;
-            if (! is_string($ip) || $ip === '') {
-                continue;
-            }
-
+        foreach ($addresses as $ip) {
             $this->assertPubliclyRoutableIp($ip, $description);
-            $firstPublicIp ??= $ip;
         }
 
-        if ($firstPublicIp === null) {
-            throw new RuntimeException("Could not resolve {$description} host: {$host}");
-        }
-
-        return $firstPublicIp;
+        return $addresses[0];
     }
 
     private function assertPubliclyRoutableIp(string $ip, string $description): void

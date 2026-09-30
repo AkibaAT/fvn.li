@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Support\HostAddresses;
 use InvalidArgumentException;
 
 class ItchUrlSafetyValidator
@@ -77,16 +78,13 @@ class ItchUrlSafetyValidator
             return;
         }
 
-        $records = @dns_get_record($host, DNS_A + DNS_AAAA);
-        if ($records === false || $records === []) {
+        $addresses = HostAddresses::resolve($host);
+        if ($addresses === []) {
             throw new InvalidArgumentException("Could not resolve itch.io host: {$host}");
         }
 
-        foreach ($records as $record) {
-            $ip = $record['ip'] ?? $record['ipv6'] ?? null;
-            if (is_string($ip)) {
-                $this->assertPublicIp($ip, $host);
-            }
+        foreach ($addresses as $ip) {
+            $this->assertPublicIp($ip, $host);
         }
     }
 

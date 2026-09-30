@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Support\HostAddresses;
 use InvalidArgumentException;
 
 class ImageDownloadUrlValidator
@@ -73,27 +74,16 @@ class ImageDownloadUrlValidator
             return $host;
         }
 
-        $records = dns_get_record($host, DNS_A + DNS_AAAA);
-        if ($records === false || $records === []) {
+        $addresses = HostAddresses::resolve($host);
+        if ($addresses === []) {
             throw new InvalidArgumentException("Could not resolve image host: {$host}");
         }
 
-        $firstPublicIp = null;
-        foreach ($records as $record) {
-            $ip = $record['ip'] ?? $record['ipv6'] ?? null;
-            if (! is_string($ip) || $ip === '') {
-                continue;
-            }
-
+        foreach ($addresses as $ip) {
             $this->assertPubliclyRoutableIp($ip);
-            $firstPublicIp ??= $ip;
         }
 
-        if ($firstPublicIp === null) {
-            throw new InvalidArgumentException("Could not resolve image host: {$host}");
-        }
-
-        return $firstPublicIp;
+        return $addresses[0];
     }
 
     private function assertPubliclyRoutableIp(string $ip): void
