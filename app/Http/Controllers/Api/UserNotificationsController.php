@@ -40,7 +40,7 @@ class UserNotificationsController extends Controller
         $query = User::query()
             ->whereHas('gameProgress', function ($query) use ($gameId) {
                 $query->where('game_id', $gameId)
-                    ->where('receive_updates', true);
+                    ->where('is_receiving_updates', true);
             });
 
         if ($notificationType === 'discord') {

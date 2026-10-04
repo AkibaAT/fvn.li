@@ -13,7 +13,7 @@ if (! $user->vnLists()->where('is_default', true)->exists()) {
 }
 $reading = $user->vnLists()->where('type', 'reading')->firstOrFail();
 $reading->addGame($game->id);
-UserGameProgress::updateOrCreate(['user_id' => $user->id, 'game_id' => $game->id], ['receive_updates' => true]);
+UserGameProgress::updateOrCreate(['user_id' => $user->id, 'game_id' => $game->id], ['is_receiving_updates' => true]);
 $bugReport->updateQuietly(['description' => "Audit report A {$suffix}"]);
 $second = BugReport::withoutEvents(fn () => BugReport::create(['user_id' => $user->id, 'page_url' => 'http://web:8088/dashboard', 'description' => "Audit report B {$suffix}", 'status' => 'open', 'is_closed' => false]));
 $shots = array_map(fn ($n) => ['url' => asset("storage/e2e/audit-shot-{$n}.webp"), 'optimized' => ['default' => ['path' => "e2e/audit-shot-{$n}.webp"], 'large' => ['path' => "e2e/audit-shot-{$n}.webp"]]], ['a', 'b', 'c']);

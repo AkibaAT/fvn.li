@@ -16,7 +16,7 @@ class ToggleUserProgressUpdatesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'receive_updates' => ['required', 'boolean'],
+            'is_receiving_updates' => ['required', 'boolean'],
         ];
     }
 }

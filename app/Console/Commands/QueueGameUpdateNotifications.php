@@ -210,7 +210,7 @@ class QueueGameUpdateNotifications extends Command
             ->join('user_notification_preferences', 'users.id', '=', 'user_notification_preferences.user_id')
             ->join('games', 'user_game_progress.game_id', '=', 'games.id')
             ->where('user_game_progress.game_id', '=', $gameId)
-            ->where('user_game_progress.receive_updates', '=', true)
+            ->where('user_game_progress.is_receiving_updates', '=', true)
             ->where('games.is_paid', '=', false)
             ->where(function ($query) {
                 $query->where('user_notification_preferences.browser_notifications_enabled', '=', true)

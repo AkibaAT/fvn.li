@@ -59,7 +59,9 @@
     const entryFormAction = useAsyncAction();
 
     const freeGames = $derived(entries.filter((e) => !e.game.is_paid));
-    const allFreeGamesReceiveUpdates = $derived(freeGames.length > 0 && freeGames.every((e) => e.game.user_progress?.[0]?.receive_updates ?? false));
+    const allFreeGamesReceiveUpdates = $derived(
+        freeGames.length > 0 && freeGames.every((e) => e.game.user_progress?.[0]?.is_receiving_updates ?? false),
+    );
 
     const refreshList = () => refreshPage(['vnList', 'availableLists', 'metaTags']);
 
@@ -207,7 +209,7 @@
             },
         );
         if (!data) return;
-        notify(data.message || `Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${game.effective_name}"`, 'success');
+        notify(data.message || `Notifications ${data.is_receiving_updates ? 'enabled' : 'disabled'} for "${game.effective_name}"`, 'success');
     };
 
     const toggleAllNotificationsAction = useAsyncAction();

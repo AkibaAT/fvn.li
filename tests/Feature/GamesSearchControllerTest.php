@@ -100,7 +100,7 @@ it('renders the game index with meilisearch filters, defaults, ignored games, an
         'game_id' => $includedGame->id,
     ]);
     UserGameProgress::factory()->for($user)->for($includedGame)->create([
-        'receive_updates' => true,
+        'is_receiving_updates' => true,
     ]);
 
     $this->mock(MeilisearchService::class, function (MockInterface $mock) use ($includedGame, $ignoredGame) {
@@ -168,7 +168,7 @@ it('renders the game index with meilisearch filters, defaults, ignored games, an
         ->and($game['is_android'])->toBeTrue()
         ->and($game['english_word_count'])->toBe(25000)
         ->and($game['supported_languages'][0]['iso_code'])->toBe('eng')
-        ->and($game['user_progress'][0]->receive_updates)->toBeTrue()
+        ->and($game['user_progress'][0]->is_receiving_updates)->toBeTrue()
         ->and($game['user_list_memberships'][0]->list_id)->toBe($list->id)
         ->and($props['metaTags']['socialTitle'])->toContain('Search: wolves');
 });

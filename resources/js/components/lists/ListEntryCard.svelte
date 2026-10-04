@@ -182,9 +182,9 @@
 
 {#snippet notificationsSwitch()}
     <Switch
-        checked={userProgress?.receive_updates || false}
-        onchange={() => onToggleNotification(game, !(userProgress?.receive_updates || false))}
-        ariaLabel={userProgress?.receive_updates ? 'Turn off notifications' : 'Turn on notifications'}
+        checked={userProgress?.is_receiving_updates || false}
+        onchange={() => onToggleNotification(game, !(userProgress?.is_receiving_updates || false))}
+        ariaLabel={userProgress?.is_receiving_updates ? 'Turn off notifications' : 'Turn on notifications'}
     />
 {/snippet}
 

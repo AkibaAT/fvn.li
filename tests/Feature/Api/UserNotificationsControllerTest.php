@@ -67,7 +67,7 @@ it('returns subscribers for browser discord telegram and email notification chan
     ]);
     UserGameProgress::factory()->for($browserUser)->for($game)->create([
         'game_version_id' => $version->id,
-        'receive_updates' => true,
+        'is_receiving_updates' => true,
     ]);
 
     $discordUser = User::factory()->create();
@@ -79,7 +79,7 @@ it('returns subscribers for browser discord telegram and email notification chan
     ]);
     UserGameProgress::factory()->for($discordUser)->for($game)->create([
         'game_version_id' => $version->id,
-        'receive_updates' => true,
+        'is_receiving_updates' => true,
     ]);
 
     $telegramUser = User::factory()->create();
@@ -89,14 +89,14 @@ it('returns subscribers for browser discord telegram and email notification chan
     ]);
     UserGameProgress::factory()->for($telegramUser)->for($game)->create([
         'game_version_id' => $version->id,
-        'receive_updates' => true,
+        'is_receiving_updates' => true,
     ]);
 
     $emailUser = User::factory()->create(['email' => 'notify@example.com']);
     SocialAccount::factory()->for($emailUser)->create(['provider_name' => 'google']);
     UserGameProgress::factory()->for($emailUser)->for($game)->create([
         'game_version_id' => $version->id,
-        'receive_updates' => true,
+        'is_receiving_updates' => true,
     ]);
 
     $mutedUser = User::factory()->create();
@@ -107,7 +107,7 @@ it('returns subscribers for browser discord telegram and email notification chan
     ]);
     UserGameProgress::factory()->for($mutedUser)->for($game)->create([
         'game_version_id' => $version->id,
-        'receive_updates' => false,
+        'is_receiving_updates' => false,
     ]);
 
     $payload = [

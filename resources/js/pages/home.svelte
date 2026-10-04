@@ -28,7 +28,7 @@
         }>;
         game_engine: string;
         latest_version_number?: string | null;
-        user_progress?: Array<{ id: number; game_id: number; user_id: number; receive_updates: boolean }>;
+        user_progress?: Array<{ id: number; game_id: number; user_id: number; is_receiving_updates: boolean }>;
     }
 
     interface Props {

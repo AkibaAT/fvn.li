@@ -173,7 +173,7 @@ class VnListGameController extends Controller
             ], 400);
         }
 
-        $receiveUpdates = $request->boolean('receive_updates');
+        $receiveUpdates = $request->boolean('is_receiving_updates');
 
         UserGameProgress::updateOrCreate(
             [
@@ -181,7 +181,7 @@ class VnListGameController extends Controller
                 'game_id' => $game->id,
             ],
             [
-                'receive_updates' => $receiveUpdates,
+                'is_receiving_updates' => $receiveUpdates,
             ]
         );
 
@@ -190,7 +190,7 @@ class VnListGameController extends Controller
         return response()->json([
             'success' => true,
             'message' => "Notifications {$status}.",
-            'receive_updates' => $receiveUpdates,
+            'is_receiving_updates' => $receiveUpdates,
         ]);
     }
 
@@ -210,7 +210,7 @@ class VnListGameController extends Controller
 
         return response()->json([
             'success' => true,
-            'receive_updates' => $progress ? $progress->receive_updates : false,
+            'is_receiving_updates' => $progress ? $progress->is_receiving_updates : false,
         ]);
     }
 

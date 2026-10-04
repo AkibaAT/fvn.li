@@ -86,7 +86,7 @@ const cases: Array<{
         call: () => toggleAllListUpdates(5, true),
         method: 'patch',
         routeArgs: ['api.vn-lists.toggle-all-updates', 5],
-        httpArgs: ['/api.vn-lists.toggle-all-updates', { receive_updates: true }],
+        httpArgs: ['/api.vn-lists.toggle-all-updates', { is_receiving_updates: true }],
     },
     {
         name: 'updateListEntry',
@@ -121,7 +121,7 @@ const cases: Array<{
         call: () => toggleUserProgressUpdates(9, false),
         method: 'patch',
         routeArgs: ['api.user-progress.toggle-updates', 9],
-        httpArgs: ['/api.user-progress.toggle-updates', { receive_updates: false }],
+        httpArgs: ['/api.user-progress.toggle-updates', { is_receiving_updates: false }],
     },
     {
         name: 'fetchUserLists',

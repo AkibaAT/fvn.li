@@ -37,7 +37,7 @@ class UserGameProgressFactory extends Factory
             'completed_at' => $status === 'completed' ? fake()->dateTimeBetween('-6 months', 'now') : null,
             'personal_notes' => fake()->optional(0.3)->paragraph(),
             'status' => $status,
-            'receive_updates' => fake()->boolean(70), // 70% chance of receiving updates
+            'is_receiving_updates' => fake()->boolean(70), // 70% chance of receiving updates
         ];
     }
 
@@ -107,7 +107,7 @@ class UserGameProgressFactory extends Factory
     public function receivingUpdates(): static
     {
         return $this->state([
-            'receive_updates' => true,
+            'is_receiving_updates' => true,
         ]);
     }
 
@@ -117,7 +117,7 @@ class UserGameProgressFactory extends Factory
     public function notReceivingUpdates(): static
     {
         return $this->state([
-            'receive_updates' => false,
+            'is_receiving_updates' => false,
         ]);
     }
 }

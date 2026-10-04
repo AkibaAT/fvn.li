@@ -40,7 +40,7 @@ export interface UserGameProgress {
     started_at?: string;
     completed_at?: string;
     game_version?: GameVersion;
-    receive_updates?: boolean;
+    is_receiving_updates?: boolean;
 }
 
 interface GameTag {
