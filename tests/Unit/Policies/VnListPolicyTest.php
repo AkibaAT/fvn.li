@@ -59,7 +59,7 @@ describe('delete policy', function () {
             'is_default' => false,
         ]);
 
-        expect($this->policy->delete($this->owner, $customList))->toBeTrue();
+        expect($this->policy->delete($this->owner, $customList)->allowed())->toBeTrue();
     });
 
     test('prevents deletion of default lists', function () {
@@ -67,7 +67,9 @@ describe('delete policy', function () {
             'is_default' => true,
         ]);
 
-        expect($this->policy->delete($this->owner, $defaultList))->toBeFalse();
+        expect($this->policy->delete($this->owner, $defaultList))
+            ->denied()->toBeTrue()
+            ->message()->toBe('Default lists cannot be deleted.');
     });
 
     test('prevents non-owners from deleting lists', function () {
@@ -75,7 +77,7 @@ describe('delete policy', function () {
             'is_default' => false,
         ]);
 
-        expect($this->policy->delete($this->otherUser, $list))->toBeFalse();
+        expect($this->policy->delete($this->otherUser, $list)->denied())->toBeTrue();
     });
 
 });

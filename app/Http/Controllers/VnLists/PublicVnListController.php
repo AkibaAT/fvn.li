@@ -96,12 +96,12 @@ class PublicVnListController extends Controller
 
         $counts = $countsQuery
             ->selectRaw('COUNT(*) as all_count')
-            ->selectRaw('SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) as plan_to_read_count', ['plan_to_read'])
-            ->selectRaw('SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) as reading_count', ['reading'])
-            ->selectRaw('SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) as completed_count', ['completed'])
-            ->selectRaw('SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) as on_hold_count', ['on_hold'])
-            ->selectRaw('SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) as dropped_count', ['dropped'])
-            ->selectRaw('SUM(CASE WHEN type NOT IN (?, ?, ?, ?, ?) THEN 1 ELSE 0 END) as custom_count',
+            ->selectRaw('COALESCE(SUM(CASE WHEN type = ? THEN 1 ELSE 0 END), 0) as plan_to_read_count', ['plan_to_read'])
+            ->selectRaw('COALESCE(SUM(CASE WHEN type = ? THEN 1 ELSE 0 END), 0) as reading_count', ['reading'])
+            ->selectRaw('COALESCE(SUM(CASE WHEN type = ? THEN 1 ELSE 0 END), 0) as completed_count', ['completed'])
+            ->selectRaw('COALESCE(SUM(CASE WHEN type = ? THEN 1 ELSE 0 END), 0) as on_hold_count', ['on_hold'])
+            ->selectRaw('COALESCE(SUM(CASE WHEN type = ? THEN 1 ELSE 0 END), 0) as dropped_count', ['dropped'])
+            ->selectRaw('COALESCE(SUM(CASE WHEN type NOT IN (?, ?, ?, ?, ?) THEN 1 ELSE 0 END), 0) as custom_count',
                 ['plan_to_read', 'reading', 'completed', 'on_hold', 'dropped'])
             ->first();
 
@@ -169,16 +169,7 @@ class PublicVnListController extends Controller
                 $query->orderBy('updated_at', 'desc');
                 break;
             default:
-                $query->orderByRaw("
-                    CASE type
-                        WHEN 'reading' THEN 1
-                        WHEN 'plan_to_read' THEN 2
-                        WHEN 'completed' THEN 3
-                        WHEN 'on_hold' THEN 4
-                        WHEN 'dropped' THEN 5
-                        ELSE 6
-                    END, created_at DESC
-                ");
+                $query->inDisplayOrder();
                 break;
         }
 
@@ -315,16 +306,7 @@ class PublicVnListController extends Controller
             });
         }
 
-        $lists = $query->orderByRaw("
-            CASE type
-                WHEN 'reading' THEN 1
-                WHEN 'plan_to_read' THEN 2
-                WHEN 'completed' THEN 3
-                WHEN 'on_hold' THEN 4
-                WHEN 'dropped' THEN 5
-                ELSE 6
-            END, created_at DESC
-        ")->paginate($perPage);
+        $lists = $query->inDisplayOrder()->paginate($perPage);
 
         $lists->getCollection()->each(function ($list) {
             $list->entries->each(function ($entry) {
