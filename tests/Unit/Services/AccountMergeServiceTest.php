@@ -374,7 +374,7 @@ test('preserves user owned records and resolves duplicate histories without abor
 test('keeps target preferences and current review while retaining duplicate review text and both custom lists', function () {
     $target = $this->mergingUser;
     $source = $this->otherUser;
-    $target->preferences()->create(['preferred_languages' => ['eng'], 'excluded_tags' => null]);
+    $target->preferences()->create(['preferred_languages' => ['eng'], 'excluded_tags' => []]);
     $source->preferences()->create(['preferred_languages' => ['fra'], 'excluded_tags' => ['blocked']]);
     $target->notificationPreferences()->create(['browser_notifications_enabled' => false]);
     $source->notificationPreferences()->create(['browser_notifications_enabled' => true]);

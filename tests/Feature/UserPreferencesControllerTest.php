@@ -6,6 +6,7 @@ use App\Models\Game;
 use App\Models\Tag;
 use App\Models\User;
 use App\Models\UserPreference;
+use Illuminate\Support\Facades\DB;
 
 it('requires authentication for preference endpoints', function () {
     $this->getJson(route('user.language-preferences.index'))->assertUnauthorized();
@@ -20,6 +21,10 @@ it('requires authentication for preference endpoints', function () {
 
 it('stores and clears language preferences', function () {
     $user = User::factory()->create();
+    DB::table('iso_639_3_languages')->insertOrIgnore([
+        ['id' => 'eng', 'scope' => 'I', 'type' => 'L', 'ref_name' => 'English', 'flag_code' => 'gb'],
+        ['id' => 'jpn', 'scope' => 'I', 'type' => 'L', 'ref_name' => 'Japanese', 'flag_code' => 'jp'],
+    ]);
 
     $this->actingAs($user)
         ->getJson(route('user.language-preferences.index'))
@@ -52,8 +57,7 @@ it('stores and clears language preferences', function () {
             'preferred_languages' => [],
         ]);
 
-    expect(UserPreference::where('user_id', $user->id)->first()?->preferred_languages)
-        ->toBeNull();
+    expect(UserPreference::where('user_id', $user->id)->first()->preferred_languages)->toBe([]);
 });
 
 it('validates language preference payloads', function () {
@@ -61,10 +65,10 @@ it('validates language preference payloads', function () {
 
     $this->actingAs($user)
         ->putJson(route('user.language-preferences.update'), [
-            'preferred_languages' => ['en', 'english'],
+            'preferred_languages' => ['en', 'english', 'xyz'],
         ])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['preferred_languages.0', 'preferred_languages.1']);
+        ->assertJsonValidationErrors(['preferred_languages.0', 'preferred_languages.1', 'preferred_languages.2']);
 });
 
 it('stores and clears excluded tag preferences', function () {
@@ -103,8 +107,7 @@ it('stores and clears excluded tag preferences', function () {
             'excluded_tags' => [],
         ]);
 
-    expect(UserPreference::where('user_id', $user->id)->first()?->excluded_tags)
-        ->toBeNull();
+    expect(UserPreference::where('user_id', $user->id)->first()->excluded_tags)->toBe([]);
 });
 
 it('validates excluded tag preference payloads', function () {

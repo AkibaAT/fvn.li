@@ -37,19 +37,17 @@ class UserPreferencesController extends Controller
 
         $request->validate([
             'preferred_languages' => 'nullable|array',
-            'preferred_languages.*' => 'string|size:3',
+            'preferred_languages.*' => 'string|distinct|exists:iso_639_3_languages,id',
         ]);
-
-        $languages = $request->input('preferred_languages', []);
 
         $preferences = UserPreference::updateOrCreate(
             ['user_id' => $authId],
-            ['preferred_languages' => ! empty($languages) ? $languages : null],
+            ['preferred_languages' => $request->input('preferred_languages') ?? []],
         );
 
         return response()->json([
             'success' => true,
-            'preferred_languages' => $preferences->preferred_languages ?? [],
+            'preferred_languages' => $preferences->preferred_languages,
         ]);
     }
 
@@ -80,16 +78,14 @@ class UserPreferencesController extends Controller
             'excluded_tags.*' => 'integer|exists:tags,id',
         ]);
 
-        $tagIds = $request->input('excluded_tags', []);
-
         $preferences = UserPreference::updateOrCreate(
             ['user_id' => $authId],
-            ['excluded_tags' => ! empty($tagIds) ? array_map('intval', $tagIds) : null],
+            ['excluded_tags' => array_map('intval', $request->input('excluded_tags') ?? [])],
         );
 
         return response()->json([
             'success' => true,
-            'excluded_tags' => $preferences->excluded_tags ?? [],
+            'excluded_tags' => $preferences->excluded_tags,
         ]);
     }
 

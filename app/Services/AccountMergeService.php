@@ -165,7 +165,7 @@ class AccountMergeService
     {
         if ($target->preferences && $source->preferences) {
             foreach (['preferred_languages', 'excluded_tags'] as $field) {
-                if ($target->preferences->$field === null) {
+                if ($target->preferences->$field === []) {
                     $target->preferences->$field = $source->preferences->$field;
                 }
             }
