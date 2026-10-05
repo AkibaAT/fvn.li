@@ -46,7 +46,7 @@
     const wordCountTitle = $derived(formatWordCountBreakdown(game) ?? formatWordCount(game) ?? undefined);
     const dateLabel = $derived(formatLatestDate(game));
     const datesTitle = $derived(formatReleaseDates(game) ?? undefined);
-    const rowSpanClass = $derived(compact ? 'row-span-4' : auth?.user ? 'row-span-9 max-sm:row-span-7' : 'row-span-8 max-sm:row-span-6');
+    const rowSpanClass = $derived(compact ? 'row-span-4' : auth?.user ? 'row-span-9 max-sm:row-span-8' : 'row-span-8 max-sm:row-span-7');
 </script>
 
 <Card
@@ -121,7 +121,7 @@
 
         <LanguageGlyphs languages={game.supported_languages ?? []} {selectedLanguages} onLanguageClick={handleLanguage} />
 
-        <GameTagList tags={orderedTags} {selectedTags} onTagClick={handleTag} limit={5} class="content-start max-sm:hidden" />
+        <GameTagList tags={orderedTags} {selectedTags} onTagClick={handleTag} limit={5} class="content-start" />
 
         {#if auth?.user}
             <GameCardUserSection

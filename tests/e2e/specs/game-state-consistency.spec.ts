@@ -43,7 +43,7 @@ test('game page review saves survive Back', async ({ page }, info) => {
 });
 
 for (const width of [1440, 375]) {
-    test(`game card caps tags and keeps language glyphs at ${width}px`, async ({ page }, info) => {
+    test(`game card caps tags and language glyphs at ${width}px`, async ({ page }, info) => {
         await page.setViewportSize({ width, height: 1000 });
         await page.goto(`/games?noDefaults=1&search=${encodeURIComponent(f.originalName)}`);
 
@@ -57,9 +57,11 @@ for (const width of [1440, 375]) {
         await tag.click({ trial: true });
         await shot(page, info, 'capped-card');
 
-        // Cards render every supported language glyph (English first, Polish last).
-        await expect(page.getByRole('button', { name: 'English', exact: true })).toBeVisible();
-        await expect(page.getByRole('button', { name: 'pol', exact: true })).toBeVisible();
+        const languages = page.locator('[data-language-glyphs]');
+        await expect(languages.getByRole('button', { name: 'English', exact: true })).toBeVisible();
+        await expect(languages.getByRole('button')).toHaveCount(5);
+        await expect(languages.getByText('+4', { exact: true })).toBeVisible();
+        await expect(languages.getByRole('button', { name: 'pol', exact: true })).toHaveCount(0);
     });
 }
 
