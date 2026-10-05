@@ -15,6 +15,7 @@
         toggleUserProgressUpdates,
     } from '@/api/lists';
     import { Button, Dialog, TextInput, Checkbox } from '@/components/ui';
+    import PrivateGameTags from '@/components/PrivateGameTags.svelte';
     import { formatListType, listTypeDotClass } from '@/components/ui/tones';
 
     let {
@@ -195,6 +196,7 @@
 {#if isAuthenticated}
     <div class="mt-3">
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-ui leading-none">
+            <PrivateGameTags {gameId} />
             <button
                 type="button"
                 onclick={async () => {

@@ -34,6 +34,25 @@ beforeEach(function () {
 });
 
 describe('Account Merge Service', function () {
+    test('merges private tags by case-insensitive name and keeps all games', function () {
+        $first = Game::factory()->create();
+        $second = Game::factory()->create();
+        $third = Game::factory()->create();
+        $kept = $this->mergingUser->privateTags()->create(['name' => 'Favorite']);
+        $kept->games()->attach($first);
+        $duplicate = $this->otherUser->privateTags()->create(['name' => 'favorite']);
+        $duplicate->games()->attach($second);
+        $moved = $this->otherUser->privateTags()->create(['name' => 'Later']);
+        $moved->games()->attach($third);
+
+        $this->service->mergeAccounts($this->mergingUser, $this->otherUser);
+
+        expect($this->mergingUser->privateTags()->count())->toBe(2)
+            ->and($kept->fresh()->games()->pluck('games.id')->sort()->values()->all())->toBe([$first->id, $second->id])
+            ->and($moved->fresh()->user_id)->toBe($this->mergingUser->id)
+            ->and($duplicate->fresh())->toBeNull();
+    });
+
     test('merges two accounts successfully', function () {
         SocialAccount::factory()->create([
             'user_id' => $this->mergingUser->id,

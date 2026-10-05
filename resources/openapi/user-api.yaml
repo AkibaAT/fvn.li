@@ -1,0 +1,2244 @@
+openapi: 3.1.0
+info:
+    title: 'fvn.li User API'
+    version: 1.0.0
+    license:
+        name: MIT
+        identifier: MIT
+    description: "Visible catalog games and the token owner's private tags, lists, tracking, and search preferences. Ratings, reviews, profile, export, account deletion, social account linking, and token management are website-only."
+servers:
+    - url: /api/v1
+security:
+    - bearerAuth: []
+tags:
+    - name: Catalog
+      description: 'Search and resolve visible games'
+    - name: 'Private tags'
+      description: 'Labels private to your account'
+    - name: Lists
+      description: 'Your lists and entries'
+    - name: Tracking
+      description: 'Your tracked games'
+    - name: Preferences
+      description: 'Search preferences and ignored games'
+x-rate-limits:
+    description: 'Limits apply per user account and are shared by all of its tokens.'
+    requests_per_minute: 120
+    writes_per_minute: 30
+    batch_lookups_per_minute: 10
+    headers:
+        - X-RateLimit-Limit
+        - X-RateLimit-Remaining
+        - Retry-After
+paths:
+    /games:
+        get:
+            tags:
+                - Catalog
+            operationId: getGames
+            summary: 'Search visible catalog games'
+            x-required-ability: 'catalog:read'
+            parameters:
+                - name: q
+                  in: query
+                  schema:
+                      type: string
+                      maxLength: 100
+                - name: platform
+                  in: query
+                  schema:
+                      type: string
+                      enum:
+                          - itch_io
+                          - steam
+                          - other
+                - name: per_page
+                  in: query
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 50
+                - $ref: '#/components/parameters/Page'
+            responses:
+                '200':
+                    description: Games
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GamePage'
+                            example:
+                                data:
+                                    - id: 368
+                                      name: 'TRAINEE DETECTIVE (EN)'
+                                      slug: trainee-detective-en
+                                      platform: itch_io
+                                      itch_id: 2241851
+                                      steam_app_id: null
+                                      urls:
+                                          itch_io: 'https://starnathy-arts.itch.io/trainee-detective-en'
+                                      status: Released
+                                      is_nsfw: false
+                                      is_paid: true
+                                      has_demo: true
+                                      fvn_url: 'https://fvn.li/games/trainee-detective-en'
+                                    - id: 402963
+                                      name: 'Dragon Detective: A Friend from the Shadows'
+                                      slug: dragon-detective-a-friend-from-the-shadows
+                                      platform: steam
+                                      itch_id: null
+                                      steam_app_id: 3640850
+                                      urls:
+                                          steam: 'https://store.steampowered.com/app/3640850/Dragon_Detective_A_Friend_from_the_Shadows/'
+                                      status: Released
+                                      is_nsfw: false
+                                      is_paid: true
+                                      has_demo: true
+                                      fvn_url: 'https://fvn.li/games/dragon-detective-a-friend-from-the-shadows'
+                                links:
+                                    first: 'https://fvn.li/api/v1/games?q=detective&per_page=2&page=1'
+                                    last: 'https://fvn.li/api/v1/games?q=detective&per_page=2&page=2'
+                                    prev: null
+                                    next: 'https://fvn.li/api/v1/games?q=detective&per_page=2&page=2'
+                                meta:
+                                    current_page: 1
+                                    from: 1
+                                    last_page: 2
+                                    links:
+                                        - url: null
+                                          label: '&laquo; Previous'
+                                          page: null
+                                          active: false
+                                        - url: 'https://fvn.li/api/v1/games?q=detective&per_page=2&page=1'
+                                          label: '1'
+                                          page: 1
+                                          active: true
+                                        - url: 'https://fvn.li/api/v1/games?q=detective&per_page=2&page=2'
+                                          label: '2'
+                                          page: 2
+                                          active: false
+                                        - url: 'https://fvn.li/api/v1/games?q=detective&per_page=2&page=2'
+                                          label: 'Next &raquo;'
+                                          page: 2
+                                          active: false
+                                    path: 'https://fvn.li/api/v1/games'
+                                    per_page: 2
+                                    to: 2
+                                    total: 3
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '422':
+                    $ref: '#/components/responses/ValidationError'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    /games/resolve:
+        get:
+            tags:
+                - Catalog
+            operationId: getGamesResolve
+            summary: 'Resolve one exact external identifier or stored platform URL'
+            description: 'Supply exactly one selector. URLs match stored platform URLs ignoring scheme, host case, query, fragment, and trailing slash.'
+            x-required-ability: 'catalog:read'
+            parameters:
+                - name: itch_id
+                  in: query
+                  schema:
+                      type: integer
+                      minimum: 1
+                - name: steam_app_id
+                  in: query
+                  schema:
+                      type: integer
+                      minimum: 1
+                - name: url
+                  in: query
+                  schema:
+                      type: string
+                      format: uri
+                      pattern: '^https?://'
+                      maxLength: 2048
+            responses:
+                '200':
+                    description: Match
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GameResponse'
+                            example:
+                                data:
+                                    id: 406486
+                                    name: Komorebi
+                                    slug: komobrebi
+                                    platform: steam
+                                    itch_id: null
+                                    steam_app_id: 1805130
+                                    urls:
+                                        steam: 'https://store.steampowered.com/app/1805130/Komorebi/'
+                                    status: Released
+                                    is_nsfw: false
+                                    is_paid: true
+                                    has_demo: false
+                                    fvn_url: 'https://fvn.li/games/komobrebi'
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '409':
+                    $ref: '#/components/responses/Conflict'
+                '422':
+                    $ref: '#/components/responses/ValidationError'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+        post:
+            tags:
+                - Catalog
+            operationId: postGamesResolve
+            summary: 'Resolve up to 50 identifiers in input order'
+            description: 'Each result reports matched, unmatched, or ambiguous. One invalid input rejects the whole batch with 422.'
+            x-required-ability: 'catalog:read'
+            x-additional-rate-limit: '10 requests per minute per account'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - items
+                            properties:
+                                items:
+                                    type: array
+                                    minItems: 1
+                                    maxItems: 50
+                                    items:
+                                        $ref: '#/components/schemas/GameSelector'
+                        example:
+                            items:
+                                - itch_id: 708589
+                                - url: 'https://store.steampowered.com/app/1805130/Komorebi/?curator_clanid=1'
+                                - url: 'https://example.itch.io/not-in-the-catalog'
+            responses:
+                '200':
+                    description: 'Ordered results'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ResolveResponse'
+                            example:
+                                data:
+                                    - input:
+                                          itch_id: 708589
+                                      status: matched
+                                      game:
+                                          id: 194
+                                          name: 'Dawn Chorus'
+                                          slug: dawn-chorus
+                                          platform: itch_io
+                                          itch_id: 708589
+                                          steam_app_id: null
+                                          urls:
+                                              itch_io: 'https://dawn-chorus.itch.io/dawn-chorus'
+                                          status: 'In development'
+                                          is_nsfw: false
+                                          is_paid: false
+                                          has_demo: false
+                                          fvn_url: 'https://fvn.li/games/dawn-chorus'
+                                    - input:
+                                          url: 'https://store.steampowered.com/app/1805130/Komorebi/?curator_clanid=1'
+                                      status: matched
+                                      game:
+                                          id: 406486
+                                          name: Komorebi
+                                          slug: komobrebi
+                                          platform: steam
+                                          itch_id: null
+                                          steam_app_id: 1805130
+                                          urls:
+                                              steam: 'https://store.steampowered.com/app/1805130/Komorebi/'
+                                          status: Released
+                                          is_nsfw: false
+                                          is_paid: true
+                                          has_demo: false
+                                          fvn_url: 'https://fvn.li/games/komobrebi'
+                                    - input:
+                                          url: 'https://example.itch.io/not-in-the-catalog'
+                                      status: unmatched
+                                      game: null
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '422':
+                    $ref: '#/components/responses/ValidationError'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    '/games/{game}':
+        get:
+            tags:
+                - Catalog
+            operationId: getGamesGame
+            summary: 'Get a visible catalog game'
+            x-required-ability: 'catalog:read'
+            parameters:
+                - $ref: '#/components/parameters/Game'
+            responses:
+                '200':
+                    description: Game
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GameResponse'
+                            example:
+                                data:
+                                    id: 407746
+                                    name: 'Chicken Police - Paint it RED!'
+                                    slug: chicken-police-paint-it-red
+                                    platform: steam
+                                    itch_id: null
+                                    steam_app_id: 1084640
+                                    urls:
+                                        steam: 'https://store.steampowered.com/app/1084640/Chicken_Police__Paint_it_RED/'
+                                    status: Released
+                                    is_nsfw: false
+                                    is_paid: true
+                                    has_demo: true
+                                    fvn_url: 'https://fvn.li/games/chicken-police-paint-it-red'
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    /private-tags:
+        get:
+            tags:
+                - 'Private tags'
+            operationId: getPrivateTags
+            summary: 'List my private tags'
+            x-required-ability: 'tags:read'
+            responses:
+                '200':
+                    description: Tags
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TagCollection'
+                            example:
+                                data:
+                                    - id: 4
+                                      name: 'Replay for the true ending'
+                                      games_count: 1
+                                    - id: 3
+                                      name: 'Waiting on next update'
+                                      games_count: 2
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+        post:
+            tags:
+                - 'Private tags'
+            operationId: postPrivateTags
+            summary: 'Create a private tag'
+            x-required-ability: 'tags:write'
+            requestBody:
+                $ref: '#/components/requestBodies/TagName'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TagResponse'
+                            example:
+                                data:
+                                    id: 3
+                                    name: 'Waiting on next update'
+                                    games_count: 0
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '422':
+                    $ref: '#/components/responses/ValidationError'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    '/private-tags/{tag}':
+        patch:
+            tags:
+                - 'Private tags'
+            operationId: patchPrivateTagsTag
+            summary: 'Rename my private tag'
+            x-required-ability: 'tags:write'
+            parameters:
+                - $ref: '#/components/parameters/Tag'
+            requestBody:
+                $ref: '#/components/requestBodies/TagName'
+            responses:
+                '200':
+                    description: Tag
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TagResponse'
+                            example:
+                                data:
+                                    id: 4
+                                    name: 'Replay: true ending'
+                                    games_count: 1
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '422':
+                    $ref: '#/components/responses/ValidationError'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+        delete:
+            tags:
+                - 'Private tags'
+            operationId: deletePrivateTagsTag
+            summary: 'Delete my private tag'
+            x-required-ability: 'tags:write'
+            parameters:
+                - $ref: '#/components/parameters/Tag'
+            responses:
+                '204':
+                    description: Deleted
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    '/private-tags/{tag}/games':
+        get:
+            tags:
+                - 'Private tags'
+            operationId: getPrivateTagsTagGames
+            summary: 'List visible games with my tag'
+            x-required-ability: 'tags:read'
+            parameters:
+                - $ref: '#/components/parameters/Tag'
+                - $ref: '#/components/parameters/Page'
+            responses:
+                '200':
+                    description: Games
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GamePage'
+                            example:
+                                data:
+                                    - id: 194
+                                      name: 'Dawn Chorus'
+                                      slug: dawn-chorus
+                                      platform: itch_io
+                                      itch_id: 708589
+                                      steam_app_id: null
+                                      urls:
+                                          itch_io: 'https://dawn-chorus.itch.io/dawn-chorus'
+                                      status: 'In development'
+                                      is_nsfw: false
+                                      is_paid: false
+                                      has_demo: false
+                                      fvn_url: 'https://fvn.li/games/dawn-chorus'
+                                    - id: 256
+                                      name: Starville
+                                      slug: starville
+                                      platform: itch_io
+                                      itch_id: 1253905
+                                      steam_app_id: null
+                                      urls:
+                                          itch_io: 'https://mister-gato.itch.io/starville'
+                                      status: 'In development'
+                                      is_nsfw: false
+                                      is_paid: false
+                                      has_demo: false
+                                      fvn_url: 'https://fvn.li/games/starville'
+                                links:
+                                    first: 'https://fvn.li/api/v1/private-tags/3/games?page=1'
+                                    last: 'https://fvn.li/api/v1/private-tags/3/games?page=1'
+                                    prev: null
+                                    next: null
+                                meta:
+                                    current_page: 1
+                                    from: 1
+                                    last_page: 1
+                                    links:
+                                        - url: null
+                                          label: '&laquo; Previous'
+                                          page: null
+                                          active: false
+                                        - url: 'https://fvn.li/api/v1/private-tags/3/games?page=1'
+                                          label: '1'
+                                          page: 1
+                                          active: true
+                                        - url: null
+                                          label: 'Next &raquo;'
+                                          page: null
+                                          active: false
+                                    path: 'https://fvn.li/api/v1/private-tags/3/games'
+                                    per_page: 20
+                                    to: 2
+                                    total: 2
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    '/games/{game}/private-tags':
+        get:
+            tags:
+                - 'Private tags'
+            operationId: getGamesGamePrivateTags
+            summary: 'List my tags on one game'
+            x-required-ability: 'tags:read'
+            parameters:
+                - $ref: '#/components/parameters/Game'
+            responses:
+                '200':
+                    description: Tags
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TagCollection'
+                            example:
+                                data:
+                                    - id: 3
+                                      name: 'Waiting on next update'
+                                      games_count: 2
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    '/games/{game}/private-tags/{tag}':
+        put:
+            tags:
+                - 'Private tags'
+            operationId: putGamesGamePrivateTagsTag
+            summary: 'Attach my tag to a visible game'
+            x-required-ability: 'tags:write'
+            parameters:
+                - $ref: '#/components/parameters/Game'
+                - $ref: '#/components/parameters/Tag'
+            responses:
+                '200':
+                    description: Tag
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TagResponse'
+                            example:
+                                data:
+                                    id: 3
+                                    name: 'Waiting on next update'
+                                    games_count: 1
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+        delete:
+            tags:
+                - 'Private tags'
+            operationId: deleteGamesGamePrivateTagsTag
+            summary: 'Detach my tag from a game'
+            x-required-ability: 'tags:write'
+            parameters:
+                - $ref: '#/components/parameters/Game'
+                - $ref: '#/components/parameters/Tag'
+            responses:
+                '204':
+                    description: Detached
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    /lists:
+        get:
+            tags:
+                - Lists
+            operationId: getLists
+            summary: 'List my lists'
+            x-required-ability: 'lists:read'
+            parameters:
+                - $ref: '#/components/parameters/Page'
+            responses:
+                '200':
+                    description: Lists
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListPage'
+                            example:
+                                data:
+                                    - id: 9180
+                                      name: 'Currently Reading'
+                                      description: null
+                                      type: reading
+                                      is_default: true
+                                      is_public: false
+                                      entries_count: 1
+                                    - id: 9182
+                                      name: 'Plan to Read'
+                                      description: null
+                                      type: plan_to_read
+                                      is_default: true
+                                      is_public: false
+                                      entries_count: 1
+                                    - id: 9181
+                                      name: Completed
+                                      description: null
+                                      type: completed
+                                      is_default: true
+                                      is_public: false
+                                      entries_count: 0
+                                    - id: 9183
+                                      name: 'On Hold'
+                                      description: null
+                                      type: on_hold
+                                      is_default: true
+                                      is_public: false
+                                      entries_count: 0
+                                    - id: 9184
+                                      name: Dropped
+                                      description: null
+                                      type: dropped
+                                      is_default: true
+                                      is_public: false
+                                      entries_count: 0
+                                    - id: 9185
+                                      name: 'Cozy picks for autumn'
+                                      description: 'Low-stress stories to recommend to friends.'
+                                      type: custom
+                                      is_default: false
+                                      is_public: false
+                                      entries_count: 1
+                                links:
+                                    first: 'https://fvn.li/api/v1/lists?page=1'
+                                    last: 'https://fvn.li/api/v1/lists?page=1'
+                                    prev: null
+                                    next: null
+                                meta:
+                                    current_page: 1
+                                    from: 1
+                                    last_page: 1
+                                    links:
+                                        - url: null
+                                          label: '&laquo; Previous'
+                                          page: null
+                                          active: false
+                                        - url: 'https://fvn.li/api/v1/lists?page=1'
+                                          label: '1'
+                                          page: 1
+                                          active: true
+                                        - url: null
+                                          label: 'Next &raquo;'
+                                          page: null
+                                          active: false
+                                    path: 'https://fvn.li/api/v1/lists'
+                                    per_page: 20
+                                    to: 6
+                                    total: 6
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+        post:
+            tags:
+                - Lists
+            operationId: postLists
+            summary: 'Create a custom list'
+            x-required-ability: 'lists:write'
+            requestBody:
+                $ref: '#/components/requestBodies/ListCreate'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListResponse'
+                            example:
+                                data:
+                                    id: 9185
+                                    name: 'Cozy picks'
+                                    description: 'Low-stress stories to recommend to friends.'
+                                    type: custom
+                                    is_default: false
+                                    is_public: true
+                                    entries_count: 0
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '422':
+                    $ref: '#/components/responses/ValidationError'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    '/lists/{list}':
+        get:
+            tags:
+                - Lists
+            operationId: getListsList
+            summary: 'Get my list'
+            x-required-ability: 'lists:read'
+            parameters:
+                - $ref: '#/components/parameters/List'
+            responses:
+                '200':
+                    description: List
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListResponse'
+                            example:
+                                data:
+                                    id: 9185
+                                    name: 'Cozy picks for autumn'
+                                    description: 'Low-stress stories to recommend to friends.'
+                                    type: custom
+                                    is_default: false
+                                    is_public: false
+                                    entries_count: 1
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+        patch:
+            tags:
+                - Lists
+            operationId: patchListsList
+            summary: 'Update my list'
+            x-required-ability: 'lists:write'
+            parameters:
+                - $ref: '#/components/parameters/List'
+            requestBody:
+                $ref: '#/components/requestBodies/ListUpdate'
+            responses:
+                '200':
+                    description: List
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListResponse'
+                            example:
+                                data:
+                                    id: 9185
+                                    name: 'Cozy picks for autumn'
+                                    description: 'Low-stress stories to recommend to friends.'
+                                    type: custom
+                                    is_default: false
+                                    is_public: false
+                                    entries_count: 1
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '422':
+                    $ref: '#/components/responses/ValidationError'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+        delete:
+            tags:
+                - Lists
+            operationId: deleteListsList
+            summary: 'Delete my custom list'
+            description: 'Default lists cannot be deleted.'
+            x-required-ability: 'lists:write'
+            parameters:
+                - $ref: '#/components/parameters/List'
+            responses:
+                '204':
+                    description: Deleted
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    '/lists/{list}/entries':
+        get:
+            tags:
+                - Lists
+            operationId: getListsListEntries
+            summary: 'List my entries'
+            x-required-ability: 'lists:read'
+            parameters:
+                - $ref: '#/components/parameters/List'
+                - $ref: '#/components/parameters/Page'
+            responses:
+                '200':
+                    description: Entries
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/EntryPage'
+                            example:
+                                data:
+                                    - id: 27381
+                                      list_id: 9185
+                                      game_id: 407746
+                                      sort_order: 10
+                                      private_notes: 'Play the first Chicken Police before this one.'
+                                      game:
+                                          id: 407746
+                                          name: 'Chicken Police - Paint it RED!'
+                                          slug: chicken-police-paint-it-red
+                                          platform: steam
+                                          itch_id: null
+                                          steam_app_id: 1084640
+                                          urls:
+                                              steam: 'https://store.steampowered.com/app/1084640/Chicken_Police__Paint_it_RED/'
+                                          status: Released
+                                          is_nsfw: false
+                                          is_paid: true
+                                          has_demo: true
+                                          fvn_url: 'https://fvn.li/games/chicken-police-paint-it-red'
+                                    - id: 27380
+                                      list_id: 9185
+                                      game_id: 406486
+                                      sort_order: 20
+                                      private_notes: null
+                                      game:
+                                          id: 406486
+                                          name: Komorebi
+                                          slug: komobrebi
+                                          platform: steam
+                                          itch_id: null
+                                          steam_app_id: 1805130
+                                          urls:
+                                              steam: 'https://store.steampowered.com/app/1805130/Komorebi/'
+                                          status: Released
+                                          is_nsfw: false
+                                          is_paid: true
+                                          has_demo: false
+                                          fvn_url: 'https://fvn.li/games/komobrebi'
+                                    - id: 27382
+                                      list_id: 9185
+                                      game_id: 402963
+                                      sort_order: 30
+                                      private_notes: null
+                                      game:
+                                          id: 402963
+                                          name: 'Dragon Detective: A Friend from the Shadows'
+                                          slug: dragon-detective-a-friend-from-the-shadows
+                                          platform: steam
+                                          itch_id: null
+                                          steam_app_id: 3640850
+                                          urls:
+                                              steam: 'https://store.steampowered.com/app/3640850/Dragon_Detective_A_Friend_from_the_Shadows/'
+                                          status: Released
+                                          is_nsfw: false
+                                          is_paid: true
+                                          has_demo: true
+                                          fvn_url: 'https://fvn.li/games/dragon-detective-a-friend-from-the-shadows'
+                                links:
+                                    first: 'https://fvn.li/api/v1/lists/9185/entries?page=1'
+                                    last: 'https://fvn.li/api/v1/lists/9185/entries?page=1'
+                                    prev: null
+                                    next: null
+                                meta:
+                                    current_page: 1
+                                    from: 1
+                                    last_page: 1
+                                    links:
+                                        - url: null
+                                          label: '&laquo; Previous'
+                                          page: null
+                                          active: false
+                                        - url: 'https://fvn.li/api/v1/lists/9185/entries?page=1'
+                                          label: '1'
+                                          page: 1
+                                          active: true
+                                        - url: null
+                                          label: 'Next &raquo;'
+                                          page: null
+                                          active: false
+                                    path: 'https://fvn.li/api/v1/lists/9185/entries'
+                                    per_page: 20
+                                    to: 3
+                                    total: 3
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    '/lists/{list}/games/{game}':
+        put:
+            tags:
+                - Lists
+            operationId: putListsListGamesGame
+            summary: 'Add a visible game to my list'
+            description: 'Idempotent. Adding a game to a default list removes it from the other default lists.'
+            x-required-ability: 'lists:write'
+            parameters:
+                - $ref: '#/components/parameters/List'
+                - $ref: '#/components/parameters/Game'
+            responses:
+                '200':
+                    description: 'Already present'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/EntryResponse'
+                '201':
+                    description: Added
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/EntryResponse'
+                            example:
+                                data:
+                                    id: 27380
+                                    list_id: 9185
+                                    game_id: 406486
+                                    sort_order: 10
+                                    private_notes: null
+                                    game:
+                                        id: 406486
+                                        name: Komorebi
+                                        slug: komobrebi
+                                        platform: steam
+                                        itch_id: null
+                                        steam_app_id: 1805130
+                                        urls:
+                                            steam: 'https://store.steampowered.com/app/1805130/Komorebi/'
+                                        status: Released
+                                        is_nsfw: false
+                                        is_paid: true
+                                        has_demo: false
+                                        fvn_url: 'https://fvn.li/games/komobrebi'
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+        delete:
+            tags:
+                - Lists
+            operationId: deleteListsListGamesGame
+            summary: 'Remove a game from my list'
+            description: Idempotent.
+            x-required-ability: 'lists:write'
+            parameters:
+                - $ref: '#/components/parameters/List'
+                - $ref: '#/components/parameters/Game'
+            responses:
+                '204':
+                    description: 'Removed or already absent'
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    '/lists/{list}/entries/{entry}':
+        patch:
+            tags:
+                - Lists
+            operationId: patchListsListEntriesEntry
+            summary: 'Update an entry private note'
+            x-required-ability: 'lists:write'
+            parameters:
+                - $ref: '#/components/parameters/List'
+                - $ref: '#/components/parameters/Entry'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - private_notes
+                            properties:
+                                private_notes:
+                                    type:
+                                        - string
+                                        - 'null'
+                                    maxLength: 5000
+                        example:
+                            private_notes: 'Play the first Chicken Police before this one.'
+            responses:
+                '200':
+                    description: Entry
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/EntryResponse'
+                            example:
+                                data:
+                                    id: 27381
+                                    list_id: 9185
+                                    game_id: 407746
+                                    sort_order: 20
+                                    private_notes: 'Play the first Chicken Police before this one.'
+                                    game:
+                                        id: 407746
+                                        name: 'Chicken Police - Paint it RED!'
+                                        slug: chicken-police-paint-it-red
+                                        platform: steam
+                                        itch_id: null
+                                        steam_app_id: 1084640
+                                        urls:
+                                            steam: 'https://store.steampowered.com/app/1084640/Chicken_Police__Paint_it_RED/'
+                                        status: Released
+                                        is_nsfw: false
+                                        is_paid: true
+                                        has_demo: true
+                                        fvn_url: 'https://fvn.li/games/chicken-police-paint-it-red'
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '422':
+                    $ref: '#/components/responses/ValidationError'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    '/lists/{list}/entries/{entry}/move':
+        post:
+            tags:
+                - Lists
+            operationId: postListsListEntriesEntryMove
+            summary: 'Move an entry to another owned list'
+            x-required-ability: 'lists:write'
+            parameters:
+                - $ref: '#/components/parameters/List'
+                - $ref: '#/components/parameters/Entry'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - target_list_id
+                            properties:
+                                target_list_id:
+                                    type: integer
+                        example:
+                            target_list_id: 9182
+            responses:
+                '200':
+                    description: Entry
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/EntryResponse'
+                            example:
+                                data:
+                                    id: 27382
+                                    list_id: 9182
+                                    game_id: 402963
+                                    sort_order: 10
+                                    private_notes: null
+                                    game:
+                                        id: 402963
+                                        name: 'Dragon Detective: A Friend from the Shadows'
+                                        slug: dragon-detective-a-friend-from-the-shadows
+                                        platform: steam
+                                        itch_id: null
+                                        steam_app_id: 3640850
+                                        urls:
+                                            steam: 'https://store.steampowered.com/app/3640850/Dragon_Detective_A_Friend_from_the_Shadows/'
+                                        status: Released
+                                        is_nsfw: false
+                                        is_paid: true
+                                        has_demo: true
+                                        fvn_url: 'https://fvn.li/games/dragon-detective-a-friend-from-the-shadows'
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '409':
+                    $ref: '#/components/responses/Conflict'
+                '422':
+                    $ref: '#/components/responses/ValidationError'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    '/lists/{list}/entries/reorder':
+        post:
+            tags:
+                - Lists
+            operationId: postListsListEntriesReorder
+            summary: 'Reorder every entry in my list'
+            description: 'Supply every current entry ID exactly once, in desired order. Maximum 1000 entries.'
+            x-required-ability: 'lists:write'
+            parameters:
+                - $ref: '#/components/parameters/List'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - entry_ids
+                            properties:
+                                entry_ids:
+                                    type: array
+                                    maxItems: 1000
+                                    uniqueItems: true
+                                    items:
+                                        type: integer
+                                        minimum: 1
+                        example:
+                            entry_ids:
+                                - 27381
+                                - 27380
+                                - 27382
+            responses:
+                '200':
+                    description: 'Entries in their new order'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/EntryList'
+                            example:
+                                data:
+                                    - id: 27381
+                                      list_id: 9185
+                                      game_id: 407746
+                                      sort_order: 10
+                                      private_notes: 'Play the first Chicken Police before this one.'
+                                      game:
+                                          id: 407746
+                                          name: 'Chicken Police - Paint it RED!'
+                                          slug: chicken-police-paint-it-red
+                                          platform: steam
+                                          itch_id: null
+                                          steam_app_id: 1084640
+                                          urls:
+                                              steam: 'https://store.steampowered.com/app/1084640/Chicken_Police__Paint_it_RED/'
+                                          status: Released
+                                          is_nsfw: false
+                                          is_paid: true
+                                          has_demo: true
+                                          fvn_url: 'https://fvn.li/games/chicken-police-paint-it-red'
+                                    - id: 27380
+                                      list_id: 9185
+                                      game_id: 406486
+                                      sort_order: 20
+                                      private_notes: null
+                                      game:
+                                          id: 406486
+                                          name: Komorebi
+                                          slug: komobrebi
+                                          platform: steam
+                                          itch_id: null
+                                          steam_app_id: 1805130
+                                          urls:
+                                              steam: 'https://store.steampowered.com/app/1805130/Komorebi/'
+                                          status: Released
+                                          is_nsfw: false
+                                          is_paid: true
+                                          has_demo: false
+                                          fvn_url: 'https://fvn.li/games/komobrebi'
+                                    - id: 27382
+                                      list_id: 9185
+                                      game_id: 402963
+                                      sort_order: 30
+                                      private_notes: null
+                                      game:
+                                          id: 402963
+                                          name: 'Dragon Detective: A Friend from the Shadows'
+                                          slug: dragon-detective-a-friend-from-the-shadows
+                                          platform: steam
+                                          itch_id: null
+                                          steam_app_id: 3640850
+                                          urls:
+                                              steam: 'https://store.steampowered.com/app/3640850/Dragon_Detective_A_Friend_from_the_Shadows/'
+                                          status: Released
+                                          is_nsfw: false
+                                          is_paid: true
+                                          has_demo: true
+                                          fvn_url: 'https://fvn.li/games/dragon-detective-a-friend-from-the-shadows'
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '422':
+                    $ref: '#/components/responses/ValidationError'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    /me/tracked-games:
+        get:
+            tags:
+                - Tracking
+            operationId: getMeTrackedGames
+            summary: 'List my tracked visible games'
+            x-required-ability: 'tracking:read'
+            parameters:
+                - $ref: '#/components/parameters/Page'
+            responses:
+                '200':
+                    description: 'Tracking records'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TrackingPage'
+                            example:
+                                data:
+                                    - game_id: 194
+                                      game:
+                                          id: 194
+                                          name: 'Dawn Chorus'
+                                          slug: dawn-chorus
+                                          platform: itch_io
+                                          itch_id: 708589
+                                          steam_app_id: null
+                                          urls:
+                                              itch_io: 'https://dawn-chorus.itch.io/dawn-chorus'
+                                          status: 'In development'
+                                          is_nsfw: false
+                                          is_paid: false
+                                          has_demo: false
+                                          fvn_url: 'https://fvn.li/games/dawn-chorus'
+                                      game_version_id: 4156
+                                      status: reading
+                                      started_at: '2026-09-14T00:00:00+00:00'
+                                      completed_at: null
+                                      personal_notes: 'Stopped after the festival chapter.'
+                                      is_receiving_updates: true
+                                links:
+                                    first: 'https://fvn.li/api/v1/me/tracked-games?page=1'
+                                    last: 'https://fvn.li/api/v1/me/tracked-games?page=1'
+                                    prev: null
+                                    next: null
+                                meta:
+                                    current_page: 1
+                                    from: 1
+                                    last_page: 1
+                                    links:
+                                        - url: null
+                                          label: '&laquo; Previous'
+                                          page: null
+                                          active: false
+                                        - url: 'https://fvn.li/api/v1/me/tracked-games?page=1'
+                                          label: '1'
+                                          page: 1
+                                          active: true
+                                        - url: null
+                                          label: 'Next &raquo;'
+                                          page: null
+                                          active: false
+                                    path: 'https://fvn.li/api/v1/me/tracked-games'
+                                    per_page: 20
+                                    to: 1
+                                    total: 1
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    '/me/tracked-games/{game}':
+        get:
+            tags:
+                - Tracking
+            operationId: getMeTrackedGamesGame
+            summary: 'Get my tracking record'
+            x-required-ability: 'tracking:read'
+            parameters:
+                - $ref: '#/components/parameters/Game'
+            responses:
+                '200':
+                    description: 'Tracking record'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TrackingResponse'
+                            example:
+                                data:
+                                    game_id: 194
+                                    game:
+                                        id: 194
+                                        name: 'Dawn Chorus'
+                                        slug: dawn-chorus
+                                        platform: itch_io
+                                        itch_id: 708589
+                                        steam_app_id: null
+                                        urls:
+                                            itch_io: 'https://dawn-chorus.itch.io/dawn-chorus'
+                                        status: 'In development'
+                                        is_nsfw: false
+                                        is_paid: false
+                                        has_demo: false
+                                        fvn_url: 'https://fvn.li/games/dawn-chorus'
+                                    game_version_id: 4156
+                                    status: reading
+                                    started_at: '2026-09-14T00:00:00+00:00'
+                                    completed_at: null
+                                    personal_notes: 'Stopped after the festival chapter.'
+                                    is_receiving_updates: true
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+        patch:
+            tags:
+                - Tracking
+            operationId: patchMeTrackedGamesGame
+            summary: 'Create or update my tracking record'
+            description: 'Version IDs must belong to this game. Paid games cannot enable update notifications.'
+            x-required-ability: 'tracking:write'
+            parameters:
+                - $ref: '#/components/parameters/Game'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            minProperties: 1
+                            properties:
+                                game_version_id:
+                                    type:
+                                        - integer
+                                        - 'null'
+                                status:
+                                    type:
+                                        - string
+                                        - 'null'
+                                    enum:
+                                        - reading
+                                        - completed
+                                        - plan_to_read
+                                        - on_hold
+                                        - dropped
+                                        - null
+                                started_at:
+                                    type:
+                                        - string
+                                        - 'null'
+                                    format: date
+                                completed_at:
+                                    type:
+                                        - string
+                                        - 'null'
+                                    format: date
+                                personal_notes:
+                                    type:
+                                        - string
+                                        - 'null'
+                                    maxLength: 1000
+                                is_receiving_updates:
+                                    type: boolean
+                        example:
+                            status: reading
+                            is_receiving_updates: true
+                            game_version_id: 4156
+                            started_at: '2026-09-14'
+                            personal_notes: 'Stopped after the festival chapter.'
+            responses:
+                '200':
+                    description: Updated
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TrackingResponse'
+                '201':
+                    description: Created
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TrackingResponse'
+                            example:
+                                data:
+                                    game_id: 194
+                                    game:
+                                        id: 194
+                                        name: 'Dawn Chorus'
+                                        slug: dawn-chorus
+                                        platform: itch_io
+                                        itch_id: 708589
+                                        steam_app_id: null
+                                        urls:
+                                            itch_io: 'https://dawn-chorus.itch.io/dawn-chorus'
+                                        status: 'In development'
+                                        is_nsfw: false
+                                        is_paid: false
+                                        has_demo: false
+                                        fvn_url: 'https://fvn.li/games/dawn-chorus'
+                                    game_version_id: 4156
+                                    status: reading
+                                    started_at: '2026-09-14T00:00:00+00:00'
+                                    completed_at: null
+                                    personal_notes: 'Stopped after the festival chapter.'
+                                    is_receiving_updates: true
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '422':
+                    $ref: '#/components/responses/ValidationError'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    /me/search-preferences:
+        get:
+            tags:
+                - Preferences
+            operationId: getMeSearchPreferences
+            summary: 'Get my search preferences'
+            x-required-ability: 'preferences:read'
+            responses:
+                '200':
+                    description: Preferences
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PreferencesResponse'
+                            example:
+                                data:
+                                    preferred_languages:
+                                        - eng
+                                        - deu
+                                    excluded_tag_ids:
+                                        - 50
+                                        - 420
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+        patch:
+            tags:
+                - Preferences
+            operationId: patchMeSearchPreferences
+            summary: 'Update my search preferences'
+            x-required-ability: 'preferences:write'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                preferred_languages:
+                                    type: array
+                                    items:
+                                        type: string
+                                        minLength: 3
+                                        maxLength: 3
+                                        description: 'ISO 639-3 language code, such as eng or deu'
+                                excluded_tag_ids:
+                                    type: array
+                                    uniqueItems: true
+                                    items:
+                                        type: integer
+                        example:
+                            preferred_languages:
+                                - eng
+                                - deu
+                            excluded_tag_ids:
+                                - 50
+                                - 420
+            responses:
+                '200':
+                    description: Preferences
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PreferencesResponse'
+                            example:
+                                data:
+                                    preferred_languages:
+                                        - eng
+                                        - deu
+                                    excluded_tag_ids:
+                                        - 50
+                                        - 420
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '422':
+                    $ref: '#/components/responses/ValidationError'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    /me/ignored-games:
+        get:
+            tags:
+                - Preferences
+            operationId: getMeIgnoredGames
+            summary: 'List my ignored visible games'
+            x-required-ability: 'preferences:read'
+            parameters:
+                - $ref: '#/components/parameters/Page'
+            responses:
+                '200':
+                    description: Games
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GamePage'
+                            example:
+                                data:
+                                    - id: 129
+                                      name: 'Under The Bridge'
+                                      slug: under-the-bridge
+                                      platform: itch_io
+                                      itch_id: 869694
+                                      steam_app_id: null
+                                      urls:
+                                          itch_io: 'https://josephopossum.itch.io/under-the-bridge'
+                                      status: 'In development'
+                                      is_nsfw: false
+                                      is_paid: false
+                                      has_demo: false
+                                      fvn_url: 'https://fvn.li/games/under-the-bridge'
+                                links:
+                                    first: 'https://fvn.li/api/v1/me/ignored-games?page=1'
+                                    last: 'https://fvn.li/api/v1/me/ignored-games?page=1'
+                                    prev: null
+                                    next: null
+                                meta:
+                                    current_page: 1
+                                    from: 1
+                                    last_page: 1
+                                    links:
+                                        - url: null
+                                          label: '&laquo; Previous'
+                                          page: null
+                                          active: false
+                                        - url: 'https://fvn.li/api/v1/me/ignored-games?page=1'
+                                          label: '1'
+                                          page: 1
+                                          active: true
+                                        - url: null
+                                          label: 'Next &raquo;'
+                                          page: null
+                                          active: false
+                                    path: 'https://fvn.li/api/v1/me/ignored-games'
+                                    per_page: 20
+                                    to: 1
+                                    total: 1
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+    '/me/ignored-games/{game}':
+        put:
+            tags:
+                - Preferences
+            operationId: putMeIgnoredGamesGame
+            summary: 'Ignore a visible game'
+            x-required-ability: 'preferences:write'
+            parameters:
+                - $ref: '#/components/parameters/Game'
+            responses:
+                '204':
+                    description: 'Ignored or already ignored'
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '404':
+                    $ref: '#/components/responses/NotFound'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+        delete:
+            tags:
+                - Preferences
+            operationId: deleteMeIgnoredGamesGame
+            summary: 'Stop ignoring a game'
+            x-required-ability: 'preferences:write'
+            parameters:
+                - $ref: '#/components/parameters/Game'
+            responses:
+                '204':
+                    description: 'Removed or already absent'
+                '401':
+                    $ref: '#/components/responses/Unauthorized'
+                '403':
+                    $ref: '#/components/responses/Forbidden'
+                '429':
+                    $ref: '#/components/responses/RateLimited'
+components:
+    securitySchemes:
+        bearerAuth:
+            type: http
+            scheme: bearer
+            description: 'User API token created on the dashboard and shown once. Tokens expire 90 days after creation; an active token can be extended on the dashboard to 90 days from extension, capped at 365 days from creation. Authenticated responses carry the expiry in X-Token-Expires-At.'
+    parameters:
+        Page:
+            name: page
+            in: query
+            schema:
+                type: integer
+                minimum: 1
+        Game:
+            name: game
+            in: path
+            required: true
+            schema:
+                type: integer
+            description: 'fvn.li game ID'
+        Tag:
+            name: tag
+            in: path
+            required: true
+            schema:
+                type: integer
+        List:
+            name: list
+            in: path
+            required: true
+            schema:
+                type: integer
+        Entry:
+            name: entry
+            in: path
+            required: true
+            schema:
+                type: integer
+    requestBodies:
+        TagName:
+            required: true
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        required:
+                            - name
+                        properties:
+                            name:
+                                type: string
+                                maxLength: 64
+                                description: 'Unique per user ignoring case'
+                    example:
+                        name: 'Waiting on next update'
+        ListCreate:
+            required: true
+            content:
+                application/json:
+                    schema:
+                        allOf:
+                            - $ref: '#/components/schemas/ListInput'
+                            - required:
+                                  - name
+                    example:
+                        name: 'Cozy picks'
+                        description: 'Low-stress stories to recommend to friends.'
+                        is_public: true
+        ListUpdate:
+            required: true
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/ListInput'
+                    example:
+                        name: 'Cozy picks for autumn'
+                        is_public: false
+    responses:
+        Unauthorized:
+            description: 'Missing, invalid, or expired token'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Message'
+                    example:
+                        message: Unauthenticated.
+        Forbidden:
+            description: 'Token lacks the required ability or action is forbidden'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Message'
+                    examples:
+                        missingAbility:
+                            summary: 'Token lacks the required permission'
+                            value:
+                                message: 'This token lacks the lists:read permission.'
+                        defaultList:
+                            summary: 'Default lists cannot be deleted'
+                            value:
+                                message: 'Default lists cannot be deleted.'
+        NotFound:
+            description: 'Not found or not visible to this token owner'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Message'
+                    examples:
+                        notFound:
+                            summary: "Unknown, hidden, or another account's resource"
+                            value:
+                                message: 'Not found.'
+                        gameNotFound:
+                            summary: 'No catalog game matches the identifier'
+                            value:
+                                message: 'Game not found.'
+        Conflict:
+            description: 'Ambiguous identifier or conflicting list move'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Message'
+                    examples:
+                        ambiguous:
+                            summary: 'Identifier matches more than one game'
+                            value:
+                                message: 'Identifier matches multiple games.'
+                        alreadyInList:
+                            summary: 'Target list already contains the game'
+                            value:
+                                message: 'Game is already in the target list.'
+        ValidationError:
+            description: 'Validation failed'
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/ValidationError'
+                    examples:
+                        duplicateTag:
+                            summary: 'Private tag names are unique per account, ignoring case'
+                            value:
+                                message: 'You already have a tag with this name.'
+                                errors:
+                                    name:
+                                        - 'You already have a tag with this name.'
+                        incompleteReorder:
+                            summary: 'Reorder must list every entry exactly once'
+                            value:
+                                message: 'Provide every entry in this list exactly once.'
+                                errors:
+                                    entry_ids:
+                                        - 'Provide every entry in this list exactly once.'
+                        paidUpdates:
+                            summary: 'Paid games cannot receive update notifications'
+                            value:
+                                message: 'Updates are unavailable for paid games.'
+                                errors:
+                                    is_receiving_updates:
+                                        - 'Updates are unavailable for paid games.'
+                        unknownLanguage:
+                            summary: 'Languages are ISO 639-3 codes'
+                            value:
+                                message: 'The selected preferred_languages.0 is invalid.'
+                                errors:
+                                    preferred_languages.0:
+                                        - 'The selected preferred_languages.0 is invalid.'
+        RateLimited:
+            description: 'Rate limit exceeded'
+            headers:
+                Retry-After:
+                    description: 'Seconds until retry'
+                    schema:
+                        type: integer
+                X-RateLimit-Limit:
+                    schema:
+                        type: integer
+                X-RateLimit-Remaining:
+                    schema:
+                        type: integer
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/Message'
+                    example:
+                        message: 'Too Many Attempts.'
+    schemas:
+        Message:
+            type: object
+            required:
+                - message
+            properties:
+                message:
+                    type: string
+        ValidationError:
+            type: object
+            required:
+                - message
+                - errors
+            properties:
+                message:
+                    type: string
+                errors:
+                    type: object
+                    additionalProperties:
+                        type: array
+                        items:
+                            type: string
+        PageLinks:
+            type: object
+            required:
+                - first
+                - last
+                - prev
+                - next
+            properties:
+                first:
+                    type:
+                        - string
+                        - 'null'
+                last:
+                    type:
+                        - string
+                        - 'null'
+                prev:
+                    type:
+                        - string
+                        - 'null'
+                next:
+                    type:
+                        - string
+                        - 'null'
+        PageMeta:
+            type: object
+            required:
+                - current_page
+                - last_page
+                - per_page
+                - total
+            properties:
+                current_page:
+                    type: integer
+                from:
+                    type:
+                        - integer
+                        - 'null'
+                last_page:
+                    type: integer
+                links:
+                    type: array
+                    items:
+                        type: object
+                        properties:
+                            url:
+                                type:
+                                    - string
+                                    - 'null'
+                            label:
+                                type: string
+                            page:
+                                type:
+                                    - integer
+                                    - 'null'
+                            active:
+                                type: boolean
+                path:
+                    type: string
+                per_page:
+                    type: integer
+                to:
+                    type:
+                        - integer
+                        - 'null'
+                total:
+                    type: integer
+        Game:
+            type: object
+            required:
+                - id
+                - name
+                - slug
+                - platform
+                - itch_id
+                - steam_app_id
+                - urls
+                - status
+                - is_nsfw
+                - is_paid
+                - has_demo
+                - fvn_url
+            properties:
+                id:
+                    type: integer
+                name:
+                    type: string
+                slug:
+                    type: string
+                platform:
+                    type: string
+                    enum:
+                        - itch_io
+                        - steam
+                        - other
+                itch_id:
+                    type:
+                        - integer
+                        - 'null'
+                steam_app_id:
+                    type:
+                        - integer
+                        - 'null'
+                urls:
+                    type: object
+                    properties:
+                        itch_io:
+                            type: string
+                        steam:
+                            type: string
+                        other:
+                            type: string
+                status:
+                    type:
+                        - string
+                        - 'null'
+                is_nsfw:
+                    type: boolean
+                is_paid:
+                    type: boolean
+                has_demo:
+                    type: boolean
+                fvn_url:
+                    type: string
+                    format: uri
+        GameSelector:
+            description: 'Exactly one selector'
+            oneOf:
+                - type: object
+                  required:
+                      - itch_id
+                  additionalProperties: false
+                  properties:
+                      itch_id:
+                          type: integer
+                          minimum: 1
+                - type: object
+                  required:
+                      - steam_app_id
+                  additionalProperties: false
+                  properties:
+                      steam_app_id:
+                          type: integer
+                          minimum: 1
+                - type: object
+                  required:
+                      - url
+                  additionalProperties: false
+                  properties:
+                      url:
+                          type: string
+                          format: uri
+                          pattern: '^https?://'
+                          maxLength: 2048
+        ResolveResult:
+            type: object
+            required:
+                - input
+                - status
+                - game
+            properties:
+                input:
+                    $ref: '#/components/schemas/GameSelector'
+                status:
+                    type: string
+                    enum:
+                        - matched
+                        - unmatched
+                        - ambiguous
+                game:
+                    anyOf:
+                        - $ref: '#/components/schemas/Game'
+                        - type: 'null'
+        PrivateTag:
+            type: object
+            required:
+                - id
+                - name
+                - games_count
+            properties:
+                id:
+                    type: integer
+                name:
+                    type: string
+                games_count:
+                    type: integer
+        ListInput:
+            type: object
+            properties:
+                name:
+                    type: string
+                    maxLength: 255
+                    description: 'Unique among your lists'
+                description:
+                    type:
+                        - string
+                        - 'null'
+                    maxLength: 1000
+                is_public:
+                    type: boolean
+        List:
+            type: object
+            required:
+                - id
+                - name
+                - description
+                - type
+                - is_default
+                - is_public
+                - entries_count
+            properties:
+                id:
+                    type: integer
+                name:
+                    type: string
+                description:
+                    type:
+                        - string
+                        - 'null'
+                type:
+                    type: string
+                is_default:
+                    type: boolean
+                is_public:
+                    type: boolean
+                entries_count:
+                    type: integer
+        ListEntry:
+            type: object
+            required:
+                - id
+                - list_id
+                - game_id
+                - sort_order
+                - private_notes
+                - game
+            properties:
+                id:
+                    type: integer
+                list_id:
+                    type: integer
+                game_id:
+                    type: integer
+                sort_order:
+                    type: integer
+                private_notes:
+                    type:
+                        - string
+                        - 'null'
+                game:
+                    anyOf:
+                        - $ref: '#/components/schemas/Game'
+                        - type: 'null'
+        Tracking:
+            type: object
+            required:
+                - game_id
+                - game
+                - game_version_id
+                - status
+                - started_at
+                - completed_at
+                - personal_notes
+                - is_receiving_updates
+            properties:
+                game_id:
+                    type: integer
+                game:
+                    $ref: '#/components/schemas/Game'
+                game_version_id:
+                    type:
+                        - integer
+                        - 'null'
+                status:
+                    type:
+                        - string
+                        - 'null'
+                started_at:
+                    type:
+                        - string
+                        - 'null'
+                    format: date-time
+                completed_at:
+                    type:
+                        - string
+                        - 'null'
+                    format: date-time
+                personal_notes:
+                    type:
+                        - string
+                        - 'null'
+                is_receiving_updates:
+                    type: boolean
+        SearchPreferences:
+            type: object
+            required:
+                - preferred_languages
+                - excluded_tag_ids
+            properties:
+                preferred_languages:
+                    type: array
+                    items:
+                        type: string
+                excluded_tag_ids:
+                    type: array
+                    items:
+                        type: integer
+        GameResponse:
+            type: object
+            required:
+                - data
+            properties:
+                data:
+                    $ref: '#/components/schemas/Game'
+        TagResponse:
+            type: object
+            required:
+                - data
+            properties:
+                data:
+                    $ref: '#/components/schemas/PrivateTag'
+        ListResponse:
+            type: object
+            required:
+                - data
+            properties:
+                data:
+                    $ref: '#/components/schemas/List'
+        EntryResponse:
+            type: object
+            required:
+                - data
+            properties:
+                data:
+                    $ref: '#/components/schemas/ListEntry'
+        TrackingResponse:
+            type: object
+            required:
+                - data
+            properties:
+                data:
+                    $ref: '#/components/schemas/Tracking'
+        PreferencesResponse:
+            type: object
+            required:
+                - data
+            properties:
+                data:
+                    $ref: '#/components/schemas/SearchPreferences'
+        TagCollection:
+            type: object
+            required:
+                - data
+            properties:
+                data:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/PrivateTag'
+        ResolveResponse:
+            type: object
+            required:
+                - data
+            properties:
+                data:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ResolveResult'
+        GamePage:
+            allOf:
+                - $ref: '#/components/schemas/PageEnvelope'
+                - type: object
+                  properties:
+                      data:
+                          type: array
+                          items:
+                              $ref: '#/components/schemas/Game'
+        ListPage:
+            allOf:
+                - $ref: '#/components/schemas/PageEnvelope'
+                - type: object
+                  properties:
+                      data:
+                          type: array
+                          items:
+                              $ref: '#/components/schemas/List'
+        EntryPage:
+            allOf:
+                - $ref: '#/components/schemas/PageEnvelope'
+                - type: object
+                  properties:
+                      data:
+                          type: array
+                          items:
+                              $ref: '#/components/schemas/ListEntry'
+        TrackingPage:
+            allOf:
+                - $ref: '#/components/schemas/PageEnvelope'
+                - type: object
+                  properties:
+                      data:
+                          type: array
+                          items:
+                              $ref: '#/components/schemas/Tracking'
+        PageEnvelope:
+            type: object
+            required:
+                - data
+                - links
+                - meta
+            properties:
+                links:
+                    $ref: '#/components/schemas/PageLinks'
+                meta:
+                    $ref: '#/components/schemas/PageMeta'
+        EntryList:
+            type: object
+            required:
+                - data
+            properties:
+                data:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ListEntry'

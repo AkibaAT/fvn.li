@@ -85,6 +85,19 @@ describe('account deletion endpoint', function () {
 });
 
 describe('cascade deletion of user data', function () {
+    test('deletes private tags, associations, and API tokens', function () {
+        $game = Game::factory()->create();
+        $tag = $this->user->privateTags()->create(['name' => 'Private']);
+        $tag->games()->attach($game);
+        $token = $this->user->createToken('script', ['user-api', 'tags:read'], now()->addDays(90))->accessToken;
+
+        $this->actingAs($this->user)->deleteJson(route('user.account.delete'))->assertOk();
+
+        $this->assertDatabaseMissing('private_tags', ['id' => $tag->id]);
+        $this->assertDatabaseMissing('private_tag_games', ['private_tag_id' => $tag->id]);
+        $this->assertDatabaseMissing('personal_access_tokens', ['id' => $token->id]);
+    });
+
     test('deletes all VN lists and entries', function () {
         $game = Game::factory()->create();
         $list = VnList::factory()->for($this->user)->create();

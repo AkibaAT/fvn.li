@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\PushSubscriptionController;
+use App\Http\Controllers\Api\V1\PrivateTagController;
 use App\Http\Controllers\BugReportController;
 use App\Http\Controllers\ClickTrackingController;
+use App\Http\Controllers\Dashboard\ApiTokenController;
 use App\Http\Controllers\Dashboard\DashboardAdditionRequestController;
 use App\Http\Controllers\Dashboard\DashboardNotificationController;
 use App\Http\Controllers\Dashboard\DashboardStatsController;
@@ -84,6 +86,20 @@ Route::middleware(['web'])->group(function () {
     Route::post('track/custom-link',
         [ClickTrackingController::class, 'trackCustomLink'])->name('browser-api.track.custom-link');
     Route::middleware('auth')->group(function () {
+        Route::get('dashboard/api-tokens', [ApiTokenController::class, 'index'])->name('browser-api.api-tokens.index');
+        Route::post('dashboard/api-tokens', [ApiTokenController::class, 'store'])->name('browser-api.api-tokens.store');
+        Route::post('dashboard/api-tokens/{token}/extend', [ApiTokenController::class, 'extend'])->whereNumber('token')->name('browser-api.api-tokens.extend');
+        Route::delete('dashboard/api-tokens/{token}', [ApiTokenController::class, 'destroy'])->whereNumber('token')->name('browser-api.api-tokens.destroy');
+
+        Route::get('private-tags', [PrivateTagController::class, 'index'])->name('browser-api.private-tags.index');
+        Route::post('private-tags', [PrivateTagController::class, 'store'])->name('browser-api.private-tags.store');
+        Route::patch('private-tags/{tag}', [PrivateTagController::class, 'update'])->whereNumber('tag')->name('browser-api.private-tags.update');
+        Route::delete('private-tags/{tag}', [PrivateTagController::class, 'destroy'])->whereNumber('tag')->name('browser-api.private-tags.destroy');
+        Route::get('private-tags/{tag}/games', [PrivateTagController::class, 'games'])->whereNumber('tag')->name('browser-api.private-tags.games');
+        Route::get('games/{game}/private-tags', [PrivateTagController::class, 'forGame'])->whereNumber('game')->name('browser-api.games.private-tags.index');
+        Route::put('games/{game}/private-tags/{tag}', [PrivateTagController::class, 'attach'])->whereNumber('game')->whereNumber('tag')->name('browser-api.games.private-tags.attach');
+        Route::delete('games/{game}/private-tags/{tag}', [PrivateTagController::class, 'detach'])->whereNumber('game')->whereNumber('tag')->name('browser-api.games.private-tags.detach');
+
         Route::get('games/{game}/stats', [ClickTrackingController::class, 'getGameStats'])->name('api.games.stats');
         Route::get('games/{game}/analytics',
             [ClickTrackingController::class, 'getDailyAnalytics'])->name('api.games.analytics');

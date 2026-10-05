@@ -35,6 +35,17 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
+Route::middleware('auth')->prefix('developers')->group(function () {
+    Route::get('', fn () => Inertia::render('developers/index', [
+        'metaTags' => new MetaTags(title: 'Developer API', description: 'Build with the fvn.li user API.', noindex: true)->toArray(),
+    ]))->name('developers');
+    Route::get('swagger', fn (Request $request) => Inertia::render('developers/swagger', [
+        'metaTags' => new MetaTags(title: 'API Explorer', noindex: true)->toArray(),
+    ])->toResponse($request)->header('Cache-Control', 'no-store'))->name('developers.swagger');
+    Route::get('openapi.yaml', fn () => response()->file(resource_path('openapi/user-api.yaml'), ['Content-Type' => 'application/yaml']))
+        ->name('developers.openapi');
+});
+
 /*
 |--------------------------------------------------------------------------
 | Health Check Route
