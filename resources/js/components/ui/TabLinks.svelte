@@ -30,7 +30,7 @@
                 ? 'border-b-2 border-accent text-fg'
                 : 'text-fg-muted hover:text-fg'}"
         >
-            {tab.label}{#if tab.count !== undefined} ({tab.count}){/if}
+            {tab.count === undefined ? tab.label : `${tab.label} (${tab.count})`}
         </a>
     {/each}
 </div>

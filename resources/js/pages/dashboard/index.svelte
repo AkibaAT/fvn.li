@@ -104,7 +104,7 @@
         { id: 'search', label: 'Search Preferences' },
     ];
     const tabs = $derived(allTabs.filter((t) => t.condition !== false));
-    const { activeTab, setTab } = useUrlTab<Tab>(
+    const urlTab = useUrlTab<Tab>(
         allTabs.map((t) => t.id),
         'account',
         { readHash: true },
@@ -133,11 +133,11 @@
 
 <PageHeader title={metaTags?.title || 'Dashboard'} class="mb-6" />
 
-<TabBar {tabs} active={activeTab} onSelect={(tab) => setTab(tab as Tab)} ariaLabel="Dashboard tabs" />
+<TabBar {tabs} active={urlTab.activeTab} onSelect={(tab) => urlTab.setTab(tab as Tab)} ariaLabel="Dashboard tabs" />
 
 <BugReports initialReports={activeBugReports || []} openReportId={openBugReportId()} />
 
-{#if activeTab === 'account'}
+{#if urlTab.activeTab === 'account'}
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div class="space-y-6 lg:col-span-3">
             <Card variant="flat" padding="lg">
@@ -196,15 +196,15 @@
 <!-- Tab components stay mounted and are toggled with `hidden` so their local
      state (drafts, saved preferences, ignored games) survives tab switches. -->
 
-<div hidden={activeTab !== 'my-games'}>
+<div hidden={urlTab.activeTab !== 'my-games'}>
     <MyGamesTab {hasItchio} {itchioData} {myGames} {myGamesClickStats} />
 </div>
 
-<div hidden={activeTab !== 'additions'}>
+<div hidden={urlTab.activeTab !== 'additions'}>
     <AdditionsTab recentRequests={recentRequestsInitial || []} />
 </div>
 
-<div hidden={activeTab !== 'search'}>
+<div hidden={urlTab.activeTab !== 'search'}>
     <SearchPreferencesTab
         languagePreferences={languagePreferencesInitial || []}
         {availableLanguages}

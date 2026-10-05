@@ -19,18 +19,18 @@ export function serializeUrlFilters(values: Record<string, FilterValue>): URLSea
 
 export function useUrlSyncedFilters({ route: targetRoute, only, getParams }: Options) {
     let isLoading = $state(false);
-    let didMount = false;
+    let lastQuery: string | undefined;
 
+    // Equal-but-new param objects re-run this effect; only a change in the serialized query navigates.
     $effect(() => {
         const desired = serializeUrlFilters(getParams());
-
-        if (!didMount) {
-            didMount = true;
-            return;
-        }
+        const query = desired.toString();
+        const previous = lastQuery;
+        lastQuery = query;
+        if (previous === undefined || previous === query) return;
 
         if (typeof window === 'undefined') return;
-        if (desired.toString() === new SvelteURLSearchParams(window.location.search).toString()) return;
+        if (query === new SvelteURLSearchParams(window.location.search).toString()) return;
 
         isLoading = true;
         router.get(targetRoute, Object.fromEntries(desired.entries()), {
