@@ -65,7 +65,7 @@ Route::middleware(['auth:sanctum', 'sanctum.token:notifications'])->prefix('noti
 // Push notification subscription routes moved to browser-api (session-based)
 
 // Multi-server Discord management routes
-Route::middleware(['auth:sanctum', 'admin'])->prefix('discord-servers')->group(function () {
+Route::middleware(['auth:sanctum', 'sanctum.token:discord-admin', 'admin'])->prefix('discord-servers')->group(function () {
     // Server management
     Route::post('register', [DiscordServerController::class, 'register']);
     Route::get('', [DiscordServerController::class, 'index']);

@@ -15,7 +15,7 @@ function discordSubscriptionOwner(): array
 {
     $user = User::factory()->create(['is_admin' => true]);
     SocialAccount::factory()->discord()->for($user)->create();
-    Sanctum::actingAs($user);
+    Sanctum::actingAs($user, ['discord-admin']);
 
     $server = DiscordServer::create([
         'discord_server_id' => 'guild-1',
@@ -30,7 +30,7 @@ function discordSubscriptionOwner(): array
 it('requires ownership for Discord server subscriptions', function () {
     $owner = User::factory()->create();
     $other = User::factory()->create(['is_admin' => true]);
-    Sanctum::actingAs($other);
+    Sanctum::actingAs($other, ['discord-admin']);
     $server = DiscordServer::create([
         'discord_server_id' => 'guild-private',
         'discord_server_name' => 'Private Guild',

@@ -32,13 +32,15 @@ class IssueDiscordBotApiToken extends Command
             $user->tokens()->where('name', $name)->delete();
         }
 
-        $token = $user->createToken($name, [
+        $abilities = [
             'discord-bot',
             'discord-notifications',
-        ]);
+            ...($user->is_admin ? ['discord-admin'] : []),
+        ];
+        $token = $user->createToken($name, $abilities);
 
         $this->info('Discord bot API token created.');
-        $this->line('Abilities: discord-bot, discord-notifications');
+        $this->line('Abilities: ' . implode(', ', $abilities));
         $this->warn('Copy this token now; it will not be shown again.');
         $this->line($token->plainTextToken);
 
