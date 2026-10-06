@@ -6,6 +6,7 @@ namespace App\Http;
 
 use App\Http\Middleware\AdminPanelAccess;
 use App\Http\Middleware\Authenticate;
+use App\Http\Middleware\CachePublicPage;
 use App\Http\Middleware\EncryptCookies;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\PerformanceMonitoring;
@@ -14,6 +15,7 @@ use App\Http\Middleware\PreventRequestsDuringMaintenance;
 use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Middleware\RequireSanctumTokenAbility;
 use App\Http\Middleware\RequireUserApiToken;
+use App\Http\Middleware\StartSession;
 use App\Http\Middleware\ThrottleUserApiIp;
 use App\Http\Middleware\TrackPageViews;
 use App\Http\Middleware\TrimStrings;
@@ -33,7 +35,6 @@ use Illuminate\Http\Middleware\SetCacheHeaders;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Session\Middleware\AuthenticateSession;
-use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class Kernel extends HttpKernel
@@ -99,6 +100,7 @@ class Kernel extends HttpKernel
         'auth.basic' => AuthenticateWithBasicAuth::class,
         'auth.session' => AuthenticateSession::class,
         'cache.headers' => SetCacheHeaders::class,
+        CachePublicPage::ALIAS => CachePublicPage::class,
         'can' => Authorize::class,
         'guest' => RedirectIfAuthenticated::class,
         'password.confirm' => RequirePassword::class,

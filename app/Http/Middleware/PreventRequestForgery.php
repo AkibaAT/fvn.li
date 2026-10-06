@@ -25,4 +25,13 @@ class PreventRequestForgery extends Middleware
 
         return parent::inExceptArray($request);
     }
+
+    protected function addCookieToResponse($request, $response)
+    {
+        if (CachePublicPage::appliesTo($request)) {
+            return $response;
+        }
+
+        return parent::addCookieToResponse($request, $response);
+    }
 }

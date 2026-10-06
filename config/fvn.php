@@ -27,4 +27,15 @@ return [
 
     'hidden_tag_slugs' => ['furry', 'fvn', 'furry-visual-novel'],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Public Page Cache TTL
+    |--------------------------------------------------------------------------
+    |
+    | Seconds a shared cache (Cloudflare) may serve public pages to visitors
+    | without a session. Zero keeps those responses private.
+    |
+    */
+
+    'public_page_cache_ttl' => (int) env('PUBLIC_PAGE_CACHE_TTL', 300),
 ];
