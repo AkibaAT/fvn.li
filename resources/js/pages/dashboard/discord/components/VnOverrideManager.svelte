@@ -61,6 +61,7 @@
                 if (active) searching = false;
             }
         }, 300);
+        runSearch();
 
         return () => {
             active = false;

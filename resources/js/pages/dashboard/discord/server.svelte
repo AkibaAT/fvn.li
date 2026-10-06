@@ -44,7 +44,7 @@
         { id: 'embeds', label: 'Embeds' },
         { id: 'history', label: 'History' },
     ];
-    const { activeTab, setTab } = useUrlTab<Tab>(
+    const urlTab = useUrlTab<Tab>(
         tabs.map((t) => t.id),
         'general',
     );
@@ -241,9 +241,9 @@
                 <LoadingSpinner size="lg" class="text-fg-muted" currentColor label="Loading Discord server settings" />
             </div>
         {/snippet}
-        <TabBar {tabs} active={activeTab} onSelect={(tab) => setTab(tab as Tab)} ariaLabel="Server config tabs" />
+        <TabBar {tabs} active={urlTab.activeTab} onSelect={(tab) => urlTab.setTab(tab as Tab)} ariaLabel="Server config tabs" />
 
-        {#if activeTab === 'general'}
+        {#if urlTab.activeTab === 'general'}
             <Card variant="flat" padding="lg">
                 <h2 class="mb-6 text-title font-semibold text-fg">General Settings</h2>
                 <div class="space-y-6">
@@ -378,19 +378,19 @@
             </Card>
         {/if}
 
-        {#if activeTab === 'routing'}
+        {#if urlTab.activeTab === 'routing'}
             <RuleBuilder rules={config.routing_rules || []} {channels} fieldMetadata={ruleFieldMetadata} onchange={handleRulesChange} />
         {/if}
 
-        {#if activeTab === 'ignored'}
+        {#if urlTab.activeTab === 'ignored'}
             <VnOverrideManager {overrides} {serverId} {channels} onchange={handleOverridesChange} filter="ignored" />
         {/if}
 
-        {#if activeTab === 'overrides'}
+        {#if urlTab.activeTab === 'overrides'}
             <VnOverrideManager {overrides} {serverId} {channels} onchange={handleOverridesChange} />
         {/if}
 
-        {#if activeTab === 'embeds'}
+        {#if urlTab.activeTab === 'embeds'}
             <div class="space-y-6">
                 <Card variant="flat" padding="lg">
                     <h2 class="mb-4 text-title font-semibold text-fg">New Game Embed</h2>
@@ -415,7 +415,7 @@
             </div>
         {/if}
 
-        {#if activeTab === 'history'}
+        {#if urlTab.activeTab === 'history'}
             <Card variant="flat" padding="lg">
                 <h2 class="mb-4 text-title font-semibold text-fg">Notification History</h2>
                 {#if server?.notification_history && server.notification_history.length > 0}
