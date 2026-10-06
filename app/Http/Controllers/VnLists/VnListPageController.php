@@ -68,16 +68,7 @@ class VnListPageController extends Controller
             }
         }
 
-        $lists = $listsQuery->orderByRaw("
-            CASE type
-                WHEN 'reading' THEN 1
-                WHEN 'plan_to_read' THEN 2
-                WHEN 'completed' THEN 3
-                WHEN 'on_hold' THEN 4
-                WHEN 'dropped' THEN 5
-                ELSE 6
-            END, created_at DESC
-        ")->paginate($perPage);
+        $lists = $listsQuery->inDisplayOrder()->paginate($perPage);
 
         $lists->getCollection()->each(function ($list) {
             $list->entries->each(function ($entry) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Services\VnListCacheService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -43,6 +44,20 @@ class VnList extends Model
     {
         static::saved(fn () => app(VnListCacheService::class)->clearPublicListsCache());
         static::deleted(fn () => app(VnListCacheService::class)->clearPublicListsCache());
+    }
+
+    public function scopeInDisplayOrder(Builder $query): void
+    {
+        $query->orderByRaw("
+            CASE type
+                WHEN 'reading' THEN 1
+                WHEN 'plan_to_read' THEN 2
+                WHEN 'completed' THEN 3
+                WHEN 'on_hold' THEN 4
+                WHEN 'dropped' THEN 5
+                ELSE 6
+            END, created_at DESC
+        ");
     }
 
     public function user(): BelongsTo

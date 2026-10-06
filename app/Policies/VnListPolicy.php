@@ -7,6 +7,7 @@ namespace App\Policies;
 use App\Models\User;
 use App\Models\VnList;
 use Illuminate\Auth\Access\HandlesAuthorization;
+use Illuminate\Auth\Access\Response;
 
 class VnListPolicy
 {
@@ -29,8 +30,12 @@ class VnListPolicy
         return $user->id === $vnList->user_id;
     }
 
-    public function delete(User $user, VnList $vnList): bool
+    public function delete(User $user, VnList $vnList): Response
     {
-        return $user->id === $vnList->user_id && ! $vnList->is_default;
+        if ($user->id !== $vnList->user_id) {
+            return Response::deny();
+        }
+
+        return $vnList->is_default ? Response::deny('Default lists cannot be deleted.') : Response::allow();
     }
 }

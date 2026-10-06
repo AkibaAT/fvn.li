@@ -115,6 +115,22 @@ it('renders public list discovery with search, type, game filter, and newest sor
         ->and($props['counts']['custom'])->toBe(1);
 });
 
+it('reports zero public list counts when no list matches the search', function () {
+    $response = $this->get(route('lists.public', ['search' => 'No list has this name']));
+
+    $response->assertOk();
+
+    expect($response->viewData('page')['props']['counts'])->toBe([
+        'all' => 0,
+        'plan_to_read' => 0,
+        'reading' => 0,
+        'completed' => 0,
+        'on_hold' => 0,
+        'dropped' => 0,
+        'custom' => 0,
+    ]);
+});
+
 it('normalizes public list discovery filters to bounded safe values', function () {
     $owner = User::factory()->create(['name' => 'Wildcard Owner']);
     makeListWithEntry($owner, [
