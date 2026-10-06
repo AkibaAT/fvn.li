@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 @php
-    $appearance = request()->cookie('appearance');
+    $isSharedPage = \App\Http\Middleware\CachePublicPage::appliesTo(request());
+    $appearance = $isSharedPage ? null : request()->cookie('appearance');
     $isDark = $appearance === 'dark';
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="{{ $isDark ? 'dark' : '' }}">
@@ -8,7 +9,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="csrf-token" content="{{ $isSharedPage ? '' : csrf_token() }}">
 
     <link rel="canonical" href="{{ canonical() }}"/>
 
