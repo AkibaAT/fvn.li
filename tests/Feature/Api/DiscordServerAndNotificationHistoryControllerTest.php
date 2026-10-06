@@ -15,7 +15,7 @@ function discordApiOwnerWithServer(array $serverAttributes = []): array
 {
     $user = User::factory()->create(['is_admin' => true]);
     SocialAccount::factory()->discord()->for($user)->create();
-    Sanctum::actingAs($user);
+    Sanctum::actingAs($user, ['discord-admin']);
 
     $server = DiscordServer::create($serverAttributes + [
         'discord_server_id' => 'guild-api-' . uniqid(),
@@ -42,7 +42,7 @@ function discordHistory(DiscordServer $server, Game $game, array $attributes = [
 it('registers lists shows updates stats and deletes Discord servers', function () {
     $user = User::factory()->create(['is_admin' => true]);
     SocialAccount::factory()->discord()->for($user)->create();
-    Sanctum::actingAs($user);
+    Sanctum::actingAs($user, ['discord-admin']);
 
     $this->postJson('/api/discord-servers/register', [
         'discord_server_id' => 'guild-created',
