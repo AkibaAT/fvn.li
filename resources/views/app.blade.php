@@ -132,7 +132,6 @@
     @include('partials.appearance-script')
 
     @vite('resources/js/app.ts')
-    @routes
 </head>
 <body class="bg-page text-fg min-h-screen antialiased">
 @inertia

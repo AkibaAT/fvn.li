@@ -22,12 +22,8 @@ interface Auth {
 }
 
 export interface SharedData {
-    name: string;
-    quote: { message: string; author: string };
     auth: Auth;
-    ziggy: Config & { location: string };
-    sidebarOpen: boolean;
-    gameFilters: FilterOptions;
+    ziggy: (Config & { location: string }) | null;
 
     [key: string]: unknown;
 }

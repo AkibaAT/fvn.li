@@ -4,6 +4,8 @@ import { hydrate, mount } from 'svelte';
 import { initializeAppearance } from '@/hooks/use-appearance.svelte';
 import AppFrame from '@/layouts/AppFrame.svelte';
 import { revealInlineSpoiler } from '@/utils/review-spoilers';
+import { installZiggyGlobals } from '@/utils/ziggy';
+import type { SharedZiggyConfig } from '@/utils/ziggy';
 
 createInertiaApp({
     resolve: async (name) => {
@@ -26,6 +28,8 @@ createInertiaApp({
         if (!el) {
             return;
         }
+
+        installZiggyGlobals(props.initialPage.props.ziggy as SharedZiggyConfig | undefined, { pinLocation: false });
 
         if (el.dataset.serverRendered === 'true') {
             hydrate(App, { target: el, props });
