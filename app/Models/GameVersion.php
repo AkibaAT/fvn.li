@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Builders\GameVersionBuilder;
+use App\Services\RouteGraphService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,10 +14,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class GameVersion extends Model
 {
     use HasFactory;
+
+    /** @var array<int, string>|null */
+    private static ?array $eagerColumns = null;
+
+    public const DEFERRED_COLUMNS = [
+        'route_graph_data',
+        'route_graph_unreachable_data',
+    ];
 
     protected $fillable = [
         'published_at',
@@ -60,6 +71,17 @@ class GameVersion extends Model
      */
     protected $touches = ['game'];
 
+    /**
+     * @return array<int, string>
+     */
+    public static function eagerColumns(): array
+    {
+        return self::$eagerColumns ??= array_values(array_diff(
+            Schema::getColumnListing((new self)->getTable()),
+            self::DEFERRED_COLUMNS,
+        ));
+    }
+
     protected static function booted(): void
     {
         static::saving(function (GameVersion $version) {
@@ -76,9 +98,34 @@ class GameVersion extends Model
         // becomes latest, using the GameDialogueText model for per-game deduplication
     }
 
+    public function newEloquentBuilder($query): GameVersionBuilder
+    {
+        return new GameVersionBuilder($query);
+    }
+
+    public function getAttribute($key)
+    {
+        if ($this->exists && in_array($key, self::DEFERRED_COLUMNS, true) && ! array_key_exists($key, $this->attributes)) {
+            $this->attributes[$key] = $this->newQueryWithoutScopes()->toBase()->where($this->getKeyName(), $this->getKey())->value($key);
+            $this->syncOriginalAttribute($key);
+        }
+
+        return parent::getAttribute($key);
+    }
+
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
+    }
+
+    public function scopeWithCurrentRouteGraph(Builder $query, bool $includeUnreachable = false): Builder
+    {
+        $revision = (string) RouteGraphService::GRAPH_REVISION;
+
+        return $query
+            ->whereRaw("game_versions.route_graph_data->>'graph_revision' = ?", [$revision])
+            ->when($includeUnreachable, fn (Builder $query) => $query
+                ->whereRaw("game_versions.route_graph_unreachable_data->>'graph_revision' = ?", [$revision]));
     }
 
     public function scopeDueForStatsExtraction(Builder $query): Builder
