@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use Closure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -13,9 +14,22 @@ class RatingStatsCacheService
 
     private const string VERSION_KEY = 'ratings.stats.version';
 
+    private const int GLOBAL_STATS_FRESH_SECONDS = 300;
+
+    private const int GLOBAL_STATS_STALE_SECONDS = 86400;
+
     private const array LEGACY_FOREVER_NAMES = [
         'ratings.global_stats',
     ];
+
+    /**
+     * @param  Closure(): array<string, mixed>  $compute
+     * @return array<string, mixed>
+     */
+    public static function globalStats(Closure $compute): array
+    {
+        return Cache::flexible(self::GLOBAL_STATS_KEY, [self::GLOBAL_STATS_FRESH_SECONDS, self::GLOBAL_STATS_STALE_SECONDS], $compute);
+    }
 
     public static function key(string $name): string
     {
@@ -37,11 +51,9 @@ class RatingStatsCacheService
 
         Cache::increment(self::VERSION_KEY);
 
-        Cache::forget(self::GLOBAL_STATS_KEY);
         if (DB::transactionLevel() > 0) {
             DB::afterCommit(function (): void {
                 Cache::increment(self::VERSION_KEY);
-                Cache::forget(self::GLOBAL_STATS_KEY);
             });
         }
     }

@@ -49,7 +49,7 @@ class Tag extends Model
      */
     public static function popularGameCounts(): array
     {
-        return Cache::remember(self::popularCacheKey(), 3600, function () {
+        return Cache::memo()->remember(self::popularCacheKey(), 3600, function () {
             return DB::table('game_tag')
                 ->select('tag_id', DB::raw('COUNT(*) as games_count'))
                 ->whereNotIn('tag_id', DB::table('tags')->select('id')->whereIn('slug', self::hiddenSlugs()))
@@ -71,7 +71,7 @@ class Tag extends Model
 
     public static function clearPopularCache(): void
     {
-        Cache::forget(self::popularCacheKey());
+        Cache::memo()->forget(self::popularCacheKey());
     }
 
     /**
