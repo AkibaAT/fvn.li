@@ -15,6 +15,11 @@ class UserPreference extends Model
         'excluded_tags',
     ];
 
+    protected $attributes = [
+        'preferred_languages' => '[]',
+        'excluded_tags' => '[]',
+    ];
+
     protected $casts = [
         'preferred_languages' => 'array',
         'excluded_tags' => 'array',
