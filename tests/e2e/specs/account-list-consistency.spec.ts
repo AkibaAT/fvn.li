@@ -345,7 +345,7 @@ test('saved entry order survives Back', async ({ page }) => {
         expect(added.ok()).toBe(true);
     }
     await page.goto(`/lists/${fixture.listIds[0]}`);
-    const gameLinks = page.locator('main a[href*="/games/"]:not(:has(img))').filter({ visible: true });
+    const gameLinks = page.locator('main article a[href*="/games/"]:not([aria-label^="View details for"])').filter({ visible: true });
     await expect(gameLinks).toHaveCount(2);
     const originalOrder = await gameLinks.evaluateAll((links) => links.map((link) => link.getAttribute('href')));
     const handles = page.getByRole('button', { name: 'Drag to reorder', exact: true }).filter({ visible: true });

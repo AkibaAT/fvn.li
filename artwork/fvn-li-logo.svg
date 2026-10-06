@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="280" viewBox="0 0 200 56" role="img" aria-labelledby="title">
+    <title id="title">FVN.li — furry visual novels</title>
+    <g id="fvn-logo">
+        <path fill="#b07a14" fill-rule="evenodd" d="M6 7Q6 5 8 6L28 18V47L10 35Q8 34 8 31ZM11 13L13 24L20 19ZM12 28L13 32L24 40V34ZM54 7Q54 5 52 6L32 18V47L50 35Q52 34 52 31ZM49 13L40 19L47 24ZM48 28L36 34V40L47 32ZM28 42L30 43.5L32 42V47L30 48.5L28 47Z"/>
+        <g fill="#161c26">
+            <path d="M72 16H92V22H78V28H90V34H78V44H72ZM96 16H103L111 36L119 16H126L114 44H108ZM132 16H138L151 33V16H157V44H151L138 27V44H132ZM177 14H183V44H177ZM189 25H195V44H189Z"/>
+            <circle cx="192" cy="18" r="3"/>
+        </g>
+        <circle cx="167" cy="41" r="3" fill="#b07a14"/>
+    </g>
+</svg>

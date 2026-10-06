@@ -138,20 +138,20 @@ for (const scope of ['ratings', 'rater']) {
 test('game pagination and sort changes restore their controls and results', async ({ page }) => {
     // Pin the page size so the fixture search spans multiple pages regardless of the default.
     await page.goto(`/games?noDefaults=1&perPage=8&search=${encodeURIComponent(fixture.gameSearch)}`);
-    const pageButton = (n: number) => page.getByRole('button', { name: `Go to page ${n}`, exact: true });
-    await pageButton(2).click();
-    await expect(pageButton(2)).toHaveAttribute('aria-current', 'page');
+    const pageLink = (n: number) => page.getByRole('link', { name: `Go to page ${n}`, exact: true });
+    await pageLink(2).click();
+    await expect(pageLink(2)).toHaveAttribute('aria-current', 'page');
     const sort = page.getByLabel('Sort by', { exact: true });
     const oldSort = await sort.inputValue();
     await sort.selectOption('name');
     await expect(page).toHaveURL(/sort=name/);
     await page.goBack();
     await expect(sort).toHaveValue(oldSort);
-    await expect(pageButton(2)).toHaveAttribute('aria-current', 'page');
+    await expect(pageLink(2)).toHaveAttribute('aria-current', 'page');
     await page.goBack();
-    await expect(pageButton(1)).toHaveAttribute('aria-current', 'page');
+    await expect(pageLink(1)).toHaveAttribute('aria-current', 'page');
     await page.goForward();
-    await expect(pageButton(2)).toHaveAttribute('aria-current', 'page');
+    await expect(pageLink(2)).toHaveAttribute('aria-current', 'page');
 });
 
 test('dialogue filters restore through Back, Forward and refresh', async ({ page }) => {

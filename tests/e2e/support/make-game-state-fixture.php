@@ -23,8 +23,8 @@ if ($extraGameCount > 0) {
         $extraGame->tags()->sync($tags);
     }
 }
-foreach (['eng', 'deu', 'fra', 'spa', 'ita', 'jpn', 'kor', 'por', 'pol'] as $lang) {
-    DB::table('iso_639_3_languages')->insertOrIgnore(['id' => $lang, 'scope' => 'I', 'type' => 'L', 'ref_name' => $lang, 'flag_code' => 'gb']);
+foreach (['eng' => 'gb', 'deu' => 'de', 'fra' => 'fr', 'spa' => 'es', 'ita' => 'it', 'jpn' => 'jp', 'kor' => 'kr', 'por' => 'pt', 'pol' => 'pl'] as $lang => $flag) {
+    DB::table('iso_639_3_languages')->insertOrIgnore(['id' => $lang, 'scope' => 'I', 'type' => 'L', 'ref_name' => $lang, 'flag_code' => $flag]);
     $version->addSupportedLanguage($lang);
 }
 $server->update(['available_channels' => array_merge($server->available_channels ?? [], array_map(fn ($id) => ['id' => $id, 'name' => $id, 'type' => 0], ['111', '222', '333']))]);
