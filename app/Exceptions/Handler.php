@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Facade;
+use Laravel\Sanctum\Exceptions\MissingAbilityException;
 use ReflectionClass;
 use ReflectionObject;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -44,6 +48,21 @@ class Handler extends ExceptionHandler
     {
         $this->reportable(function (Throwable $e) {
             $this->writeNativeErrorLog('Laravel exception fallback', $e);
+        });
+
+        $this->renderable(function (NotFoundHttpException $e, Request $request) {
+            if ($request->is('api/v1/*')) {
+                return response()->json(['message' => 'Not found.'], 404);
+            }
+        });
+
+        $this->renderable(function (AccessDeniedHttpException $e, Request $request) {
+            $missing = $e->getPrevious();
+            if ($request->is('api/v1/*') && $missing instanceof MissingAbilityException) {
+                return response()->json([
+                    'message' => 'This token lacks the ' . implode(', ', $missing->abilities()) . ' permission.',
+                ], 403);
+            }
         });
     }
 

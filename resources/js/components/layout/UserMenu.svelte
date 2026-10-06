@@ -97,6 +97,15 @@
                     </Link>
 
                     <Link
+                        href={route('developers.swagger')}
+                        class="popover-row-hover flex w-full items-center rounded-md px-3 py-2 text-ui font-medium text-fg-muted transition-colors hover:text-fg"
+                        onclick={closeMenu}
+                        role="menuitem"
+                    >
+                        API Explorer
+                    </Link>
+
+                    <Link
                         href={route('lists.index')}
                         class="popover-row-hover flex w-full items-center rounded-md px-3 py-2 text-ui font-medium text-fg-muted transition-colors hover:text-fg"
                         onclick={closeMenu}

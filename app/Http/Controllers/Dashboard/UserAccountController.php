@@ -75,6 +75,8 @@ class UserAccountController extends Controller
                 ->delete();
 
             $user->socialAccounts()->delete();
+            $user->tokens()->delete();
+            $user->privateTags()->delete();
             if ($user->notificationPreferences) {
                 $user->notificationPreferences()->delete();
             }

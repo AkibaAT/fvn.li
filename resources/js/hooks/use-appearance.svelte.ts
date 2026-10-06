@@ -69,6 +69,8 @@ const applyTheme = (appearance: Appearance) => {
     const isDark = appearance === 'dark' || (appearance === 'system' && prefersDark());
 
     document.documentElement.classList.toggle('dark', isDark);
+    // Swagger UI's bundled dark theme uses this class.
+    document.documentElement.classList.toggle('dark-mode', isDark);
     applyThemeColor(isDark);
 };
 

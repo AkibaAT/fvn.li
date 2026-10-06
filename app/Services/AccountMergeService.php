@@ -38,6 +38,7 @@ class AccountMergeService
 
             $this->mergePreferences($mergingUser, $otherUser);
             $this->mergeVnLists($mergingUser, $otherUser);
+            $this->mergePrivateTags($mergingUser, $otherUser);
             $this->mergeSocialAccounts($mergingUser, $otherUser);
             $this->mergeGameProgress($mergingUser, $otherUser);
             $this->mergeNotificationHistory($mergingUser, $otherUser);
@@ -148,6 +149,20 @@ class AccountMergeService
     protected function mergeNotificationHistory(User $mergingUser, User $otherUser): void
     {
         $this->mergeRows('notification_history', 'user_id', ['game_id', 'game_version_id', 'type'], $mergingUser->id, $otherUser->id);
+    }
+
+    private function mergePrivateTags(User $target, User $source): void
+    {
+        foreach ($source->privateTags()->with('games')->get() as $tag) {
+            $existing = $target->privateTags()->whereRaw('lower(name) = lower(?)', [$tag->name])->first();
+            if ($existing) {
+                $existing->games()->syncWithoutDetaching($tag->games->modelKeys());
+                $tag->delete();
+            } else {
+                $tag->user()->associate($target);
+                $tag->save();
+            }
+        }
     }
 
     private function availableListName(User $user, string $name): string

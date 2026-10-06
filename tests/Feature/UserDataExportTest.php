@@ -237,3 +237,23 @@ test('exports search preferences and owned bug conversations while neutralizing 
         @unlink($zipPath);
     }
 });
+
+test('exports private tag names and game associations', function () {
+    $game = Game::factory()->create();
+    $tag = $this->user->privateTags()->create(['name' => 'Hidden shelf']);
+    $tag->games()->attach($game);
+
+    $response = $this->actingAs($this->user)->get(route('browser-api.user.export'))->assertOk();
+    $zipPath = tempnam(sys_get_temp_dir(), 'fvn-export-zip-');
+    file_put_contents($zipPath, $response->streamedContent());
+    $zip = new ZipArchive;
+    try {
+        expect($zip->open($zipPath))->toBeTrue();
+        expect(json_decode($zip->getFromName('private_tags.json'), true))->toBe([
+            ['id' => $tag->id, 'name' => 'Hidden shelf', 'game_ids' => [$game->id]],
+        ]);
+    } finally {
+        $zip->close();
+        @unlink($zipPath);
+    }
+});

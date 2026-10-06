@@ -5,7 +5,7 @@ import AppearanceDropdown from './AppearanceDropdown.svelte';
 
 describe('AppearanceDropdown', () => {
     afterEach(() => {
-        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.remove('dark', 'dark-mode');
         localStorage.clear();
         document.cookie = 'appearance=;path=/;max-age=0';
     });

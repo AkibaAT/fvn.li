@@ -160,6 +160,11 @@ class User extends Authenticatable
         return $this->hasMany(VnList::class)->orderBy('created_at', 'desc');
     }
 
+    public function privateTags(): HasMany
+    {
+        return $this->hasMany(PrivateTag::class);
+    }
+
     public function ignoredGames(): BelongsToMany
     {
         return $this->belongsToMany(Game::class, 'user_ignored_games', 'user_id', 'game_id')

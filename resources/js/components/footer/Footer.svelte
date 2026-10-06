@@ -5,8 +5,10 @@
     import TelegramIcon from '@/components/icons/Telegram.svelte';
     import Container from '@/components/Container.svelte';
     import BugReportButton from '@/components/BugReportButton.svelte';
-    import { Link } from '@inertiajs/svelte';
+    import { Link, usePage } from '@inertiajs/svelte';
 
+    const page = usePage();
+    const isSignedIn = $derived(!!page.props?.auth?.user);
     const currentYear = new Date().getFullYear();
     const footerLinkClass = 'text-fg-muted transition-colors hover:text-fg';
     const footerContactLinkClass = `flex items-center gap-2 ${footerLinkClass}`;
@@ -35,6 +37,11 @@
                     <li>
                         <Link href={route('ratings.index')} class={footerLinkClass}>Ratings</Link>
                     </li>
+                    {#if isSignedIn}
+                        <li>
+                            <Link href={route('developers')} class={footerLinkClass}>Developer API</Link>
+                        </li>
+                    {/if}
                 </ul>
             </div>
 

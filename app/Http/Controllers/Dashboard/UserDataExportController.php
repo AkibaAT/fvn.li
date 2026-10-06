@@ -200,6 +200,11 @@ class UserDataExportController extends Controller
             })->values();
 
         $additionalData = [
+            'private_tags' => $user->privateTags()->with('games:id')->get()->map(fn ($tag) => [
+                'id' => $tag->id,
+                'name' => $tag->name,
+                'game_ids' => $tag->games->modelKeys(),
+            ])->all(),
             'search_preferences' => $user->preferences()->get(['preferred_languages', 'excluded_tags'])->toArray(),
             'bug_reports' => BugReport::where('user_id', $user->id)->get([
                 'id', 'page_url', 'page_title', 'description', 'request_parameters', 'user_agent',

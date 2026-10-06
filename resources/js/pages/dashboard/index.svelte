@@ -6,6 +6,8 @@
     import MyGamesTab from '@/components/dashboard/MyGamesTab.svelte';
     import SearchPreferencesTab from '@/components/dashboard/SearchPreferencesTab.svelte';
     import NotificationSettings from '@/components/dashboard/NotificationSettings.svelte';
+    import ApiTokens from '@/components/dashboard/ApiTokens.svelte';
+    import PrivateTagsManager from '@/components/dashboard/PrivateTagsManager.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import type { NotificationPreferences } from '@/api/user-preferences';
     import { deleteAccount } from '@/api/dashboard';
@@ -95,13 +97,14 @@
     });
 
     // --- Tab state ---
-    type Tab = 'account' | 'my-games' | 'additions' | 'search';
+    type Tab = 'account' | 'my-games' | 'additions' | 'search' | 'private-tags';
     const hasItchio = $derived(!!itchioData?.username);
     const allTabs: { id: Tab; label: string; condition?: boolean }[] = [
         { id: 'account', label: 'Account' },
         { id: 'my-games', label: 'My Games' },
         { id: 'additions', label: 'VN Additions' },
         { id: 'search', label: 'Search Preferences' },
+        { id: 'private-tags', label: 'Private Tags' },
     ];
     const tabs = $derived(allTabs.filter((t) => t.condition !== false));
     const urlTab = useUrlTab<Tab>(
@@ -171,6 +174,7 @@
             </Card>
 
             <NotificationSettings preferences={notificationPreferences} hasDiscord={connectedProviders.includes('discord')} {vapidPublicKey} />
+            <ApiTokens />
         </div>
 
         <div class="space-y-6 lg:col-span-2">
@@ -213,4 +217,8 @@
         {ignoredGamesInitial}
         {ignoredGamesCountInitial}
     />
+</div>
+
+<div hidden={urlTab.activeTab !== 'private-tags'}>
+    <PrivateTagsManager />
 </div>
