@@ -11,50 +11,49 @@ use Illuminate\Support\Facades\DB;
 
 class GamesSearchResultHydrator
 {
-    private const LIST_HIDDEN = [
-        'description',
-        'full_description',
-        'custom_description',
-        'custom_css',
-        'custom_assets',
-        'screenshots',
-        'uploads',
-        'additional_links',
-        'steam_genres',
-        'steam_user_tags',
-        'discord_tags',
-        'discord_channel_id',
-        'discord_message_id',
-        'discord_likes',
-        'discord_dislikes',
-        'discord_updated_at',
-        'abbreviations',
-        'content_type',
-        'is_stats_extraction_disabled',
-        'trending_score_calculated_at',
-        'custom_page_updated_at',
-        'custom_page_updated_by',
-        'custom_name',
-        'url',
-        'min_price',
-        'currency',
-        'sale_discount_percent',
+    private const CARD_FIELDS = [
+        'id',
+        'name',
+        'effective_name',
+        'slug',
+        'status',
+        'authors',
+        'thumb_url',
+        'optimized_thumbnails',
+        'platform',
+        'rating_score',
+        'rating_count',
+        'is_nsfw',
+        'is_paid',
+        'has_demo',
+        'is_on_sale',
+        'is_windows',
+        'is_linux',
+        'is_mac',
+        'is_android',
+        'is_web',
+        'initially_published_at',
+        'latest_version_published_at',
+        'latest_version_number',
+        'english_word_count',
+        'primary_word_count',
+        'primary_language_name',
+        'supported_languages',
+        'tags',
+        'user_progress',
+        'user_list_memberships',
     ];
 
     public static function stripForList(mixed $game): void
     {
-        if (! method_exists($game, 'makeHidden')) {
+        if (! method_exists($game, 'setVisible')) {
             return;
         }
 
-        $game->makeHidden(self::LIST_HIDDEN);
+        $game->setVisible(self::CARD_FIELDS);
 
-        if (method_exists($game, 'relationLoaded')) {
-            foreach (['latestVersion', 'sourceLanguage'] as $relation) {
-                if ($game->relationLoaded($relation)) {
-                    $game->unsetRelation($relation);
-                }
-            }
+        if ($game->relationLoaded('tags')) {
+            $game->setRelation('tags', $game->tags->map->only(['id', 'name']));
         }
     }
 

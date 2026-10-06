@@ -146,12 +146,17 @@ class VnListPageController extends Controller
                             'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price',
                             'authors', 'platform', 'rating_score', 'rating_count', 'source_language_id',
                         ]);
-                        $q->with(['latestVersion.languageStats', 'gameVersions', 'sourceLanguage']);
+                        $q->with([
+                            'latestVersion:id,game_id,version,published_at',
+                            'latestVersion.languageStats:id,game_version_id,iso_code,words',
+                            'gameVersions:id,game_id,version,published_at',
+                            'sourceLanguage:id,ref_name',
+                        ]);
                         $q->with([
                             'userProgress' => function ($upQuery) use ($listOwnerId, $isOwner) {
                                 $upQuery->where('user_id', $listOwnerId)
                                     ->select(['id', 'game_id', 'game_version_id', 'personal_notes', 'started_at', 'completed_at'])
-                                    ->with('gameVersion');
+                                    ->with('gameVersion:id,version,published_at');
                                 if ($isOwner) {
                                     $upQuery->addSelect(['user_id', 'is_receiving_updates']);
                                 }

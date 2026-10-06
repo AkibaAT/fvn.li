@@ -51,7 +51,7 @@ class HomeController extends Controller
         }
 
         $teaserVersion = HomePageCacheService::getTeaserVersion();
-        $cacheKey = "home.teasers.distinct.v{$teaserVersion}." . Tag::publicCacheVariant() . '.' . md5(implode(',', $ignoredGameIds));
+        $cacheKey = "home.teaser-cards.v{$teaserVersion}." . Tag::publicCacheVariant() . '.' . md5(implode(',', $ignoredGameIds));
 
         $view = ViewPreference::mode(ViewPreference::HOME_COOKIE);
 
@@ -87,7 +87,7 @@ class HomeController extends Controller
 
     /**
      * @param  array<int, int>  $ignoredGameIds
-     * @return array<string, array<int, Game>>
+     * @return array<string, array<int, array<string, mixed>>>
      */
     private function getDistinctTeasers(array $ignoredGameIds): array
     {
@@ -120,23 +120,21 @@ class HomeController extends Controller
         $models = (new Game)->newCollection(collect($teasers)->flatten(1)->all());
         app(GamesSearchResultHydrator::class)->hydrateModels($models);
 
-        return array_map(fn ($games) => $games->all(), $teasers);
+        return array_map(fn ($games) => $games->toArray(), $teasers);
     }
 
+    /**
+     * @param  array<string, array<int, array<string, mixed>>>  $teasers
+     * @return array<string, array<int, array<string, mixed>>>
+     */
     private function withCurrentUserTeaserData(array $teasers): array
     {
-        $gameIds = collect($teasers)
-            ->flatten(1)
-            ->pluck('id')
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
         $userProgress = collect();
         $userListMemberships = collect();
 
-        if (Auth::check() && ! empty($gameIds)) {
+        if (Auth::check()) {
+            $gameIds = collect($teasers)->flatten(1)->pluck('id')->unique()->values()->all();
+
             $userProgress = DB::table('user_game_progress')
                 ->where('user_id', Auth::id())
                 ->whereIn('game_id', $gameIds)
@@ -154,16 +152,11 @@ class HomeController extends Controller
         }
 
         foreach ($teasers as $section => $games) {
-            $teasers[$section] = collect($games)
-                ->map(function ($game) use ($userProgress, $userListMemberships) {
-                    $game = clone $game;
-                    $progress = $userProgress->get($game->id);
-                    $game->user_progress = $progress ? [$progress] : [];
-                    $game->user_list_memberships = $userListMemberships->get($game->id, collect())->toArray();
-
-                    return $game;
-                })
-                ->all();
+            foreach ($games as $index => $game) {
+                $progress = $userProgress->get($game['id']);
+                $teasers[$section][$index]['user_progress'] = $progress ? [$progress] : [];
+                $teasers[$section][$index]['user_list_memberships'] = $userListMemberships->get($game['id'], collect())->toArray();
+            }
         }
 
         return $teasers;

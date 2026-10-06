@@ -118,7 +118,7 @@ test('game show exposes itch screenshots as effective screenshots in original vi
     $gameProps = $response->json('props.game');
 
     expect($response->json('component'))->toBe('games/show')
-        ->and($gameProps['screenshots'])->toHaveCount(0)
+        ->and($gameProps)->not->toHaveKey('screenshots')
         ->and($gameProps['custom_screenshots'])->toHaveCount(0)
         ->and($gameProps['effective_screenshots'])->toHaveCount(0);
 });
@@ -170,7 +170,7 @@ test('game show exposes custom name and description to guests in custom view mod
     expect($gameProps['effective_name'])->toBe('Custom Name')
         ->and($gameProps['effective_description'])->toBe('<p>Custom text</p>')
         ->and($gameProps['name'])->toBe('Original itch.io Name')
-        ->and($gameProps['full_description'])->toBe('<p>Original itch.io text</p>');
+        ->and($gameProps)->not->toHaveKey('full_description');
 });
 
 test('game show preserves missing custom screenshot list as null', function () {

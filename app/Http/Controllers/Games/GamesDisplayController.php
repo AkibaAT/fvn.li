@@ -41,6 +41,7 @@ class GamesDisplayController extends Controller
         ]);
 
         $game->append(['tags_list', 'effective_description']);
+        $game->makeHidden(['full_description', 'screenshots', 'uploads', 'error']);
 
         $reviews = $game->ratings()
             ->where('is_visible', true)
