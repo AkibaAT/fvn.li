@@ -44,13 +44,9 @@ class RouteMapController extends Controller
         $canInspectFullRouteMap = $canEdit && $this->routeGraphService->storedGraph($version, includeUnreachable: true) !== null;
 
         $gameVersions = $game->gameVersions()
-            ->whereNotNull('route_graph_data')
+            ->withCurrentRouteGraph($canInspectFullRouteMap)
             ->orderBy('published_at', 'desc')
-            ->get(['id', 'version', 'published_at', 'route_graph_data'])
-            ->filter(function (GameVersion $candidate) use ($canInspectFullRouteMap) {
-                return $this->routeGraphService->storedGraph($candidate) !== null
-                    && (! $canInspectFullRouteMap || $this->routeGraphService->storedGraph($candidate, includeUnreachable: true) !== null);
-            })
+            ->get(['id', 'version', 'published_at'])
             ->map(fn (GameVersion $candidate) => $candidate->only(['id', 'version', 'published_at']))
             ->values();
 

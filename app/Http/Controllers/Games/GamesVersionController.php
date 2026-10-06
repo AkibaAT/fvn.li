@@ -9,7 +9,6 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\DenKitStashPersistenceService;
 use App\Services\GameStatsService;
-use App\Services\RouteGraphService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,9 +72,9 @@ class GamesVersionController extends Controller
                 $versionHasFileStats[$versionId] = isset($fileStatsVersionIds[$versionId]);
             }
 
-            $routeGraphService = app(RouteGraphService::class);
-            $routeDataVersionIds = $versions->getCollection()
-                ->filter(fn (GameVersion $version) => $routeGraphService->storedGraph($version) !== null)
+            $routeDataVersionIds = GameVersion::query()
+                ->whereKey($versionIds)
+                ->withCurrentRouteGraph()
                 ->pluck('id')
                 ->flip()
                 ->all();
