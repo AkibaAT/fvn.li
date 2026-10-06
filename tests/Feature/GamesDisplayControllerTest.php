@@ -510,3 +510,83 @@ test('game detail includes the same notification and list membership data as bro
         ->assertJsonPath('props.game.user_list_memberships.0.list_id', $list->id)
         ->assertJsonPath('props.game.user_list_memberships.0.is_public', true);
 });
+
+function gameWithOneReview(): array
+{
+    config(['fvn.game_page_cache_ttl' => 300]);
+    $game = Game::factory()->create(['is_visible' => true]);
+    $rating = Rating::create([
+        'game_id' => $game->id,
+        'user_id' => User::factory()->create()->id,
+        'rating' => 4,
+        'review' => 'First',
+        'is_visible' => true,
+        'is_reviewed' => true,
+        'source_platform' => 'fvn_li',
+        'published_at' => now(),
+    ]);
+
+    return [$game, $rating];
+}
+
+test('game show caches page data until the game is saved', function () {
+    [$game, $rating] = gameWithOneReview();
+    $reviews = fn () => $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->json('props.reviews.data');
+
+    expect($reviews())->toHaveCount(1);
+
+    DB::table('ratings')->where('id', $rating->id)->delete();
+
+    expect($reviews())->toHaveCount(1);
+
+    $game->forceFill(['updated_at' => now()->addMinute()])->save();
+
+    expect($reviews())->toHaveCount(0);
+});
+
+test('game show drops cached page data when a review changes', function () {
+    [$game, $rating] = gameWithOneReview();
+    $reviews = fn () => $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->json('props.reviews.data');
+
+    expect($reviews())->toHaveCount(1);
+
+    $rating->delete();
+
+    expect($reviews())->toHaveCount(0);
+});
+
+test('game show overlays a signed-in visitor\'s own state on the shared page data', function () {
+    [$game, $rating] = gameWithOneReview();
+    $viewer = $rating->user;
+    $list = VnList::create(['user_id' => $viewer->id, 'name' => 'Reading', 'type' => 'custom', 'is_public' => false]);
+    VnListEntry::create(['vn_list_id' => $list->id, 'game_id' => $game->id, 'sort_order' => 1]);
+
+    $guest = $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->json('props');
+    $signedIn = $this->actingAs($viewer)->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->json('props');
+
+    expect($guest['userReview'])->toBeNull()
+        ->and($guest['game'])->not->toHaveKey('user_list_memberships')
+        ->and($signedIn['userReview']['id'])->toBe($rating->id)
+        ->and($signedIn['game']['user_list_memberships'])->toHaveCount(1)
+        ->and($signedIn['reviews'])->toBe($guest['reviews']);
+
+    auth()->forgetGuards();
+    $after = $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->json('props');
+
+    expect($after['userReview'])->toBeNull()
+        ->and($after['game'])->not->toHaveKey('user_list_memberships');
+});
+
+test('game show builds fresh page data for users who can edit the game', function () {
+    [$game, $rating] = gameWithOneReview();
+
+    $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->assertOk();
+    DB::table('ratings')->where('id', $rating->id)->delete();
+
+    $response = $this->actingAs(User::factory()->create(['is_admin' => true]))
+        ->withHeaders(gameShowInertiaHeaders())
+        ->get(route('games.show', $game));
+
+    expect($response->json('props.reviews.data'))->toHaveCount(0)
+        ->and($response->json('props.editPermissions.canEdit'))->toBeTrue();
+});

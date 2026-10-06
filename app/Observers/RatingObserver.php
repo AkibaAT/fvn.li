@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Jobs\UpdateGameRating;
 use App\Models\Rating;
+use App\Services\GamePageCacheService;
 use App\Services\HomePageCacheService;
 use App\Services\RatingStatsCacheService;
 use Illuminate\Support\Facades\Cache;
@@ -16,6 +17,7 @@ class RatingObserver
     public function created(Rating $rating): void
     {
         $this->dispatchRatingUpdate($rating, 'created');
+        GamePageCacheService::invalidate($rating->game_id);
         $this->clearRaterCache($rating);
         RatingStatsCacheService::clear();
         HomePageCacheService::clearStats(); // Clear home page stats for new rating
@@ -32,6 +34,8 @@ class RatingObserver
             $this->clearRaterCache($rating);
         }
 
+        GamePageCacheService::invalidate($rating->game_id);
+
         if ($rating->wasChanged(['published_at', 'game_id', 'rating', 'is_reviewed', 'is_visible', 'review', 'has_spoilers', 'user_id', 'rater_id', 'source_platform'])) {
             RatingStatsCacheService::clear();
         }
@@ -44,6 +48,7 @@ class RatingObserver
     public function deleted(Rating $rating): void
     {
         $this->dispatchRatingUpdate($rating, 'deleted');
+        GamePageCacheService::invalidate($rating->game_id);
         $this->clearRaterCache($rating);
         RatingStatsCacheService::clear();
         HomePageCacheService::clearStats(); // Clear home page stats for deleted rating

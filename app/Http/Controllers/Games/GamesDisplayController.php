@@ -10,8 +10,10 @@ use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\Rating;
 use App\Models\Tag;
+use App\Models\User;
 use App\Models\VnList;
 use App\Services\DenKitStashPersistenceService;
+use App\Services\GamePageCacheService;
 use App\Services\GameSocialMetaBuilder;
 use App\Services\GamesSearchResultHydrator;
 use App\Services\HtmlSanitizerService;
@@ -19,8 +21,8 @@ use App\Services\RouteGraphService;
 use App\Services\SimilarGamesService;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -33,7 +35,103 @@ class GamesDisplayController extends Controller
     /**
      * Display a single game page
      */
-    public function show(Game $game): Response
+    public function show(Game $game, Request $request): Response
+    {
+        $viewer = $request->user();
+
+        if ($viewer && ($viewer->is_admin || $viewer->ownsGame($game))) {
+            return Inertia::render('games/show', $this->pageProps($game, $viewer));
+        }
+
+        $props = GamePageCacheService::remember(
+            $game,
+            (int) $request->query('page', 1),
+            (int) $request->query('versionsPage', 1),
+            fn (): array => json_decode(json_encode($this->pageProps($game, null), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR),
+        );
+
+        if ($viewer) {
+            $viewerState = (object) ['id' => $game->id];
+            app(GamesSearchResultHydrator::class)->attachUserData(collect([$viewerState]), $viewer->id);
+            $props['game']['user_progress'] = $viewerState->user_progress;
+            $props['game']['user_list_memberships'] = $viewerState->user_list_memberships;
+            $props['userReview'] = $this->viewerReview($game, $viewer);
+        }
+
+        return Inertia::render('games/show', $props);
+    }
+
+    public function details(Game $game): JsonResponse
+    {
+        $game->load([
+            'latestVersion.supportedLanguages.language',
+            'tags' => Tag::constrainToPopular(),
+            'gameJams',
+        ]);
+
+        $sanitizer = app(HtmlSanitizerService::class);
+
+        return response()->json([
+            'id' => $game->id,
+            'name' => $game->name,
+            'slug' => $game->slug,
+            'description' => $sanitizer->sanitizeDescription($game->description),
+            'full_description' => $sanitizer->sanitizeDescription($game->full_description),
+            'authors' => $sanitizer->sanitizeAuthors($game->authors),
+            'status' => $game->status,
+            'game_engine' => $game->game_engine,
+            'is_nsfw' => $game->is_nsfw,
+            'is_paid' => $game->is_paid,
+            'has_demo' => $game->has_demo,
+            'min_price' => $game->min_price,
+            'current_price' => $game->current_price,
+            'url' => $game->url,
+            'thumb_url' => $game->optimized_thumbnail_url,
+            'screenshots' => $game->getScreenshots(),
+            'additional_links' => $game->additional_links,
+            'platforms' => $game->platforms,
+            'supported_languages' => $game->getSupportedLanguages(),
+            'tags' => $game->tags->pluck('name'),
+            'game_jams' => $game->gameJams->map(fn ($jam) => [
+                'id' => $jam->id,
+                'name' => $jam->name,
+                'slug' => $jam->slug,
+            ]),
+            'rating' => [
+                'score' => $game->rating_score,
+                'count' => $game->rating_count,
+            ],
+            'created_at' => $game->created_at,
+            'initially_published_at' => $game->initially_published_at,
+            'first_visible_at' => $game->first_visible_at,
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function viewerReview(Game $game, User $viewer): ?array
+    {
+        $review = $game->ratings()->where('user_id', $viewer->id)->first();
+
+        if (! $review) {
+            return null;
+        }
+
+        return [
+            'id' => $review->id,
+            'rating' => $review->rating,
+            'review' => app(HtmlSanitizerService::class)->sanitizeFvnReview($review->review),
+            'has_spoilers' => $review->has_spoilers,
+            'published_at' => $review->published_at?->toISOString(),
+            'updated_at' => $review->updated_at?->toISOString(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function pageProps(Game $game, ?User $viewer): array
     {
         $game->load([
             'tags' => Tag::constrainToPopular(),
@@ -146,26 +244,10 @@ class GamesDisplayController extends Controller
             }
         }
 
-        $userReview = null;
-        if (Auth::check()) {
-            $existingReview = $game->ratings()
-                ->where('user_id', Auth::id())
-                ->first();
+        $userReview = $viewer ? $this->viewerReview($game, $viewer) : null;
 
-            if ($existingReview) {
-                $userReview = [
-                    'id' => $existingReview->id,
-                    'rating' => $existingReview->rating,
-                    'review' => $sanitizer->sanitizeFvnReview($existingReview->review),
-                    'has_spoilers' => $existingReview->has_spoilers,
-                    'published_at' => $existingReview->published_at?->toISOString(),
-                    'updated_at' => $existingReview->updated_at?->toISOString(),
-                ];
-            }
-        }
-
-        if (Auth::check()) {
-            app(GamesSearchResultHydrator::class)->attachUserData(collect([$game]), Auth::id());
+        if ($viewer) {
+            app(GamesSearchResultHydrator::class)->attachUserData(collect([$game]), $viewer->id);
         }
 
         $metaTags = app(GameSocialMetaBuilder::class)->build($game, $reviews, $englishStats);
@@ -226,9 +308,8 @@ class GamesDisplayController extends Controller
             }
         }
 
-        $user = Auth::user();
-        $isAdmin = $user && $user->is_admin;
-        $isOwner = $user && ! $isAdmin && $user->ownsGame($game);
+        $isAdmin = $viewer && $viewer->is_admin;
+        $isOwner = $viewer && ! $isAdmin && $viewer->ownsGame($game);
         $canEdit = $isOwner || $isAdmin;
         $versionOptimizedArchiveAvailability = [];
         if ($canEdit && $gameVersions->getCollection()->isNotEmpty()) {
@@ -386,7 +467,7 @@ class GamesDisplayController extends Controller
         $game->effective_screenshots = $effectiveScreenshots;
         $game->thumb_url = $game->optimized_thumbnail_url;
 
-        return Inertia::render('games/show', [
+        return [
             'game' => $game,
             'reviews' => $reviews,
             'availableRatings' => $availableRatings,
@@ -416,53 +497,7 @@ class GamesDisplayController extends Controller
             'developerGames' => $developerGames,
             'estimatedReadingTime' => $estimatedReadingTime,
             'metaTags' => $metaTags->toArray(),
-        ]);
-    }
-
-    public function details(Game $game): JsonResponse
-    {
-        $game->load([
-            'latestVersion.supportedLanguages.language',
-            'tags' => Tag::constrainToPopular(),
-            'gameJams',
-        ]);
-
-        $sanitizer = app(HtmlSanitizerService::class);
-
-        return response()->json([
-            'id' => $game->id,
-            'name' => $game->name,
-            'slug' => $game->slug,
-            'description' => $sanitizer->sanitizeDescription($game->description),
-            'full_description' => $sanitizer->sanitizeDescription($game->full_description),
-            'authors' => $sanitizer->sanitizeAuthors($game->authors),
-            'status' => $game->status,
-            'game_engine' => $game->game_engine,
-            'is_nsfw' => $game->is_nsfw,
-            'is_paid' => $game->is_paid,
-            'has_demo' => $game->has_demo,
-            'min_price' => $game->min_price,
-            'current_price' => $game->current_price,
-            'url' => $game->url,
-            'thumb_url' => $game->optimized_thumbnail_url,
-            'screenshots' => $game->getScreenshots(),
-            'additional_links' => $game->additional_links,
-            'platforms' => $game->platforms,
-            'supported_languages' => $game->getSupportedLanguages(),
-            'tags' => $game->tags->pluck('name'),
-            'game_jams' => $game->gameJams->map(fn ($jam) => [
-                'id' => $jam->id,
-                'name' => $jam->name,
-                'slug' => $jam->slug,
-            ]),
-            'rating' => [
-                'score' => $game->rating_score,
-                'count' => $game->rating_count,
-            ],
-            'created_at' => $game->created_at,
-            'initially_published_at' => $game->initially_published_at,
-            'first_visible_at' => $game->first_visible_at,
-        ]);
+        ];
     }
 
     /**

@@ -38,4 +38,17 @@ return [
     */
 
     'public_page_cache_ttl' => (int) env('PUBLIC_PAGE_CACHE_TTL', 300),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Game Page Cache TTL
+    |--------------------------------------------------------------------------
+    |
+    | Seconds the game detail page's data is cached for signed-out visitors.
+    | Saving the game starts a new cache entry; zero disables the cache.
+    |
+    */
+
+    'game_page_cache_ttl' => (int) env('GAME_PAGE_CACHE_TTL', 300),
+
 ];
