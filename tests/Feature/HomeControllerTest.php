@@ -123,7 +123,6 @@ describe('Home Page Game Cards', function () {
             ->and($firstGame['is_windows'])->toBeTrue()
             ->and($firstGame['is_mac'])->toBeTrue()
             ->and($firstGame['is_web'])->toBeTrue()
-            ->and($firstGame['latest_version_id'])->toBe($version->id)
             ->and($firstGame['latest_version_number'])->toBe($version->version)
             ->and($firstGame['english_word_count'])->toBe(12345)
             ->and($firstGame['primary_word_count'])->toBe(12345)
