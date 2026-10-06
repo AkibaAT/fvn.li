@@ -136,11 +136,11 @@ class VnListCrudController extends Controller
             ], 422);
         }
 
-        $receiveUpdates = $request->boolean('receive_updates');
+        $receiveUpdates = $request->boolean('is_receiving_updates');
 
         UserGameProgress::where('user_id', Auth::id())
             ->whereIn('game_id', $freeGameIds)
-            ->update(['receive_updates' => $receiveUpdates]);
+            ->update(['is_receiving_updates' => $receiveUpdates]);
 
         // Also create records for games that don't have user_game_progress yet
         $existingGameIds = UserGameProgress::where('user_id', Auth::id())
@@ -155,7 +155,7 @@ class VnListCrudController extends Controller
                 return [
                     'user_id' => Auth::id(),
                     'game_id' => $gameId,
-                    'receive_updates' => $receiveUpdates,
+                    'is_receiving_updates' => $receiveUpdates,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
@@ -174,7 +174,7 @@ class VnListCrudController extends Controller
             'success' => true,
             'message' => "Notifications {$status} for all free games in this list.",
             'updated_game_ids' => $freeGameIds,
-            'receive_updates' => $receiveUpdates,
+            'is_receiving_updates' => $receiveUpdates,
         ]);
     }
 }

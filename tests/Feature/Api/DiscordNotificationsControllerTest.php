@@ -92,7 +92,7 @@ it('claims pending Discord notifications and formats bot payloads', function () 
     ]);
     $game = Game::factory()->create(['name' => 'Discord VN', 'is_visible' => true, 'is_paid' => false]);
     $subscriber->notificationPreferences()->create(['discord_notifications_enabled' => true]);
-    UserGameProgress::updateOrCreate(['user_id' => $subscriber->id, 'game_id' => $game->id], ['receive_updates' => true]);
+    UserGameProgress::updateOrCreate(['user_id' => $subscriber->id, 'game_id' => $game->id], ['is_receiving_updates' => true]);
     $version = latestGameVersionFor($game, ['version' => '2.0']);
     $notification = NotificationQueue::create([
         'user_id' => $subscriber->id,
@@ -139,7 +139,7 @@ it('recovers stale processing Discord notifications into a new server-generated 
     ]);
     $game = Game::factory()->create(['name' => 'SQL Safe VN', 'is_visible' => true, 'is_paid' => false]);
     $subscriber->notificationPreferences()->create(['discord_notifications_enabled' => true]);
-    UserGameProgress::updateOrCreate(['user_id' => $subscriber->id, 'game_id' => $game->id], ['receive_updates' => true]);
+    UserGameProgress::updateOrCreate(['user_id' => $subscriber->id, 'game_id' => $game->id], ['is_receiving_updates' => true]);
     $version = latestGameVersionFor($game);
     $notification = NotificationQueue::create([
         'user_id' => $subscriber->id,
@@ -611,7 +611,7 @@ it('does not claim queued Discord updates after the user opts out', function (st
     $user->notificationPreferences()->create(['discord_notifications_enabled' => $optOut !== 'channel']);
     $game = Game::factory()->create(['is_visible' => true, 'is_paid' => false]);
     $version = latestGameVersionFor($game);
-    UserGameProgress::updateOrCreate(['user_id' => $user->id, 'game_id' => $game->id], ['receive_updates' => $optOut !== 'game']);
+    UserGameProgress::updateOrCreate(['user_id' => $user->id, 'game_id' => $game->id], ['is_receiving_updates' => $optOut !== 'game']);
     $notification = NotificationQueue::create([
         'user_id' => $user->id, 'game_id' => $game->id, 'game_version_id' => $version->id,
         'channel' => 'discord', 'status' => 'pending', 'scheduled_at' => now()->subMinute(),

@@ -158,7 +158,7 @@ class GamesSearchResultHydrator
         $userProgress = DB::table('user_game_progress')
             ->where('user_id', $userId)
             ->whereIn('game_id', $gameIds)
-            ->select('game_id', 'receive_updates')
+            ->select('game_id', 'is_receiving_updates')
             ->get()
             ->keyBy('game_id');
 

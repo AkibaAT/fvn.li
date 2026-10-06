@@ -47,7 +47,7 @@ export interface GameCardGame {
         id: number;
         game_id: number;
         user_id: number;
-        receive_updates: boolean;
+        is_receiving_updates: boolean;
     }>;
     user_list_memberships?: Array<{
         list_id: number;

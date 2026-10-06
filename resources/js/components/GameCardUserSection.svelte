@@ -28,7 +28,7 @@
         gameName: string;
         isPaid?: boolean;
         listMemberships?: Array<{ list_id: number; name: string; type: string; is_default: boolean }>;
-        userProgress?: { id: number; game_id: number; user_id: number; receive_updates: boolean } | null;
+        userProgress?: { id: number; game_id: number; user_id: number; is_receiving_updates: boolean } | null;
     } = $props();
 
     interface VnList {
@@ -48,7 +48,7 @@
     let showListDialog = $state(false);
     let showUserLists = $state(false);
     const toggleNotificationsAction = useAsyncAction();
-    let notificationStatus = $state(untrack(() => userProgress?.receive_updates ?? false));
+    let notificationStatus = $state(untrack(() => userProgress?.is_receiving_updates ?? false));
     let newListName = $state('');
     let newListIsPublic = $state(false);
     const createAction = useAsyncAction();
@@ -66,7 +66,7 @@
 
     $effect(() => {
         if (!isAuthenticated) return;
-        notificationStatus = userProgress?.receive_updates ?? false;
+        notificationStatus = userProgress?.is_receiving_updates ?? false;
     });
 
     const loadUserListsForDialog = async () => {
@@ -178,8 +178,8 @@
             { fallbackError: 'Failed to toggle notifications' },
         );
         if (!data) return;
-        notificationStatus = data.receive_updates;
-        notify(`Notifications ${data.receive_updates ? 'enabled' : 'disabled'} for "${gameName}"`, 'success');
+        notificationStatus = data.is_receiving_updates;
+        notify(`Notifications ${data.is_receiving_updates ? 'enabled' : 'disabled'} for "${gameName}"`, 'success');
     };
 
     const userListsInGame = $derived(userLists.filter((list) => listStates[list.id]));

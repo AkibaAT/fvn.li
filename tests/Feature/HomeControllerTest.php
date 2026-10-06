@@ -68,7 +68,7 @@ describe('Home Page Game Cards', function () {
             'user_id' => $user->id,
             'game_id' => $game->id,
             'status' => 'reading',
-            'receive_updates' => true,
+            'is_receiving_updates' => true,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -130,7 +130,7 @@ describe('Home Page Game Cards', function () {
             ->and($firstGame['primary_language_name'])->toBe('English')
             ->and($firstGame['supported_languages'][0]['iso_code'])->toBe('eng')
             ->and($firstGame['supported_languages'][0]['ref_name'])->toBe('English')
-            ->and($firstGame['user_progress'][0]->receive_updates)->toBeTrue()
+            ->and($firstGame['user_progress'][0]->is_receiving_updates)->toBeTrue()
             ->and($firstGame['user_list_memberships'][0]->name)->toBe('Home List');
     });
 
@@ -148,7 +148,7 @@ describe('Home Page Game Cards', function () {
             'user_id' => $victim->id,
             'game_id' => $game->id,
             'status' => 'reading',
-            'receive_updates' => true,
+            'is_receiving_updates' => true,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -182,7 +182,7 @@ describe('Home Page Game Cards', function () {
         $guestResponse->assertOk();
         $guestGame = $guestResponse->viewData('page')['props']['teasers']['recentlyAdded'][0];
 
-        expect($victimGame['user_progress'][0]->receive_updates)->toBeTrue()
+        expect($victimGame['user_progress'][0]->is_receiving_updates)->toBeTrue()
             ->and($victimGame['user_list_memberships'][0]->name)->toBe('Victim Private Wishlist')
             ->and($guestGame['id'])->toBe($game->id)
             ->and($guestGame['user_progress'])->toBe([])

@@ -107,7 +107,7 @@ test('export stream writes complete JSON and CSV files into a valid ZIP', functi
         'personal_notes' => 'Finished it',
         'started_at' => now()->subDays(2),
         'completed_at' => now(),
-        'receive_updates' => true,
+        'is_receiving_updates' => true,
     ]);
     UserNotificationPreferences::create([
         'user_id' => $this->user->id,

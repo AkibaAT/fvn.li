@@ -95,7 +95,7 @@ test('game detail initializes notification and membership controls from saved da
     await expect(page.getByRole('checkbox', { name: 'Notifications on', exact: true })).toBeChecked();
     await shot(page, info, 'incorrect-detail-progress');
     const state = await (await page.request.get(`/browser-api/user-progress/${f.gameId}/status`)).json();
-    expect(state).toMatchObject({ success: true, receive_updates: true });
+    expect(state).toMatchObject({ success: true, is_receiving_updates: true });
     await lists(page);
 });
 

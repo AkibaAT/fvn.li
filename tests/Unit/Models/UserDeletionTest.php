@@ -53,7 +53,7 @@ describe('user deletion', function () {
             'user_id' => $user->id,
             'game_id' => $game->id,
             'status' => 'reading',
-            'receive_updates' => false,
+            'is_receiving_updates' => false,
         ]);
 
         $user->delete();

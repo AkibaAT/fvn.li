@@ -54,7 +54,7 @@ function notificationUserFor(Game $game, array $preferences = [], bool $withDisc
         // Pinned to the game under test: any other version would carry a random
         // publication date and could land inside the command's recency window.
         'game_version_id' => $game->latestVersion?->id,
-        'receive_updates' => true,
+        'is_receiving_updates' => true,
     ]);
 
     if ($withDiscord) {
@@ -418,7 +418,7 @@ it('combines daily digest browser notifications for a user', function () {
     [$secondGame, $secondVersion] = queueCommandGame(['version' => '4.0']);
 
     foreach ([[$firstGame, $firstVersion], [$secondGame, $secondVersion]] as [$game, $version]) {
-        UserGameProgress::factory()->create(['user_id' => $user->id, 'game_id' => $game->id, 'game_version_id' => $version->id, 'receive_updates' => true]);
+        UserGameProgress::factory()->create(['user_id' => $user->id, 'game_id' => $game->id, 'game_version_id' => $version->id, 'is_receiving_updates' => true]);
         NotificationQueue::create([
             'user_id' => $user->id,
             'game_id' => $game->id,
@@ -458,7 +458,7 @@ it('uses digest formatting even when only one digest row is due', function () {
     ]);
     pushSubscriptionFor($user);
     [$game, $version] = queueCommandGame();
-    UserGameProgress::updateOrCreate(['user_id' => $user->id, 'game_id' => $game->id], ['receive_updates' => true]);
+    UserGameProgress::updateOrCreate(['user_id' => $user->id, 'game_id' => $game->id], ['is_receiving_updates' => true]);
     NotificationQueue::create([
         'user_id' => $user->id,
         'game_id' => $game->id,
@@ -506,7 +506,7 @@ it('drops queued browser updates after channel or game opt-outs including digest
     if ($optOut === 'channel') {
         $user->notificationPreferences()->update(['browser_notifications_enabled' => false]);
     } else {
-        UserGameProgress::where('user_id', $user->id)->update(['receive_updates' => false]);
+        UserGameProgress::where('user_id', $user->id)->update(['is_receiving_updates' => false]);
     }
     $service = Mockery::mock(NotificationService::class);
     $service->shouldReceive('assertConfigured')->once();

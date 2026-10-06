@@ -372,7 +372,7 @@ test('game show exposes rich version review progress analytics and recommendatio
         'user_id' => $user->id,
         'game_id' => $game->id,
         'game_version_id' => $version->id,
-        'receive_updates' => true,
+        'is_receiving_updates' => true,
     ]);
     $list = VnList::factory()->create([
         'user_id' => $user->id,
@@ -502,11 +502,11 @@ test('game show character count matches modal display name fallback semantics', 
 test('game detail includes the same notification and list membership data as browse', function () {
     $user = User::factory()->create();
     $game = Game::factory()->create(['is_visible' => true]);
-    UserGameProgress::updateOrCreate(['user_id' => $user->id, 'game_id' => $game->id], ['receive_updates' => true]);
+    UserGameProgress::updateOrCreate(['user_id' => $user->id, 'game_id' => $game->id], ['is_receiving_updates' => true]);
     $list = VnList::factory()->create(['user_id' => $user->id, 'name' => 'Reading fixture', 'type' => 'custom', 'is_public' => true]);
     VnListEntry::factory()->create(['vn_list_id' => $list->id, 'game_id' => $game->id]);
     $this->actingAs($user)->get(route('games.show', $game), gameShowInertiaHeaders())->assertOk()
-        ->assertJsonPath('props.game.user_progress.0.receive_updates', true)
+        ->assertJsonPath('props.game.user_progress.0.is_receiving_updates', true)
         ->assertJsonPath('props.game.user_list_memberships.0.list_id', $list->id)
         ->assertJsonPath('props.game.user_list_memberships.0.is_public', true);
 });

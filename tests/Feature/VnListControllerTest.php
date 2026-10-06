@@ -515,15 +515,15 @@ it('tracks list membership and progress status for the current user', function (
         ->assertJsonPath('progress.personal_notes', 'Started today');
 
     $this->actingAs($user)->patchJson(route('api.user-progress.toggle-updates', $game), [
-        'receive_updates' => true,
+        'is_receiving_updates' => true,
     ])->assertOk()
-        ->assertJsonPath('receive_updates', true);
+        ->assertJsonPath('is_receiving_updates', true);
 
     $this->actingAs($user)->getJson(route('browser-api.user-progress.status', $game))
         ->assertOk()
-        ->assertJsonPath('receive_updates', true);
+        ->assertJsonPath('is_receiving_updates', true);
 
-    expect(UserGameProgress::where('user_id', $user->id)->where('game_id', $game->id)->first()?->receive_updates)->toBeTrue();
+    expect(UserGameProgress::where('user_id', $user->id)->where('game_id', $game->id)->first()?->is_receiving_updates)->toBeTrue();
 });
 
 it('rejects notification toggles for paid games', function () {
@@ -533,7 +533,7 @@ it('rejects notification toggles for paid games', function () {
     ]);
 
     $this->actingAs($user)->patchJson(route('api.user-progress.toggle-updates', $game), [
-        'receive_updates' => true,
+        'is_receiving_updates' => true,
     ])->assertStatus(400)
         ->assertJsonPath('success', false)
         ->assertJsonPath('message', 'Notifications are not available for paid games.');
@@ -550,7 +550,7 @@ it('exposes only public list data and the owners progress to each viewer', funct
         'game_version_id' => $version->id,
         'personal_notes' => 'Owners public note',
         'started_at' => '2026-01-02',
-        'receive_updates' => true,
+        'is_receiving_updates' => true,
     ]);
     if ($viewer !== 'guest') {
         $user = $viewer === 'owner' ? $owner : User::factory()->create();
@@ -568,10 +568,10 @@ it('exposes only public list data and the owners progress to each viewer', funct
         ->and($progress['game_version']['id'])->toBe($version->id);
     if ($viewer === 'owner') {
         expect($entryData['private_notes'])->toBe('Owner-only secret')
-            ->and($progress['receive_updates'])->toBeTrue();
+            ->and($progress['is_receiving_updates'])->toBeTrue();
     } else {
         expect($entryData)->not->toHaveKey('private_notes');
-        expect($progress)->not->toHaveKey('receive_updates');
+        expect($progress)->not->toHaveKey('is_receiving_updates');
     }
     $publicProfile = $this->get(route('lists.user-public', $owner))->assertOk();
     expect($publicProfile->viewData('page')['props']['user'])->not->toHaveKey('email');

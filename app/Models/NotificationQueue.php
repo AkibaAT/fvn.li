@@ -111,7 +111,7 @@ class NotificationQueue extends Model
         return $preference !== null
             && UserNotificationPreferences::where('user_id', $this->user_id)->where($preference, true)->exists()
             && $this->game()->where('is_visible', true)->where('is_paid', false)->exists()
-            && UserGameProgress::where('user_id', $this->user_id)->where('game_id', $this->game_id)->where('receive_updates', true)->exists();
+            && UserGameProgress::where('user_id', $this->user_id)->where('game_id', $this->game_id)->where('is_receiving_updates', true)->exists();
     }
 
     public function ownedClaim(): Builder

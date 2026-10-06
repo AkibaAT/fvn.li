@@ -110,7 +110,7 @@ describe('cascade deletion of user data', function () {
             'user_id' => $this->user->id,
             'game_id' => $game->id,
             'status' => 'reading',
-            'receive_updates' => false,
+            'is_receiving_updates' => false,
         ]);
 
         $this->actingAs($this->user)->delete(route('user.account.delete'), ['password' => 'password']);

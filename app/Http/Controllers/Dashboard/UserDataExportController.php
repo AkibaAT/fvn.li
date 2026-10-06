@@ -139,7 +139,7 @@ class UserDataExportController extends Controller
                     'personal_notes' => $progress->personal_notes,
                     'started_at' => $progress->started_at?->toISOString(),
                     'completed_at' => $progress->completed_at?->toISOString(),
-                    'receive_updates' => (bool) $progress->receive_updates,
+                    'is_receiving_updates' => (bool) $progress->is_receiving_updates,
                     'created_at' => $progress->created_at?->toISOString(),
                     'updated_at' => $progress->updated_at?->toISOString(),
                     'game' => $progress->game ? [
@@ -413,7 +413,7 @@ class UserDataExportController extends Controller
         $gameProgressCsv = fopen('php://temp', 'w+');
         $this->writeCsv($gameProgressCsv, [
             'id', 'game_id', 'game_name', 'game_version_id', 'version', 'status', 'personal_notes',
-            'started_at', 'completed_at', 'receive_updates', 'created_at', 'updated_at',
+            'started_at', 'completed_at', 'is_receiving_updates', 'created_at', 'updated_at',
         ]);
         foreach ($gameProgress as $gp) {
             $this->writeCsv($gameProgressCsv, [
@@ -426,7 +426,7 @@ class UserDataExportController extends Controller
                 $gp['personal_notes'],
                 $gp['started_at'],
                 $gp['completed_at'],
-                $gp['receive_updates'] ? 1 : 0,
+                $gp['is_receiving_updates'] ? 1 : 0,
                 $gp['created_at'],
                 $gp['updated_at'],
             ]);

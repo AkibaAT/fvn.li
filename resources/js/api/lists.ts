@@ -57,10 +57,10 @@ export async function toggleVnListVisibility(listId: number): Promise<{ is_publi
 export async function toggleAllListUpdates(
     listId: number,
     receiveUpdates: boolean,
-): Promise<{ message?: string; receive_updates: boolean; updated_game_ids?: number[] }> {
-    const { data } = await http.patch<{ success: boolean; message?: string; receive_updates: boolean; updated_game_ids?: number[] }>(
+): Promise<{ message?: string; is_receiving_updates: boolean; updated_game_ids?: number[] }> {
+    const { data } = await http.patch<{ success: boolean; message?: string; is_receiving_updates: boolean; updated_game_ids?: number[] }>(
         route('api.vn-lists.toggle-all-updates', listId),
-        { receive_updates: receiveUpdates },
+        { is_receiving_updates: receiveUpdates },
     );
     assertSuccess(data, 'Failed to update notifications');
     return data;
@@ -96,10 +96,13 @@ export async function reorderListEntries(listId: number, entryIds: number[]): Pr
     return data;
 }
 
-export async function toggleUserProgressUpdates(gameId: number, receiveUpdates: boolean): Promise<{ message?: string; receive_updates: boolean }> {
-    const { data } = await http.patch<{ success: boolean; message?: string; receive_updates: boolean }>(
+export async function toggleUserProgressUpdates(
+    gameId: number,
+    receiveUpdates: boolean,
+): Promise<{ message?: string; is_receiving_updates: boolean }> {
+    const { data } = await http.patch<{ success: boolean; message?: string; is_receiving_updates: boolean }>(
         route('api.user-progress.toggle-updates', gameId),
-        { receive_updates: receiveUpdates },
+        { is_receiving_updates: receiveUpdates },
     );
     assertSuccess(data, 'Failed to toggle notifications');
     return data;

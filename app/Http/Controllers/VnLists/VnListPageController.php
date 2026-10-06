@@ -162,7 +162,7 @@ class VnListPageController extends Controller
                                     ->select(['id', 'game_id', 'game_version_id', 'personal_notes', 'started_at', 'completed_at'])
                                     ->with('gameVersion');
                                 if ($isOwner) {
-                                    $upQuery->addSelect(['user_id', 'receive_updates']);
+                                    $upQuery->addSelect(['user_id', 'is_receiving_updates']);
                                 }
                             },
                         ]);
