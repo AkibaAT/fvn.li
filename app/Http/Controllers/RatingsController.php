@@ -131,8 +131,8 @@ class RatingsController extends Controller
         ];
 
         $statsProp = $isPartialForThisPage
-            ? fn () => cache()->rememberForever(RatingStatsCacheService::GLOBAL_STATS_KEY, fn () => $this->getGlobalRatingStats())
-            : cache()->rememberForever(RatingStatsCacheService::GLOBAL_STATS_KEY, fn () => $this->getGlobalRatingStats());
+            ? fn () => RatingStatsCacheService::globalStats(fn () => $this->getGlobalRatingStats())
+            : RatingStatsCacheService::globalStats(fn () => $this->getGlobalRatingStats());
 
         return Inertia::render('ratings/index', [
             'pageTitle' => 'Ratings',

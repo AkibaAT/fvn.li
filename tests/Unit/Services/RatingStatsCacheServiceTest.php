@@ -18,12 +18,20 @@ it('uses versioned keys for expiring rating stats caches', function () {
         ->not->toBe($firstKey);
 });
 
-it('clears the stable global stats forever cache instead of accumulating versions', function () {
-    Cache::forever(RatingStatsCacheService::GLOBAL_STATS_KEY, ['total' => 10]);
+it('keeps serving cached global stats across invalidations', function () {
+    $computations = 0;
+    $compute = function () use (&$computations): array {
+        $computations++;
+
+        return ['total' => 10];
+    };
+
+    expect(RatingStatsCacheService::globalStats($compute))->toBe(['total' => 10]);
 
     RatingStatsCacheService::clear();
 
-    expect(Cache::has(RatingStatsCacheService::GLOBAL_STATS_KEY))->toBeFalse();
+    expect(RatingStatsCacheService::globalStats($compute))->toBe(['total' => 10])
+        ->and($computations)->toBe(1);
 });
 
 it('removes legacy versioned global stats keys during invalidation', function () {

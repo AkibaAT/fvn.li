@@ -15,13 +15,13 @@ class GameFilterService
 {
     public static function clearCache(): void
     {
-        Cache::forget(self::cacheKey());
+        Cache::memo()->forget(self::cacheKey());
         Tag::clearPopularCache();
     }
 
     public static function getOptions(): array
     {
-        return Cache::remember(self::cacheKey(), 3600, function () {
+        return Cache::memo()->remember(self::cacheKey(), 3600, function () {
             $gameIds = DB::table('game_versions')
                 ->where('is_latest', true)
                 ->pluck('game_id');
