@@ -51,14 +51,15 @@ describe('GlyphStrip', () => {
         });
 
         const store = screen.getByRole('button', { name: 'itch.io store' });
-        expect(store.classList.contains('bg-fg')).toBe(true);
-        expect(store.classList.contains('text-surface')).toBe(true);
+        const storeBox = store.firstElementChild as HTMLElement;
+        expect(storeBox.classList.contains('bg-fg')).toBe(true);
+        expect(storeBox.classList.contains('text-surface')).toBe(true);
 
-        const platform = screen.getByRole('button', { name: 'Mac' });
-        expect(platform.classList.contains('bg-fg')).toBe(true);
+        const platformBox = screen.getByRole('button', { name: 'Mac' }).firstElementChild as HTMLElement;
+        expect(platformBox.classList.contains('bg-fg')).toBe(true);
 
-        const language = screen.getByRole('button', { name: 'English' });
-        expect(language.classList.contains('bg-fg')).toBe(true);
+        const languageBox = screen.getByRole('button', { name: 'English' }).firstElementChild as HTMLElement;
+        expect(languageBox.classList.contains('bg-fg')).toBe(true);
 
         expect(store.getAttribute('aria-pressed')).toBe('true');
     });
