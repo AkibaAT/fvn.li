@@ -5,7 +5,7 @@ x-db: &db
 x-flaresolverr: &flaresolverr
   image: flaresolverr/flaresolverr:v3.5.2@sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767
 x-meilisearch: &meilisearch
-  image: getmeili/meilisearch:v1.53@sha256:c94e58ca09662dd6e65e8f1b0fd145767be3da7d5422a863a27b8d2b68e090c9
+  image: getmeili/meilisearch:v1.54@sha256:e68913ab7d6f5b159529e472cfd362ce3c741fafd3c127961b2142abbe41b3c9
 x-redis: &redis
   image: redis:8.10.2@sha256:d5ac52db24d4e70566fe9944f22cf5bdc2bc739b05c0f426335161ea6c23f3b3
 x-denkit-stash: &denkit-stash
