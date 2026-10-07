@@ -63,6 +63,10 @@
 
         if (open && !dialogEl.open) {
             openerEl = document.activeElement as HTMLElement | null;
+            if (!document.querySelector('dialog:modal')) {
+                const root = document.documentElement;
+                root.style.setProperty('--page-scrollbar-width', `${window.innerWidth - root.clientWidth}px`);
+            }
             dialogEl.showModal();
             const element = dialogEl;
             return () => {

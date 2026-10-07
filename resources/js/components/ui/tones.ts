@@ -15,15 +15,6 @@ const listTypeMetadata = {
     custom: { tone: 'neutral', label: 'Custom', icon: ClipboardIcon },
 } as const satisfies Record<string, { tone: BadgeTone; label: string; icon: Component }>;
 
-const listTypeBorderClasses = {
-    reading: 'border-accent',
-    completed: 'border-green-500',
-    plan_to_read: 'border-amber-500',
-    on_hold: 'border-orange-500',
-    dropped: 'border-red-500',
-    default: 'border-border-strong',
-} as const;
-
 const listTypeDotClasses = {
     reading: 'bg-accent',
     completed: 'bg-green-500',
@@ -46,10 +37,6 @@ export function listTypeLabel(type: string | undefined): string {
 export function listTypeIcon(type: string | undefined): Component {
     if (!type) return listTypeMetadata.custom.icon;
     return listTypeMetadata[type as keyof typeof listTypeMetadata]?.icon ?? listTypeMetadata.custom.icon;
-}
-
-export function listTypeBorderClass(type: string | undefined): string {
-    return listTypeBorderClasses[type as keyof typeof listTypeBorderClasses] ?? listTypeBorderClasses.default;
 }
 
 export function listTypeDotClass(type: string | undefined): string {

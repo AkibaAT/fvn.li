@@ -8,7 +8,7 @@
     import ScreenshotsGallery from '@/components/games/ScreenshotsGallery.svelte';
     import ScreenshotsLightbox from '@/components/games/ScreenshotsLightbox.svelte';
     import GameJamsSection from '@/components/games/GameJamsSection.svelte';
-    import { Badge, Card, formatListType, listTypeBorderClass, listTypeTone } from '@/components/ui';
+    import { Badge, Card, formatListType, listTypeTone } from '@/components/ui';
     import DownloadsList from '@/components/games/DownloadsList.svelte';
     import GameRecommendationsSection from '@/components/games/GameRecommendationsSection.svelte';
     import GameReviewsSection from '@/components/games/GameReviewsSection.svelte';
@@ -512,9 +512,7 @@
             {#each publicLists as list (list.id)}
                 <Link
                     href={route('lists.show', list.id)}
-                    class="group block rounded-md border border-l-4 border-border {listTypeBorderClass(
-                        list.type,
-                    )} p-4 transition-colors hover:bg-surface-alt"
+                    class="group block rounded-md border border-border p-4 transition-colors hover:bg-surface-alt"
                 >
                     <div class="mb-1.5 flex items-center gap-2">
                         <Badge tone={listTypeTone(list.type)} size="sm">{formatListType(list.type)}</Badge>

@@ -13,7 +13,7 @@
 </script>
 
 <div class="flex flex-col items-center justify-center py-12 text-center {className}">
-    <h3 class="text-md font-semibold text-fg">{title}</h3>
+    <p class="text-md font-semibold text-fg">{title}</p>
     {#if description}
         <p class="mt-2 max-w-md text-sm text-fg-muted">{description}</p>
     {/if}

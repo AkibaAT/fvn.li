@@ -41,22 +41,22 @@
     }: Props = $props();
 </script>
 
-<div class={cn('flex flex-nowrap items-center gap-x-3 overflow-hidden', className)} data-glyph-strip>
+<div class={cn('-my-0.75 -ml-0.75 flex flex-nowrap items-center gap-x-1.5 overflow-hidden', className)} data-glyph-strip>
     {#if storePlatform || platforms.length > 0}
-        <div class="flex shrink-0 items-center gap-1.5">
+        <div class="flex shrink-0 items-center">
             {#if storePlatform}
                 <StoreGlyph {storePlatform} active={isStoreActive} onclick={onStoreClick} />
             {/if}
             {#if storePlatform && platforms.length > 0}
-                <span class="mx-1 h-3 w-px shrink-0 bg-border" aria-hidden="true"></span>
+                <span class="mx-1.75 h-3 w-px shrink-0 bg-border" aria-hidden="true"></span>
             {/if}
             {#if platforms.length > 0}
-                <PlatformGlyphs {platforms} {selectedPlatforms} {onPlatformClick} class="gap-1.5" />
+                <PlatformGlyphs {platforms} {selectedPlatforms} {onPlatformClick} />
             {/if}
         </div>
     {/if}
 
     {#if languages.length > 0}
-        <LanguageGlyphs {languages} {selectedLanguages} {onLanguageClick} variant={languageLimit} class="gap-1.5" />
+        <LanguageGlyphs {languages} {selectedLanguages} {onLanguageClick} variant={languageLimit} />
     {/if}
 </div>

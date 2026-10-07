@@ -58,6 +58,11 @@
     summary {
         cursor: pointer;
     }
+
+    html:has(dialog:modal) {
+        overflow: hidden;
+        padding-right: var(--page-scrollbar-width, 0px);
+    }
 }
 
 @layer base {

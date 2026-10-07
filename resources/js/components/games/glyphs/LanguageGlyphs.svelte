@@ -57,7 +57,7 @@
     );
 </script>
 
-<div class={cn('flex shrink-0 items-center gap-1', className)} data-language-glyphs>
+<div class={cn('flex shrink-0 items-center', className)} data-language-glyphs>
     {#each glyphs.slice(0, slots.length) as glyph, index (glyph.key)}
         {@const isActive = glyph.isoCodes.some((iso) => selectedLanguages.includes(iso))}
         {@const label = glyph.names.join(', ')}
@@ -67,13 +67,16 @@
             title={label}
             aria-label={label}
             aria-pressed={isActive}
-            class={clsx(
-                'h-3.5 w-4.5 shrink-0 overflow-hidden rounded-sm transition-colors',
-                slots[index],
-                isActive ? 'bg-fg dark:bg-white/15' : 'bg-surface-alt hover:bg-border',
-            )}
+            class={clsx('group/glyph size-6 shrink-0 items-center justify-center', slots[index])}
         >
-            <span class="fi fi-{glyph.flagCode} block! size-full!"></span>
+            <span
+                class={clsx(
+                    'block h-3.5 w-4.5 overflow-hidden rounded-sm transition-colors',
+                    isActive ? 'bg-fg dark:bg-white/15' : 'bg-surface-alt group-hover/glyph:bg-border',
+                )}
+            >
+                <span class="fi fi-{glyph.flagCode} block! size-full!"></span>
+            </span>
         </button>
     {/each}
 

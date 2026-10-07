@@ -17,7 +17,7 @@
         updateVnList,
     } from '@/api/lists';
     import VersionComparisonModal from '@/components/VersionComparisonModal.svelte';
-    import { listTypeBorderClass, listTypeIcon, listTypeLabel, listTypeTone } from '@/components/ui/tones';
+    import { listTypeIcon, listTypeLabel, listTypeTone } from '@/components/ui/tones';
     import SortableList from '@/components/drag-drop/SortableList.svelte';
     import ListEntryCard from '@/components/lists/ListEntryCard.svelte';
     import ListGroup from '@/components/lists/ListGroup.svelte';
@@ -257,8 +257,6 @@
 
     const availableListsForMove = (currentListId: number) => availableLists.filter((list) => list.id !== currentListId);
 
-    const borderColorClass = $derived(listTypeBorderClass(vnList?.type));
-
     $effect(() => {
         if (typeof window === 'undefined') return;
 
@@ -277,7 +275,7 @@
 <SeoHead {metaTags} title={isEditingList ? listFormData.name : listData.name} />
 
 <div class="space-y-6">
-    <Card padding="lg" class="mb-6 border-l-4 p-4 md:p-6 {borderColorClass}">
+    <Card padding="lg" class="mb-6 p-4 md:p-6">
         <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
                 <PageHeader

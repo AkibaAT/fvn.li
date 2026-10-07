@@ -63,7 +63,7 @@
     <div class="relative mb-2">
         <GameImage {game} {thumbnailUrl} />
 
-        <div class="absolute bottom-2 left-2 flex flex-wrap gap-1">
+        <div class="absolute right-9 bottom-1.25 left-2 flex flex-wrap gap-1">
             <GameFlags
                 {game}
                 {selectedStatuses}
@@ -86,7 +86,7 @@
                 overlay
                 active={props.selectedStorePlatforms?.includes(storePlatform)}
                 onclick={handleStorePlatform}
-                class="absolute right-2 bottom-2"
+                class="absolute right-1.75 bottom-1.5"
             />
         {/if}
     </div>
@@ -117,9 +117,9 @@
 
         <div class="truncate text-xs leading-snug text-fg-faint max-sm:hidden" title={datesTitle}>{dateLabel ?? ''}</div>
 
-        <PlatformGlyphs platforms={supportedPlatforms} {selectedPlatforms} onPlatformClick={handlePlatform} class="pt-1.5" />
+        <PlatformGlyphs platforms={supportedPlatforms} {selectedPlatforms} onPlatformClick={handlePlatform} class="-ml-0.75" />
 
-        <LanguageGlyphs languages={game.supported_languages ?? []} {selectedLanguages} onLanguageClick={handleLanguage} />
+        <LanguageGlyphs languages={game.supported_languages ?? []} {selectedLanguages} onLanguageClick={handleLanguage} class="-my-1.25 -ml-0.75" />
 
         <GameTagList tags={orderedTags} {selectedTags} onTagClick={handleTag} limit={5} class="content-start" />
 

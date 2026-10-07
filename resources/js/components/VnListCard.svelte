@@ -4,7 +4,7 @@
     import ChevronRightSolidIcon from '@/components/icons/ChevronRightSolid.svelte';
     import { Link } from '@inertiajs/svelte';
     import { Badge, Button, Card } from '@/components/ui';
-    import { formatListType, listTypeBorderClass, listTypeTone } from '@/components/ui/tones';
+    import { formatListType, listTypeTone } from '@/components/ui/tones';
     import GameImage from '@/components/game-card/GameImage.svelte';
     import { getGameThumbnail } from '@/utils/game-card-display';
     import type { VnList } from '@/types/lists';
@@ -27,7 +27,6 @@
         class?: string;
     } = $props();
 
-    const borderClass = $derived(listTypeBorderClass(list.type));
     const typeTone = $derived(listTypeTone(list.type));
 
     let index = $state(0);
@@ -99,7 +98,7 @@
     variant="flat"
     padding="none"
     hover
-    class="flex h-full flex-col overflow-hidden border-l-4 {borderClass} {className}"
+    class="flex h-full flex-col overflow-hidden {className}"
 >
     <div class="flex-grow p-6">
         <div class="mb-4 flex items-start justify-between gap-4">

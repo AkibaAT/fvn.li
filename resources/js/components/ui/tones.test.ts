@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { formatListType, listTypeBorderClass, listTypeDotClass, listTypeIcon, listTypeLabel, listTypeTone } from './tones';
+import { formatListType, listTypeDotClass, listTypeIcon, listTypeLabel, listTypeTone } from './tones';
 import ClipboardIcon from '@/components/icons/Clipboard.svelte';
 
 describe('list type tones', () => {
@@ -7,12 +7,10 @@ describe('list type tones', () => {
         expect(listTypeTone('unknown')).toBe('neutral');
         expect(listTypeLabel('unknown')).toBe('Custom');
         expect(listTypeIcon(undefined)).toBe(ClipboardIcon);
-        expect(listTypeBorderClass('unknown')).toBe('border-border-strong');
         expect(listTypeDotClass(undefined)).toBe('bg-border-strong');
     });
 
     test('uses the accent for reading lists', () => {
-        expect(listTypeBorderClass('reading')).toBe('border-accent');
         expect(listTypeDotClass('reading')).toBe('bg-accent');
     });
 

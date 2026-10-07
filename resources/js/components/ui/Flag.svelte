@@ -25,10 +25,16 @@
     aria-label={ariaLabel}
     aria-pressed={active}
     data-flag="true"
-    class={cn('inline-flex shrink-0 items-center rounded-sm border bg-transparent px-1.25 py-px text-micro font-semibold uppercase transition-colors',
-            'border-border-strong text-fg-muted hover:text-fg',
-            active && 'border-fg text-fg',
-            className)}
+    class="group/flag inline-flex h-6 shrink-0 items-center"
 >
-    {label}
+    <span
+        class={cn(
+            'inline-flex items-center rounded-sm border bg-transparent px-1.25 py-px text-micro font-semibold uppercase transition-colors',
+            'border-border-strong text-fg-muted group-hover/flag:text-fg',
+            active && 'border-fg text-fg',
+            className,
+        )}
+    >
+        {label}
+    </span>
 </button>

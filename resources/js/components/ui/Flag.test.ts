@@ -9,8 +9,8 @@ describe('Flag', () => {
 
         const flag = screen.getByRole('button', { name: 'In dev' });
 
-        expect(flag.textContent).toBe('In dev');
-        expect([...flag.classList]).toEqual(
+        expect(flag.textContent?.trim()).toBe('In dev');
+        expect([...(flag.firstElementChild as HTMLElement).classList]).toEqual(
             expect.arrayContaining(['inline-flex', 'uppercase', 'border-border-strong', 'text-fg-muted', 'text-micro', 'rounded-sm']),
         );
         expect(flag.getAttribute('aria-pressed')).toBe('false');
@@ -21,9 +21,10 @@ describe('Flag', () => {
 
         const flag = screen.getByRole('button', { name: 'Paid' });
 
-        expect(flag.classList.contains('border-fg')).toBe(true);
-        expect(flag.classList.contains('text-fg')).toBe(true);
-        expect(flag.classList.contains('border-border-strong')).toBe(false);
+        const chip = flag.firstElementChild as HTMLElement;
+        expect(chip.classList.contains('border-fg')).toBe(true);
+        expect(chip.classList.contains('text-fg')).toBe(true);
+        expect(chip.classList.contains('border-border-strong')).toBe(false);
         expect(flag.getAttribute('aria-pressed')).toBe('true');
     });
 

@@ -26,20 +26,26 @@
     {title}
     aria-label="{title} store"
     aria-pressed={active}
-    class={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-sm transition-colors',
-        overlay ? 'h-5 w-5.5 border border-border-strong shadow-sm' : 'size-4.5',
-        active
-            ? 'bg-fg text-surface'
-            : clsx(overlay && 'bg-surface', storePlatform === 'itch_io' ? 'text-itchio hover:text-fg' : 'text-fg-muted hover:text-fg'),
-        className,
-    )}
+    class={cn('group/glyph inline-flex size-6 shrink-0 items-center justify-center', className)}
 >
-    {#if storePlatform === 'itch_io'}
-        <Itchio class="size-3.25" monochrome />
-    {:else if storePlatform === 'steam'}
-        <Steam class="size-3.25" monochrome />
-    {:else}
-        <GlobeIcon class="size-3.25" />
-    {/if}
+    <span
+        class={clsx(
+            'inline-flex items-center justify-center rounded-sm transition-colors',
+            overlay ? 'h-5 w-5.5 border border-border-strong shadow-sm' : 'size-4.5',
+            active
+                ? 'bg-fg text-surface'
+                : clsx(
+                      overlay && 'bg-surface',
+                      storePlatform === 'itch_io' ? 'text-itchio group-hover/glyph:text-fg' : 'text-fg-muted group-hover/glyph:text-fg',
+                  ),
+        )}
+    >
+        {#if storePlatform === 'itch_io'}
+            <Itchio class="size-3.25" monochrome />
+        {:else if storePlatform === 'steam'}
+            <Steam class="size-3.25" monochrome />
+        {:else}
+            <GlobeIcon class="size-3.25" />
+        {/if}
+    </span>
 </button>
