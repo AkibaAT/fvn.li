@@ -6,7 +6,6 @@ use App\Models\Game;
 use App\Models\Rater;
 use App\Models\Rating;
 use App\Models\User;
-use App\Services\RatingStatsCacheService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
@@ -207,7 +206,7 @@ it('normalizes invalid ratings index filters to safe defaults', function () {
         ->and($props['ratings']['per_page'])->toBe(100);
 });
 
-it('ignores unrecognized ratings platform filters before querying or caching counts', function () {
+it('ignores unrecognized ratings platform filters', function () {
     Cache::flush();
     $dispatcher = Model::getEventDispatcher();
     Model::unsetEventDispatcher();
@@ -224,19 +223,15 @@ it('ignores unrecognized ratings platform filters before querying or caching cou
         $response->assertOk();
         $props = $response->viewData('page')['props'];
 
-        $safeCountKey = RatingStatsCacheService::key('ratings.count:rev:1:star:all:listed:1:platform:__all_platforms__');
-        $unsafeCountKey = RatingStatsCacheService::key("ratings.count:rev:1:star:all:listed:1:platform:{$platform}");
-
         expect($props['filters']['platform'])->toBeNull()
             ->and($props['ratings']['total'])->toBe(2)
-            ->and(Cache::has($safeCountKey))->toBeTrue()
-            ->and(Cache::has($unsafeCountKey))->toBeFalse();
+            ->and($props['ratings']['data'])->toHaveCount(2);
     } finally {
         Model::setEventDispatcher($dispatcher);
     }
 });
 
-it('does not let platform all poison the all-platform ratings count cache', function () {
+it('treats platform all as no platform filter', function () {
     Cache::flush();
     $dispatcher = Model::getEventDispatcher();
     Model::unsetEventDispatcher();
@@ -247,28 +242,23 @@ it('does not let platform all poison the all-platform ratings count cache', func
         createRatingRecord(['rater' => $itchRater, 'rating' => 5]);
         createRatingRecord(['rater' => $steamRater, 'rating' => 5]);
 
-        $poisonAttempt = $this->get(route('ratings.index', [
+        $allPlatforms = $this->get(route('ratings.index', [
             'stars' => 5,
             'platform' => 'all',
         ]));
 
-        $poisonAttempt->assertOk();
-        $poisonProps = $poisonAttempt->viewData('page')['props'];
+        $allPlatforms->assertOk();
+        $allPlatformsProps = $allPlatforms->viewData('page')['props'];
 
         $normalResponse = $this->get(route('ratings.index', ['stars' => 5]));
 
         $normalResponse->assertOk();
         $normalProps = $normalResponse->viewData('page')['props'];
 
-        $allPlatformKey = RatingStatsCacheService::key('ratings.count:rev:1:star:5:listed:1:platform:__all_platforms__');
-        $legacyCollidingKey = RatingStatsCacheService::key('ratings.count:rev:1:star:5:listed:1:platform:all');
-
-        expect($poisonProps['filters']['platform'])->toBeNull()
-            ->and($poisonProps['ratings']['total'])->toBe(2)
+        expect($allPlatformsProps['filters']['platform'])->toBeNull()
+            ->and($allPlatformsProps['ratings']['total'])->toBe(2)
             ->and($normalProps['filters']['platform'])->toBeNull()
-            ->and($normalProps['ratings']['total'])->toBe(2)
-            ->and(Cache::has($allPlatformKey))->toBeTrue()
-            ->and(Cache::has($legacyCollidingKey))->toBeFalse();
+            ->and($normalProps['ratings']['total'])->toBe(2);
     } finally {
         Model::setEventDispatcher($dispatcher);
     }

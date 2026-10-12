@@ -25,8 +25,6 @@ class RatingsController extends Controller
         'steam',
     ];
 
-    private const string ALL_RATING_PLATFORMS_CACHE_VALUE = '__all_platforms__';
-
     public function ratingsIndex(Request $request): Response
     {
         $page = max(1, (int) $request->input('page', 1));
@@ -60,40 +58,25 @@ class RatingsController extends Controller
             ->when($showOnlyReviews, fn ($query) => $query->where('ratings.is_reviewed', true))
             ->when($stars !== null, fn ($query) => $query->where('ratings.rating', $stars));
 
-        // Count query: avoid unnecessary joins; only join games if we need to filter by game visibility
-        $countQuery = (clone $ratingsFilter);
-        if ($showOnlyVisibleGames) {
-            $countQuery->join('games', 'games.id', '=', 'ratings.game_id')
-                ->where('games.is_visible', true);
-        }
+        $total = RatingStatsCacheService::count($showOnlyReviews, $stars, $showOnlyVisibleGames, $platform);
 
-        if ($platform) {
-            $countQuery->where('ratings.source_platform', $platform);
-        }
+        $sortColumn = $sortField === 'rating' ? 'ratings.rating' : 'ratings.published_at';
 
-        $countCacheKey = RatingStatsCacheService::key(sprintf(
-            'ratings.count:rev:%d:star:%s:listed:%d:platform:%s',
-            (int) $showOnlyReviews,
-            $stars ?? 'all',
-            (int) $showOnlyVisibleGames,
-            $platform ?? self::ALL_RATING_PLATFORMS_CACHE_VALUE
-        ));
-        $total = cache()->remember($countCacheKey, now()->addHour(), function () use ($countQuery) {
-            return (int) ($countQuery->selectRaw('COUNT(*) as aggregate')->value('aggregate') ?? 0);
-        });
+        $pageIds = (clone $ratingsFilter)
+            ->when($showOnlyVisibleGames, fn ($query) => $query
+                ->join('games', 'games.id', '=', 'ratings.game_id')
+                ->where('games.is_visible', true))
+            ->when($platform, fn ($query, $platform) => $query->where('ratings.source_platform', $platform))
+            ->orderBy($sortColumn, $sortDirection)
+            ->forPage($page, $perPage)
+            ->pluck('ratings.id');
 
-        // Data query: includes joins needed for rendering
-        $rows = (clone $ratingsFilter)
+        $rowsById = DB::table('ratings')
+            ->whereIn('ratings.id', $pageIds)
             ->join('games', 'games.id', '=', 'ratings.game_id')
             ->leftJoin('raters', 'raters.id', '=', 'ratings.rater_id')
             ->leftJoin('users', function ($join) {
                 $join->whereRaw('users.id = COALESCE(ratings.user_id, raters.user_id)');
-            })
-            ->when($showOnlyVisibleGames, function ($query) {
-                $query->where('games.is_visible', true);
-            })
-            ->when($platform, function ($query, $platform) {
-                $query->where('ratings.source_platform', $platform);
             })
             ->select([
                 'ratings.id',
@@ -117,9 +100,9 @@ class RatingsController extends Controller
                 'users.name as user_name',
                 'users.avatar as user_avatar',
             ])
-            ->orderBy($sortField === 'rating' ? 'ratings.rating' : 'ratings.published_at', $sortDirection)
-            ->forPage($page, $perPage)
-            ->get();
+            ->get()
+            ->keyBy('id');
+        $rows = $pageIds->map(fn ($id) => $rowsById->get($id))->filter()->values();
 
         $presenter = app(RatingPresenter::class);
         $ratings = [
@@ -131,8 +114,8 @@ class RatingsController extends Controller
         ];
 
         $statsProp = $isPartialForThisPage
-            ? fn () => RatingStatsCacheService::globalStats(fn () => $this->getGlobalRatingStats())
-            : RatingStatsCacheService::globalStats(fn () => $this->getGlobalRatingStats());
+            ? fn () => RatingStatsCacheService::globalStats()
+            : RatingStatsCacheService::globalStats();
 
         return Inertia::render('ratings/index', [
             'pageTitle' => 'Ratings',
@@ -519,11 +502,6 @@ class RatingsController extends Controller
     }
 
     // ratingsTrends removed
-
-    protected function getGlobalRatingStats(): array
-    {
-        return app(RatingAnalyticsService::class)->globalStats();
-    }
 
     protected function getRatingStats(int $raterId): array
     {

@@ -22,50 +22,74 @@ class RatingAnalyticsService
 
     private const int COMPARISON_LIMIT = 75;
 
-    public function globalStats(): array
+    /**
+     * Visible rating counts grouped by stars, review flag and source platform.
+     *
+     * @return array{cells: list<array{rating: int, is_reviewed: bool, platform: string|null, count: int, first_at: string|null, last_at: string|null}>, unique_games: int}
+     */
+    public function ratingCube(bool $visibleGamesOnly): array
     {
-        $agg = DB::table('ratings')
-            ->join('games', 'games.id', '=', 'ratings.game_id')
-            ->where('ratings.is_visible', true)
-            ->where('games.is_visible', true)
-            ->select([
-                DB::raw('MIN(ratings.published_at) as first_rating'),
-                DB::raw('MAX(ratings.published_at) as latest_rating'),
-                DB::raw('COUNT(*) as total_ratings'),
-                DB::raw('SUM(CASE WHEN ratings.is_reviewed THEN 1 ELSE 0 END) as reviewed_count'),
-                DB::raw('AVG(ratings.rating) as average_rating'),
-                DB::raw('COUNT(DISTINCT ratings.game_id) as unique_games'),
-            ])
-            ->first();
+        $query = DB::table('ratings')->where('ratings.is_visible', true);
+        $uniqueGames = 0;
 
-        $distRows = DB::table('ratings')
-            ->join('games', 'games.id', '=', 'ratings.game_id')
-            ->where('ratings.is_visible', true)
-            ->where('games.is_visible', true)
-            ->groupBy('ratings.rating')
-            ->select([
-                'ratings.rating as rating_value',
-                DB::raw('COUNT(*) as count_for_rating'),
-            ])
-            ->get();
+        if ($visibleGamesOnly) {
+            $visibleGameIds = DB::table('games')->where('is_visible', true)->pluck('id')->all();
+            $query->whereIntegerInRaw('ratings.game_id', $visibleGameIds);
+            $uniqueGames = DB::table('games')
+                ->where('games.is_visible', true)
+                ->whereExists(fn ($ratings) => $ratings->from('ratings')->whereColumn('ratings.game_id', 'games.id')->where('ratings.is_visible', true))
+                ->count();
+        }
 
-        if (! $agg) {
+        $cells = $query
+            ->groupBy('ratings.rating', 'ratings.is_reviewed', 'ratings.source_platform')
+            ->select(['ratings.rating', 'ratings.is_reviewed', 'ratings.source_platform'])
+            ->selectRaw('COUNT(*) as count, MIN(ratings.published_at) as first_at, MAX(ratings.published_at) as last_at')
+            ->get()
+            ->map(fn ($row): array => [
+                'rating' => (int) $row->rating,
+                'is_reviewed' => (bool) $row->is_reviewed,
+                'platform' => $row->source_platform,
+                'count' => (int) $row->count,
+                'first_at' => $row->first_at,
+                'last_at' => $row->last_at,
+            ])
+            ->all();
+
+        return ['cells' => $cells, 'unique_games' => $uniqueGames];
+    }
+
+    /**
+     * @param  array{cells: list<array{rating: int, is_reviewed: bool, platform: string|null, count: int, first_at: string|null, last_at: string|null}>, unique_games: int}  $cube
+     */
+    public function globalStatsFromCube(array $cube): array
+    {
+        $cells = collect($cube['cells']);
+        $total = (int) $cells->sum('count');
+
+        if ($total === 0) {
             return $this->emptyStats();
         }
 
-        $visibleBlock = $this->statsBlock(
-            (int) ($agg->total_ratings ?? 0),
-            (int) ($agg->reviewed_count ?? 0),
-            (float) ($agg->average_rating ?? 0),
-            (int) ($agg->unique_games ?? 0),
-            $this->distribution($distRows, 'count_for_rating')
+        $distribution = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
+        foreach ($cells as $cell) {
+            $distribution[$cell['rating']] = ($distribution[$cell['rating']] ?? 0) + $cell['count'];
+        }
+        ksort($distribution);
+
+        $block = $this->statsBlock(
+            $total,
+            (int) $cells->where('is_reviewed', true)->sum('count'),
+            $cells->sum(fn (array $cell) => $cell['rating'] * $cell['count']) / $total,
+            $cube['unique_games'],
+            $distribution,
         );
 
         return [
-            'first_rating' => $agg->first_rating ?? null,
-            'latest_rating' => $agg->latest_rating ?? null,
-            'all_games' => $visibleBlock,
-            'visible_games' => $visibleBlock,
+            'first_rating' => $cells->pluck('first_at')->filter()->min(),
+            'latest_rating' => $cells->pluck('last_at')->filter()->max(),
+            'all_games' => $block,
+            'visible_games' => $block,
         ];
     }
 

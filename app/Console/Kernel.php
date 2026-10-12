@@ -26,6 +26,7 @@ use App\Console\Commands\ReapNotifications;
 use App\Console\Commands\RecalculateGameRatings;
 use App\Console\Commands\RefreshFeedlessGames;
 use App\Console\Commands\RefreshGames;
+use App\Console\Commands\RefreshRatingStats;
 use App\Console\Commands\RefreshSteamGames;
 use App\Console\Commands\RefreshTrendingScores;
 use App\Console\Commands\RepairGameImages;
@@ -66,6 +67,7 @@ class Kernel extends ConsoleKernel
         RefreshFeedlessGames::class,
         RefreshGames::class,
         RefreshSteamGames::class,
+        RefreshRatingStats::class,
         RefreshTrendingScores::class,
         SanitizeReviewHtml::class,
         UpdateWatchlist::class,
@@ -79,6 +81,7 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('sitemap:generate')->daily()->withoutOverlapping();
         $schedule->command('ratings:import')->everyFifteenMinutes()->withoutOverlapping();
+        $schedule->command('ratings:refresh-stats')->everyFiveMinutes()->withoutOverlapping();
         $schedule->command('feed:process')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('games:retry-stats')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('games:refresh',
