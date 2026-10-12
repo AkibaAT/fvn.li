@@ -1,4 +1,8 @@
 version: 2
+multi-ecosystem-groups:
+  social-images:
+    schedule:
+      interval: 'weekly'
 updates:
   - package-ecosystem: 'composer'
     directory: '/'
@@ -32,10 +36,9 @@ updates:
       interval: 'weekly'
     cooldown:
       default-days: 3
-    groups:
-      social-image-dependencies:
-        patterns:
-          - '*'
+    patterns:
+      - '*'
+    multi-ecosystem-group: 'social-images'
 
   - package-ecosystem: 'github-actions'
     directory: '/'
@@ -61,6 +64,9 @@ updates:
       interval: 'weekly'
     cooldown:
       default-days: 3
+    patterns:
+      - '*'
+    multi-ecosystem-group: 'social-images'
 
   - package-ecosystem: 'docker-compose'
     directory: '/docker/production'
