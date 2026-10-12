@@ -69,15 +69,14 @@ updates:
     multi-ecosystem-group: 'social-images'
 
   - package-ecosystem: 'docker-compose'
-    directory: '/docker/production'
+    directories:
+      - '/docker/production'
+      - '/.ddev'
     schedule:
       interval: 'weekly'
     cooldown:
       default-days: 3
-
-  - package-ecosystem: 'docker-compose'
-    directory: '/.ddev'
-    schedule:
-      interval: 'weekly'
-    cooldown:
-      default-days: 3
+    groups:
+      compose-images:
+        patterns:
+          - '*'
