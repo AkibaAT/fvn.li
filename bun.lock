@@ -7,8 +7,8 @@
         "@dnd-kit-svelte/svelte": "0.1.6",
         "@dnd-kit/dom": "0.5.0",
         "@dnd-kit/helpers": "0.5.0",
-        "@inertiajs/core": "3.9.0",
-        "@inertiajs/svelte": "3.9.0",
+        "@inertiajs/core": "3.9.1",
+        "@inertiajs/svelte": "3.9.1",
         "@sveltejs/vite-plugin-svelte": "7.3.1",
         "@tailwindcss/typography": "0.5.20",
         "@tailwindcss/vite": "4.3.3",
@@ -154,9 +154,9 @@
 
     "@humanwhocodes/retry": ["@humanwhocodes/retry@0.4.3", "", {}, "sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ=="],
 
-    "@inertiajs/core": ["@inertiajs/core@3.9.0", "", { "dependencies": { "@jridgewell/trace-mapping": "^0.3.31", "es-toolkit": "^1.33.0", "laravel-precognition": "^2.1.0" }, "peerDependencies": { "axios": "^1.15.2" }, "optionalPeers": ["axios"] }, "sha512-7BSoLX5+evuG6Q/Zpw3PLM+PuxQHDpdqtHXuOpqUQIup7RdXWDcVTSY9xwHLa7tWN/aHFBrNmD/Qd8O11lmdCA=="],
+    "@inertiajs/core": ["@inertiajs/core@3.9.1", "", { "dependencies": { "@jridgewell/trace-mapping": "^0.3.31", "es-toolkit": "^1.33.0", "laravel-precognition": "^2.1.0" }, "peerDependencies": { "axios": "^1.15.2" }, "optionalPeers": ["axios"] }, "sha512-ScLQZ1/KXlvmqCEJMEZABSK5updJZIli1kaG/coWXpWMmpSLsazSJkR7esITYp7X5vTgrOGNIrcRmdMp/GQ0NA=="],
 
-    "@inertiajs/svelte": ["@inertiajs/svelte@3.9.0", "", { "dependencies": { "@inertiajs/core": "3.9.0", "es-toolkit": "^1.33.0", "laravel-precognition": "^2.1.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-9y6xgJPL7faRlJhbS820q5eWZibm/WLpN1dmjuUkOp3iomHyZX+jyb6PYeW1HrIexzKlIZhBfZSb/zugW5792A=="],
+    "@inertiajs/svelte": ["@inertiajs/svelte@3.9.1", "", { "dependencies": { "@inertiajs/core": "3.9.1", "es-toolkit": "^1.33.0", "laravel-precognition": "^2.1.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-wNj2CkFj0rfTsF5n0ZzjDc52w9Ek96AE3wL+2KFX6iDKbD4YHPoleArkTDBiTHCDECeR6kBM82PzorspSWzq4Q=="],
 
     "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.13", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.0", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA=="],
 
