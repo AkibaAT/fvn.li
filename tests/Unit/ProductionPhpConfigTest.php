@@ -66,17 +66,16 @@ test('dependabot scans all maintained container definitions', function () {
         'docker-compose:/docker/production',
         'docker-compose:/.ddev',
     ];
-    $containerUpdates = collect($dependabot['updates'] ?? [])
-        ->map(fn (array $update): string => ($update['package-ecosystem'] ?? '') . ':' . ($update['directory'] ?? ''));
+    $targets = fn (array $update): array => array_map(
+        fn (string $directory): string => ($update['package-ecosystem'] ?? '') . ':' . $directory,
+        $update['directories'] ?? [$update['directory'] ?? ''],
+    );
+    $containerUpdates = collect($dependabot['updates'] ?? [])->flatMap($targets);
 
     expect($containerUpdates)->toContain(...$expectedContainerUpdates);
 
     collect($dependabot['updates'] ?? [])
-        ->filter(fn (array $update): bool => in_array(
-            ($update['package-ecosystem'] ?? '') . ':' . ($update['directory'] ?? ''),
-            $expectedContainerUpdates,
-            true,
-        ))
+        ->filter(fn (array $update): bool => array_intersect($targets($update), $expectedContainerUpdates) !== [])
         ->each(fn (array $update) => expect($update['schedule']['interval'] ?? null)->toBe('weekly'));
 });
 
