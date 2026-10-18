@@ -55,6 +55,7 @@ class GamesDisplayController extends Controller
             app(GamesSearchResultHydrator::class)->attachUserData(collect([$viewerState]), $viewer->id);
             $props['game']['user_progress'] = $viewerState->user_progress;
             $props['game']['user_list_memberships'] = $viewerState->user_list_memberships;
+            $props['game']['user_private_tags'] = $viewerState->user_private_tags;
             $props['userReview'] = $this->viewerReview($game, $viewer);
         }
 

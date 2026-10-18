@@ -79,6 +79,7 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
             gameJam: 'selectedGameJams',
             tag: 'selectedTags',
             excludeTag: 'excludedTags',
+            privateTag: 'selectedPrivateTags',
         };
 
         const propertyName = propertyMap[type];
@@ -101,6 +102,7 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
             selectedGameJams: [],
             selectedTags: [],
             excludedTags: [],
+            selectedPrivateTags: [],
             readingTime: '',
             nsfw: false,
             sfw: false,
@@ -122,6 +124,7 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
             selectedGameJams,
             selectedTags,
             excludedTags,
+            selectedPrivateTags,
             readingTime,
             nsfw,
             sfw,
@@ -140,6 +143,7 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
             (selectedGameJams && selectedGameJams.length > 0) ||
             (selectedTags && selectedTags.length > 0) ||
             (excludedTags && excludedTags.length > 0) ||
+            (selectedPrivateTags && selectedPrivateTags.length > 0) ||
             readingTime ||
             nsfw ||
             sfw ||
@@ -197,6 +201,7 @@ export function useGameFilters({ getCurrentFilters, getFilters, onGamesPage = fa
         pushArrayChips(getCurrentFilters().selectedLanguages, getFilters().languages, 'language', (v) => toggleFilter('language', v));
         pushArrayChips(getCurrentFilters().selectedGameJams, getFilters().gameJams, 'gameJam', (v) => toggleFilter('gameJam', v));
         pushArrayChips(getCurrentFilters().selectedTags, getFilters().tags, 'tag', (v) => toggleFilter('tag', v));
+        pushArrayChips(getCurrentFilters().selectedPrivateTags, getFilters().privateTags, 'privateTag', (v) => toggleFilter('privateTag', v));
 
         // Excluded tags
         if (getCurrentFilters().excludedTags && getCurrentFilters().excludedTags!.length > 0) {

@@ -44,6 +44,7 @@
 
     const fieldCatalog = [
         { id: 'tags', label: 'Tags', group: 'Refine' },
+        { id: 'privateTag', label: 'Private tags', group: 'Refine' },
         { id: 'status', label: 'Status', group: 'Refine' },
         { id: 'language', label: 'Language', group: 'Refine' },
         { id: 'readingTime', label: 'Reading time', group: 'Refine' },
@@ -58,6 +59,7 @@
 
     const fieldActiveCounts = $derived<Record<string, number>>({
         tags: (currentFilters.selectedTags?.length ?? 0) + (currentFilters.excludedTags?.length ?? 0),
+        privateTag: currentFilters.selectedPrivateTags?.length ?? 0,
         status: currentFilters.selectedStatuses?.length ?? 0,
         language: currentFilters.selectedLanguages?.length ?? 0,
         readingTime: currentFilters.readingTime ? 1 : 0,
@@ -74,7 +76,13 @@
         visibility: currentFilters.showIgnored ? 1 : 0,
     });
 
-    const menuFields = $derived(fieldCatalog.map((field) => ({ ...field, activeCount: fieldActiveCounts[field.id] ?? 0 })));
+    const hasPrivateTags = $derived(Object.keys(filters.privateTags ?? {}).length > 0);
+
+    const menuFields = $derived(
+        fieldCatalog
+            .filter((field) => field.id !== 'privateTag' || hasPrivateTags)
+            .map((field) => ({ ...field, activeCount: fieldActiveCounts[field.id] ?? 0 })),
+    );
 
     const chips = $derived(buildActiveFilterChips());
 
@@ -87,6 +95,7 @@
         gameJam: 'gameJam',
         tag: 'tags',
         excludeTag: 'tags',
+        privateTag: 'privateTag',
         readingTime: 'readingTime',
         sfw: 'content',
         nsfw: 'content',
@@ -123,7 +132,7 @@
             <PlusIcon class="h-3.5 w-3.5" />
             Filter
             {#if chips.length > 0}
-                <span class="rounded-full border border-accent px-1.5 text-2xs font-medium text-accent-fg">{chips.length}</span>
+                <span class="rounded-full border border-accent-icon px-1.5 text-2xs font-medium text-accent-fg">{chips.length}</span>
             {/if}
         </button>
 

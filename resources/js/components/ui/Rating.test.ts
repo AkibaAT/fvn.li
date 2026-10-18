@@ -13,7 +13,7 @@ describe('Rating', () => {
         expect(rating.textContent).toContain('(128)');
 
         const star = container.querySelector('svg');
-        expect(star?.classList.contains('text-accent')).toBe(true);
+        expect(star?.classList.contains('text-accent-icon')).toBe(true);
         expect(star?.classList.contains('h-2.75')).toBe(true);
 
         const value = screen.getByText('4.6');

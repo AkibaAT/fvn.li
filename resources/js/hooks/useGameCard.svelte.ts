@@ -49,6 +49,7 @@ export interface GameCardGame {
         user_id: number;
         is_receiving_updates: boolean;
     }>;
+    user_private_tags?: Array<{ id: number; name: string }>;
     user_list_memberships?: Array<{
         list_id: number;
         name: string;

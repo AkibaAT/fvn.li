@@ -25,7 +25,7 @@
         aria-label={ariaLabel}
         title={ariaLabel}
     >
-        <StarIcon class="h-2.75 w-2.75 fill-current text-accent" />
+        <StarIcon class="h-2.75 w-2.75 fill-current text-accent-icon" />
         <span class="text-xs leading-none font-semibold text-fg" aria-hidden="true">{score?.toFixed(1)}</span>
         {#if hasCount}
             <span class="text-xs leading-none text-fg-faint" aria-hidden="true">({count?.toLocaleString()})</span>

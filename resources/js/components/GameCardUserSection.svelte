@@ -16,6 +16,8 @@
     } from '@/api/lists';
     import { Button, Dialog, TextInput, Checkbox } from '@/components/ui';
     import PrivateGameTags from '@/components/PrivateGameTags.svelte';
+    import PrivateTagChips from '@/components/PrivateTagChips.svelte';
+    import type { PrivateTagRef } from '@/types/game';
     import { formatListType, listTypeDotClass } from '@/components/ui/tones';
 
     let {
@@ -24,12 +26,14 @@
         isPaid = false,
         userProgress = null,
         listMemberships = [],
+        privateTags = [],
     }: {
         gameId: number;
         gameName: string;
         isPaid?: boolean;
         listMemberships?: Array<{ list_id: number; name: string; type: string; is_default: boolean }>;
         userProgress?: { id: number; game_id: number; user_id: number; is_receiving_updates: boolean } | null;
+        privateTags?: PrivateTagRef[];
     } = $props();
 
     interface VnList {
@@ -57,6 +61,8 @@
     let loadingStates = $state<Record<number, boolean>>({});
 
     let defaultListQueue = Promise.resolve();
+
+    let assignedPrivateTags = $derived<PrivateTagRef[]>(privateTags);
 
     const refreshUserData = () => refreshPage(['game', 'games', 'vnLists', 'vnList', 'availableLists']);
 
@@ -195,8 +201,9 @@
 
 {#if isAuthenticated}
     <div class="mt-3">
+        <PrivateTagChips tags={assignedPrivateTags} class="mb-2" />
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-ui leading-none">
-            <PrivateGameTags {gameId} />
+            <PrivateGameTags {gameId} assigned={assignedPrivateTags} onChange={(next) => (assignedPrivateTags = next)} />
             <button
                 type="button"
                 onclick={async () => {

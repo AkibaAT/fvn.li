@@ -29,7 +29,7 @@
         },
         primary: {
             soft: 'border-border-strong text-fg-muted',
-            solid: 'border-transparent bg-accent text-on-accent',
+            solid: 'border-accent-outline bg-accent text-on-accent',
             outline: 'border-border-strong text-fg-muted',
         },
         success: {

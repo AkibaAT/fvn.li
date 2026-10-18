@@ -1,30 +1,43 @@
 <script lang="ts">
-    import { createPrivateTag, gamePrivateTags, listPrivateTags, setGamePrivateTag, type PrivateTag } from '@/api/private-tags';
+    import { createPrivateTag, listPrivateTags, setGamePrivateTag, type PrivateTag } from '@/api/private-tags';
+    import type { PrivateTagRef } from '@/types/game';
     import { getErrorMessage } from '@/utils/async-action.svelte';
     import { toast } from '@/utils/toast';
     import { Button, Checkbox, Dialog, TextInput } from '@/components/ui';
 
-    let { gameId }: { gameId: number } = $props();
+    let {
+        gameId,
+        assigned = [],
+        onChange,
+    }: {
+        gameId: number;
+        assigned?: PrivateTagRef[];
+        onChange?: (tags: PrivateTagRef[]) => void;
+    } = $props();
     let open = $state(false);
     let loading = $state(false);
     let creating = $state(false);
     let pending = $state<number[]>([]);
     let tags = $state<PrivateTag[]>([]);
     let attached = $state<number[]>([]);
+    const hasTags = $derived(assigned.length > 0);
     let newName = $state('');
 
     async function show() {
         open = true;
         loading = true;
         try {
-            const [all, assigned] = await Promise.all([listPrivateTags(), gamePrivateTags(gameId)]);
-            tags = all;
+            tags = await listPrivateTags();
             attached = assigned.map((tag) => tag.id);
         } catch (error) {
             toast.error(getErrorMessage(error, 'Could not load private tags'));
         } finally {
             loading = false;
         }
+    }
+
+    function commit() {
+        onChange?.(tags.filter((tag) => attached.includes(tag.id)).map(({ id, name }) => ({ id, name })));
     }
 
     async function toggle(tag: PrivateTag) {
@@ -34,6 +47,7 @@
         pending = [...pending, tag.id];
         try {
             await setGamePrivateTag(gameId, tag.id, add);
+            commit();
         } catch (error) {
             attached = previous;
             toast.error(getErrorMessage(error, 'Could not update private tag'));
@@ -51,6 +65,7 @@
             tags = [...tags, tag].sort((a, b) => a.name.localeCompare(b.name));
             attached = [...attached, tag.id];
             newName = '';
+            commit();
         } catch (error) {
             toast.error(getErrorMessage(error, 'Could not create private tag'));
         } finally {
@@ -59,7 +74,9 @@
     }
 </script>
 
-<button type="button" onclick={show} class="cursor-pointer text-fg-muted transition-colors hover:text-fg">Private tags</button>
+<button type="button" onclick={show} class="cursor-pointer text-fg-muted transition-colors hover:text-fg">
+    {hasTags ? 'Edit private tags' : 'Private tags'}
+</button>
 
 <Dialog {open} onClose={() => (open = false)} title="Private tags" size="sm">
     <p class="mb-3 text-sm text-fg-muted">Only you can see these tags.</p>

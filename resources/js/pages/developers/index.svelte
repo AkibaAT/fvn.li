@@ -55,33 +55,12 @@ POST /api/v1/games/resolve
         </p>
     </Card>
 
-    <div class="grid gap-6 lg:grid-cols-2">
-        <Card variant="flat" padding="lg" class="space-y-3">
-            <h2 class="text-title font-semibold text-fg">Permissions</h2>
-            <p class="text-sm text-fg-muted">
-                Grant <code>catalog:read</code> for game search and lookup. Tags, lists, tracking, and preferences each have separate
-                <code>:read</code> and <code>:write</code> permissions. Write does not imply read. Every operation lists its required permission as
-                <code>x-required-ability</code> in the specification.
-            </p>
-        </Card>
-
-        <Card variant="flat" padding="lg" class="space-y-3">
-            <h2 class="text-title font-semibold text-fg">Pagination and errors</h2>
-            <p class="text-sm text-fg-muted">
-                Collections return <code>{'{"data":[],"links":{},"meta":{}}'}</code>. Follow <code>links.next</code> until it is null. Catalog search
-                accepts <code>per_page</code> from 1 to 50; other collections use 20 per page. Validation returns
-                <code>422</code> with field-keyed errors; missing tokens return <code>401</code>, missing permission <code>403</code>, and objects
-                owned by someone else <code>404</code>.
-            </p>
-        </Card>
-    </div>
-
     <Card variant="flat" padding="lg" class="space-y-4">
         <h2 class="text-title font-semibold text-fg">Find a catalog game</h2>
         <p class="text-sm text-fg-muted">
-            Use a fvn.li game ID, or resolve an exact itch.io ID, Steam app ID, or stored platform URL. URL matching ignores scheme, query, fragment,
-            and trailing slash while preserving path case and port. The API never imports a game or guesses from a URL slug. Hidden games are
-            excluded. Single lookup returns <code>404</code> for no match and <code>409</code> for multiple matches.
+            Resolve an exact itch.io ID, Steam app ID, or stored platform URL to a fvn.li game, whose <code>id</code> the other endpoints take. URL
+            matching ignores scheme, query, fragment, and trailing slash while preserving path case and port. Single lookup returns
+            <code>404</code> for no match and <code>409</code> for multiple matches.
         </p>
         <pre class="overflow-x-auto rounded-md border border-border bg-surface-alt p-4 text-xs leading-relaxed text-fg"><code>{lookupExample}</code
             ></pre>
@@ -94,30 +73,6 @@ POST /api/v1/games/resolve
                 >{batchResponseExample}</code
             ></pre>
     </Card>
-
-    <div class="grid gap-6 lg:grid-cols-3">
-        <Card variant="flat" padding="lg" class="space-y-3">
-            <h2 class="text-title font-semibold text-fg">Private tags</h2>
-            <p class="text-sm text-fg-muted">
-                Use <code>/private-tags</code> to create, rename, or delete your labels, then attach them to any visible game with
-                <code>PUT /games/{'{game}'}/private-tags/{'{tag}'}</code>. They remain private to your account.
-            </p>
-        </Card>
-        <Card variant="flat" padding="lg" class="space-y-3">
-            <h2 class="text-title font-semibold text-fg">Lists</h2>
-            <p class="text-sm text-fg-muted">
-                Use <code>/lists</code> for owned lists and <code>/lists/{'{list}'}/games/{'{game}'}</code> to add or remove entries. Private entry notes
-                never appear on public lists. Default lists cannot be deleted, and a game belongs to only one default list.
-            </p>
-        </Card>
-        <Card variant="flat" padding="lg" class="space-y-3">
-            <h2 class="text-title font-semibold text-fg">Tracking and preferences</h2>
-            <p class="text-sm text-fg-muted">
-                Use <code>/me/tracked-games</code> for status, version, dates, notes, and update watching. The search-preferences and ignored-games endpoints
-                expose your existing search controls. Ratings and review publishing remain on the website.
-            </p>
-        </Card>
-    </div>
 
     <Card variant="flat" padding="lg" class="space-y-3">
         <h2 class="text-title font-semibold text-fg">Rate limits</h2>
@@ -133,11 +88,5 @@ POST /api/v1/games/resolve
                 </tbody>
             </table>
         </div>
-        <p class="text-sm text-fg-muted">
-            Limits apply to your account and are shared by all of your tokens. A <code>429</code> response includes <code>Retry-After</code> and
-            rate-limit headers. Successful authenticated responses include
-            <code>X-Token-Expires-At</code>. See the <a href={route('developers.openapi')} class="underline">specification</a> for every request and response
-            schema.
-        </p>
     </Card>
 </div>

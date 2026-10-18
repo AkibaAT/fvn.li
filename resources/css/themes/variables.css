@@ -51,11 +51,14 @@
     --text-muted: #4b5567;
     --text-faint: #5c6679;
 
-    --accent: #b07a14;
+    --accent: #f2bb4a;
     --on-accent: var(--text);
     --accent-fg: #7f5905;
+    --accent-icon: #b07a14;
+    --accent-outline: var(--text);
+    --logo-tile: var(--text);
 
-    --color-progress-primary: var(--accent);
+    --color-progress-primary: var(--accent-icon);
 
     --color-tooltip-background: color-mix(in srgb, var(--surface) 95%, transparent);
     --color-tooltip-border: var(--border);
@@ -77,6 +80,9 @@
     --accent: #f2bb4a;
     --on-accent: var(--page);
     --accent-fg: var(--accent);
+    --accent-icon: var(--accent);
+    --accent-outline: var(--accent);
+    --logo-tile: var(--page);
 }
 
 .text-platform-windows {

@@ -80,7 +80,9 @@
     });
 </script>
 
-<a href="#main-content" class="skip-link rounded-lg bg-accent px-4 py-2 font-medium text-on-accent"> Skip to main content </a>
+<a href="#main-content" class="skip-link rounded-lg border border-accent-outline bg-accent px-4 py-2 font-medium text-on-accent">
+    Skip to main content
+</a>
 
 <div class="flex min-h-screen flex-col bg-page text-fg">
     <Header />

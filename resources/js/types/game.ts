@@ -60,6 +60,11 @@ interface LanguageRef {
     flag_code: string;
 }
 
+export interface PrivateTagRef {
+    id: number;
+    name: string;
+}
+
 export interface Game {
     id: number;
     name: string;
@@ -96,6 +101,7 @@ export interface Game {
     latest_version_published_at?: string;
     game_versions?: GameVersion[];
     user_progress?: UserGameProgress[];
+    user_private_tags?: PrivateTagRef[];
     ratings?: GameRating[];
     created_at?: string;
     updated_at?: string;

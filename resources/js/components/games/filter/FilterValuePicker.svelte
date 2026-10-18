@@ -59,7 +59,8 @@
         | 'selectedStorePlatforms'
         | 'selectedLanguages'
         | 'selectedGameJams'
-        | 'selectedTags';
+        | 'selectedTags'
+        | 'selectedPrivateTags';
 
     const multiConfigs = $derived<
         Record<
@@ -74,6 +75,7 @@
         language: { title: 'Language', options: filters.languages, property: 'selectedLanguages', icon: 'flag' },
         gameJam: { title: 'Game jam', options: filters.gameJams, property: 'selectedGameJams' },
         tags: { title: 'Tags', options: filters.tags, property: 'selectedTags' },
+        privateTag: { title: 'Private tags', options: filters.privateTags ?? {}, property: 'selectedPrivateTags' },
     });
 
     let tagOperator = $state<'include' | 'exclude'>('include');
@@ -182,6 +184,7 @@
                 language: 'language',
                 gameJam: 'gameJam',
                 tags: 'tag',
+                privateTag: 'privateTag',
             };
             const type = isTags ? 'tag' : toggleTypes[field];
             if (type) toggleFilter(type, value);
@@ -239,7 +242,7 @@
                 onclick={() => (tagOperator = 'include')}
                 aria-pressed={tagOperator === 'include'}
                 class="h-6 flex-1 rounded-md border px-2 text-xs font-medium transition-colors {tagOperator === 'include'
-                    ? 'border-accent bg-accent/10 text-fg'
+                    ? 'border-accent-icon bg-accent/10 text-fg'
                     : 'border-border text-fg-muted hover:text-fg'}"
             >
                 Include
@@ -249,7 +252,7 @@
                 onclick={() => (tagOperator = 'exclude')}
                 aria-pressed={tagOperator === 'exclude'}
                 class="h-6 flex-1 rounded-md border px-2 text-xs font-medium transition-colors {tagOperator === 'exclude'
-                    ? 'border-accent bg-accent/10 text-fg'
+                    ? 'border-accent-icon bg-accent/10 text-fg'
                     : 'border-border text-fg-muted hover:text-fg'}"
             >
                 Exclude
@@ -287,7 +290,7 @@
                 >
                     <span class="flex h-4 w-4 flex-shrink-0 items-center justify-center" aria-hidden="true">
                         {#if currentFilters[def.key]}
-                            <CheckIcon class="h-3.5 w-3.5 text-accent" />
+                            <CheckIcon class="h-3.5 w-3.5 text-accent-icon" />
                         {/if}
                     </span>
                     {def.label}
@@ -304,12 +307,12 @@
                 >
                     <span
                         class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border {currentFilters.readingTime === value
-                            ? 'border-accent'
+                            ? 'border-accent-icon'
                             : 'border-border-strong'}"
                         aria-hidden="true"
                     >
                         {#if currentFilters.readingTime === value}
-                            <span class="h-2 w-2 rounded-full bg-accent"></span>
+                            <span class="h-2 w-2 rounded-full bg-accent-icon"></span>
                         {/if}
                     </span>
                     {displayLabel(value, item)}
@@ -333,7 +336,7 @@
                 >
                     <span
                         class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-sm border {activeInOperator
-                            ? 'border-accent bg-accent text-surface'
+                            ? 'border-accent-outline bg-accent text-on-accent'
                             : 'border-border-strong'}"
                         aria-hidden="true"
                     >

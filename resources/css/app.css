@@ -19,6 +19,8 @@
     --color-border-input: var(--border-input);
     --color-accent: var(--accent);
     --color-accent-fg: var(--accent-fg);
+    --color-accent-icon: var(--accent-icon);
+    --color-accent-outline: var(--accent-outline);
     --color-on-accent: var(--on-accent);
 }
 
@@ -71,7 +73,7 @@
     }
 
     :where(a[href], button, input, select, textarea, summary, [role='button'], [role='tab'], [tabindex]:not([tabindex='-1'])):focus-visible {
-        outline: 2px solid var(--accent) !important;
+        outline: 2px solid var(--accent-icon) !important;
         outline-offset: 2px !important;
     }
 }
@@ -296,7 +298,7 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
 }
 
 .spoiler:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent-icon);
     outline-offset: 2px;
 }
 

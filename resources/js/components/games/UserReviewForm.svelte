@@ -127,7 +127,7 @@
                 <span class="text-sm font-medium text-fg">Your Review</span>
                 <div class="flex items-center gap-0.5">
                     {#each Array(5) as _, i (i)}
-                        <StarIcon class="h-4 w-4 {i < userReview.rating ? 'fill-accent text-accent' : 'fill-border text-border'}" />
+                        <StarIcon class="h-4 w-4 {i < userReview.rating ? 'fill-accent-icon text-accent-icon' : 'fill-border text-border'}" />
                     {/each}
                 </div>
             </div>
@@ -191,7 +191,7 @@
                         >
                             <StarIcon
                                 class="h-7 w-7 cursor-pointer transition-colors {isActive
-                                    ? 'fill-accent text-accent'
+                                    ? 'fill-accent-icon text-accent-icon'
                                     : 'fill-border text-border hover:fill-fg-faint'}"
                             />
                         </Button>

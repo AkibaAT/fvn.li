@@ -279,3 +279,30 @@ test('searches dialogue using the current game dialogue text index', function ()
         ->and($results->items()[0]->id)->toBe($line->id)
         ->and($results->items()[0]->highlighted_text)->toContain('<mark>');
 });
+
+test('restricts game search to the supplied game ids', function () {
+    $token = 'ids-' . str()->lower(str()->random(8));
+    $allowed = makeMeilisearchGame(['name' => "Allowed {$token}"]);
+    $excluded = makeMeilisearchGame(['name' => "Excluded {$token}"]);
+    addMeilisearchDocument('games', $allowed->fresh()->toSearchableArray());
+    addMeilisearchDocument('games', $excluded->fresh()->toSearchableArray());
+
+    $unrestricted = waitForMeilisearchAssertion(fn () => tap($this->service->searchGames($token, ['show_hidden' => true]), fn ($r) => expect($r->total())->toBe(2)));
+    $restricted = $this->service->searchGames($token, ['show_hidden' => true, 'game_ids' => [$allowed->id]]);
+    $none = $this->service->searchGames($token, ['show_hidden' => true, 'game_ids' => []]);
+
+    expect($unrestricted->total())->toBe(2)
+        ->and($restricted->pluck('id')->all())->toBe([$allowed->id])
+        ->and($none->total())->toBe(0);
+});
+
+test('accepts a very large game id list in one search', function () {
+    $token = 'bulk-' . str()->lower(str()->random(8));
+    $game = makeMeilisearchGame(['name' => "Bulk {$token}"]);
+    addMeilisearchDocument('games', $game->fresh()->toSearchableArray());
+    $ids = [...range($game->id + 1, $game->id + 20000), $game->id];
+
+    $results = waitForMeilisearchAssertion(fn () => $this->service->searchGames($token, ['show_hidden' => true, 'game_ids' => $ids]));
+
+    expect($results->pluck('id')->all())->toBe([$game->id]);
+});

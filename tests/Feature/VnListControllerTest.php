@@ -593,6 +593,26 @@ it('exposes only public list data and the owners progress to each viewer', funct
     expect($publicProfile->viewData('page')['props']['user'])->not->toHaveKey('email');
 })->with(['guest', 'visitor', 'owner']);
 
+it('gives only the list owner the owner\'s private tags on list entries', function (string $viewer) {
+    $owner = User::factory()->create();
+    [$list, $game] = makeListWithEntry($owner);
+    $owner->privateTags()->create(['name' => 'Shelf'])->games()->attach($game->id);
+    $untagged = Game::factory()->create(['is_visible' => true]);
+    VnListEntry::factory()->create(['vn_list_id' => $list->id, 'game_id' => $untagged->id, 'sort_order' => 20]);
+    if ($viewer !== 'guest') {
+        $this->actingAs($viewer === 'owner' ? $owner : User::factory()->create());
+    }
+
+    $entries = $this->get(route('lists.show', $list))->assertOk()->viewData('page')['props']['vnList']['entries'];
+
+    if ($viewer === 'owner') {
+        expect($entries[0]['game']['user_private_tags'])->toBe([['id' => $owner->privateTags()->first()->id, 'name' => 'Shelf']])
+            ->and($entries[1]['game']['user_private_tags'])->toBe([]);
+    } else {
+        expect($entries[0]['game'])->not->toHaveKey('user_private_tags');
+    }
+})->with(['guest', 'visitor', 'owner']);
+
 it('keeps one default status when moving a custom entry and retains its notes', function () {
     $user = User::factory()->create();
     [$custom, $game, $entry] = makeListWithEntry($user, ['is_default' => false]);

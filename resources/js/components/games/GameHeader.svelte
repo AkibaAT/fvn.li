@@ -161,7 +161,7 @@
                         <dd class="mt-0.5 text-sm font-medium text-fg">
                             {#if hasRating}
                                 <span class="inline-flex items-center gap-1">
-                                    <StarIcon class="h-3.5 w-3.5 fill-current text-accent" />
+                                    <StarIcon class="h-3.5 w-3.5 fill-current text-accent-icon" />
                                     <span class="font-semibold">{game.rating_score.toFixed(1)}</span>
                                     {#if game.rating_count > 0}
                                         <span class="font-normal text-fg-faint">
@@ -223,6 +223,7 @@
                 isPaid={game.is_paid}
                 userProgress={game.user_progress?.[0] ?? null}
                 listMemberships={game.user_list_memberships ?? []}
+                privateTags={game.user_private_tags ?? []}
             />
         </div>
     {:else}

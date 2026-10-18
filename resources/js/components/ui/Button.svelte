@@ -56,7 +56,7 @@
     const baseClasses =
         'inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50';
 
-    const accentSolid = 'bg-accent text-on-accent hover:opacity-90';
+    const accentSolid = 'border border-accent-outline bg-accent text-on-accent hover:opacity-90';
     const neutralSolid = 'bg-fg text-surface hover:opacity-90';
     const quietSoft = 'bg-surface-alt text-fg-muted hover:text-fg';
     const quietOutline = 'border border-border-strong bg-surface text-fg hover:border-fg';

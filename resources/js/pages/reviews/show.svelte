@@ -175,8 +175,8 @@
                             >
                                 <StarIcon
                                     class="h-7 w-7 cursor-pointer transition-colors {isActive
-                                        ? 'fill-accent text-accent'
-                                        : 'fill-border text-border hover:fill-accent/60 hover:text-accent/60'}"
+                                        ? 'fill-accent-icon text-accent-icon'
+                                        : 'fill-border text-border hover:fill-accent-icon/60 hover:text-accent-icon/60'}"
                                 />
                             </Button>
                         {/each}

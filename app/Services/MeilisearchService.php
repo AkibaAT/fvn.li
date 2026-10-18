@@ -28,7 +28,15 @@ class MeilisearchService
             return $this->searchGamesFromDatabase($query, $filters, $perPage, $page, $sortField, $sortDirection, $ignoredGameIds);
         }
 
+        if (isset($filters['game_ids']) && $filters['game_ids'] === []) {
+            return $this->searchGamesFromDatabase($query, $filters, $perPage, $page, $sortField, $sortDirection, $ignoredGameIds);
+        }
+
         $search = Game::search(trim($query));
+
+        if (isset($filters['game_ids'])) {
+            $search->whereIn('id', $filters['game_ids']);
+        }
 
         // Exclude ignored games
         if (! empty($ignoredGameIds)) {
@@ -241,6 +249,10 @@ class MeilisearchService
 
         if (! empty($ignoredGameIds)) {
             $games->whereNotIn('id', $ignoredGameIds);
+        }
+
+        if (isset($filters['game_ids'])) {
+            $games->whereIn('id', $filters['game_ids']);
         }
 
         $this->applyDatabaseGameFilters($games, $filters);

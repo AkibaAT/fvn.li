@@ -8,8 +8,11 @@
     import GameImage from '@/components/game-card/GameImage.svelte';
     import { Badge, Button, Rating, Select, Switch, TextInput, Textarea } from '@/components/ui';
     import ListRow from '@/components/lists/ListRow.svelte';
+    import PrivateGameTags from '@/components/PrivateGameTags.svelte';
+    import PrivateTagChips from '@/components/PrivateTagChips.svelte';
     import { formatAuthorsInline, formatWordCount, getGameThumbnail } from '@/utils/game-card-display';
     import type { AvailableList, Game, VnListEntry } from '@/types/lists';
+    import type { PrivateTagRef } from '@/types/game';
 
     interface EntryFormData {
         game_version_id: string;
@@ -23,6 +26,9 @@
         entry: VnListEntry;
         handleAttachment?: Attachment<HTMLElement> | null;
         isOwner: boolean;
+        canReorder: boolean;
+        privateTags: PrivateTagRef[];
+        onPrivateTagsChange: (gameId: number, tags: PrivateTagRef[]) => void;
         isDesktopViewport: boolean;
         vnListType: string;
         availableListsForMove: AvailableList[];
@@ -46,6 +52,9 @@
         entry,
         handleAttachment = null,
         isOwner,
+        canReorder,
+        privateTags,
+        onPrivateTagsChange,
         isDesktopViewport,
         vnListType,
         availableListsForMove,
@@ -114,6 +123,17 @@
             {#if hasCommunityRating}
                 <Rating score={game.rating_score} count={game.rating_count} />
             {/if}
+        </div>
+    {/if}
+{/snippet}
+
+{#snippet privateTagsRow(rowClass: string)}
+    {#if isOwner}
+        <div class="{rowClass} flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <PrivateTagChips tags={privateTags} />
+            <span class="text-xs">
+                <PrivateGameTags gameId={game.id} assigned={privateTags} onChange={(next) => onPrivateTagsChange(game.id, next)} />
+            </span>
         </div>
     {/if}
 {/snippet}
@@ -191,7 +211,7 @@
 <div class="rounded-lg border border-border bg-surface lg:rounded-none lg:border-0 lg:bg-transparent">
     <ListRow class="hidden border-b-0 lg:flex">
         {#snippet leading()}
-            {#if isOwner}
+            {#if isOwner && canReorder}
                 <div class="flex w-8 shrink-0">
                     <DragHandle size="md" class="drag-handle" attachment={isDesktopViewport ? (handleAttachment ?? undefined) : undefined} />
                 </div>
@@ -210,6 +230,8 @@
             {@render authorsRow('mt-0.5 truncate text-ui leading-snug text-fg-muted')}
 
             {@render metaRow('mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-ui leading-snug')}
+
+            {@render privateTagsRow('mt-1')}
 
             {@render noteLine(
                 'Public',
@@ -260,7 +282,7 @@
     </ListRow>
 
     <div class="relative flex p-4 lg:hidden">
-        {#if isOwner}
+        {#if isOwner && canReorder}
             <div class="absolute top-1/2 -left-1 flex -translate-y-1/2 items-center">
                 <DragHandle
                     size="sm"
@@ -270,7 +292,7 @@
             </div>
         {/if}
 
-        <div class="{isOwner ? 'pl-5' : ''} flex gap-4">
+        <div class="{isOwner && canReorder ? 'pl-5' : ''} flex gap-4">
             <GameImage {game} thumbnailUrl={getGameThumbnail(game)} alt={game.effective_name} class="h-32 w-32 rounded-md border border-border" />
 
             <div class="flex-1">
@@ -279,6 +301,8 @@
                 {@render authorsRow('mt-1 line-clamp-2 text-xs leading-snug text-fg-muted')}
 
                 {@render metaRow('mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs leading-snug')}
+
+                {@render privateTagsRow('mt-2')}
 
                 <div class="mt-2 flex items-center gap-2">
                     {#if currentVersion}

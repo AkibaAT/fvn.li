@@ -54,7 +54,7 @@
                 onclick={(event) => navigate(event, link.route.path)}
                 class="w-full rounded-md px-3 py-2 text-left text-sm font-medium transition-colors sm:w-auto sm:rounded-none sm:px-3 {link.route
                     .isActive
-                    ? 'text-fg sm:relative sm:after:absolute sm:after:right-3 sm:after:bottom-0 sm:after:left-3 sm:after:h-0.5 sm:after:rounded-full sm:after:bg-accent'
+                    ? 'text-fg sm:relative sm:after:absolute sm:after:right-3 sm:after:bottom-0 sm:after:left-3 sm:after:h-0.5 sm:after:rounded-full sm:after:bg-accent-icon'
                     : 'text-fg-muted hover:text-fg'} {showMobileMenu ? 'popover-row-hover' : ''}"
                 aria-current={link.route.isActive ? 'page' : undefined}
             >

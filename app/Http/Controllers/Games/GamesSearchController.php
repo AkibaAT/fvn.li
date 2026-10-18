@@ -66,6 +66,17 @@ class GamesSearchController extends Controller
 
         $filters = $this->buildFilters($request, $selectedStatuses, $selectedEngines, $selectedPlatforms, $selectedStorePlatforms, $selectedLanguages, $selectedGameJams, $selectedTags, $excludedTags, $readingTime);
 
+        $privateTagOptions = Auth::check() ? Auth::user()->privateTags()->orderByRaw('lower(name)')->pluck('name', 'id') : collect();
+        $selectedPrivateTags = $privateTagOptions->isEmpty() ? [] : collect((array) $request->get('selectedPrivateTags'))
+            ->filter(fn ($id) => is_scalar($id) && ctype_digit((string) $id) && $privateTagOptions->has((int) $id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+        if ($selectedPrivateTags !== []) {
+            $filters['game_ids'] = Auth::user()->gameIdsWithAllPrivateTags($selectedPrivateTags);
+        }
+
         $allIgnoredGameIds = [];
         $ignoredGameIds = [];
         $ignoredCount = 0;
@@ -143,6 +154,7 @@ class GamesSearchController extends Controller
                 'selectedGameJams' => is_array($selectedGameJams) ? $selectedGameJams : [],
                 'selectedTags' => is_array($selectedTags) ? $selectedTags : [],
                 'excludedTags' => is_array($excludedTags) ? $excludedTags : [],
+                'selectedPrivateTags' => array_map('strval', $selectedPrivateTags),
                 'readingTime' => $readingTime ?: '',
                 'nsfw' => $request->boolean('nsfw'),
                 'sfw' => $request->boolean('sfw'),
@@ -159,7 +171,7 @@ class GamesSearchController extends Controller
                 'usingDefaultLanguages' => $usingDefaultLanguages,
                 'usingDefaultExcludedTags' => $usingDefaultExcludedTags,
             ],
-            'filters' => $filterOptions,
+            'filters' => $filterOptions + ['privateTags' => $privateTagOptions->mapWithKeys(fn ($name, $id) => [(string) $id => $name])->all()],
             'metaTags' => $metaTags->toArray(),
             'ignoredCount' => $ignoredCount,
             'ignoredGameIds' => $allIgnoredGameIds,

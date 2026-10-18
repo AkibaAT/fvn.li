@@ -511,6 +511,23 @@ test('game detail includes the same notification and list membership data as bro
         ->assertJsonPath('props.game.user_list_memberships.0.is_public', true);
 });
 
+test('game detail shows the viewer\'s own private tags, sorted, and never another user\'s', function () {
+    config(['fvn.game_page_cache_ttl' => 300]);
+    $viewer = User::factory()->create();
+    $other = User::factory()->create();
+    $game = Game::factory()->create(['is_visible' => true]);
+    $viewer->privateTags()->create(['name' => 'zeta'])->games()->attach($game->id);
+    $viewer->privateTags()->create(['name' => 'Alpha'])->games()->attach($game->id);
+    $viewer->privateTags()->create(['name' => 'unused']);
+    $other->privateTags()->create(['name' => 'theirs'])->games()->attach($game->id);
+
+    $guest = $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->json('props');
+    $viewerProps = $this->actingAs($viewer)->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->json('props');
+
+    expect($guest['game'])->not->toHaveKey('user_private_tags')
+        ->and(array_column($viewerProps['game']['user_private_tags'], 'name'))->toBe(['Alpha', 'zeta']);
+});
+
 function gameWithOneReview(): array
 {
     config(['fvn.game_page_cache_ttl' => 300]);

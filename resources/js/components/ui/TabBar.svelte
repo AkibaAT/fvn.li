@@ -25,7 +25,7 @@
                 tone="info"
                 onclick={() => onSelect(tab.id)}
                 class="border-b-2 px-1 py-3 text-sm font-medium transition-colors {active === tab.id
-                    ? 'border-accent text-fg'
+                    ? 'border-accent-icon text-fg'
                     : 'border-transparent text-fg-muted hover:border-border-strong hover:text-fg'}"
                 aria-selected={active === tab.id}
                 role="tab"

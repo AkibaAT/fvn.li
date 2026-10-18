@@ -115,7 +115,7 @@
                     id="version-comparison-character-tab"
                     bind:ref={characterTabEl}
                     class="border-b-2 px-4 py-2 focus:outline-none {activeTab === 'character'
-                        ? 'border-accent text-fg'
+                        ? 'border-accent-icon text-fg'
                         : 'border-transparent text-fg-muted hover:border-border-strong hover:text-fg'}"
                     onclick={() => (activeTab = 'character')}
                     onkeydown={handleTabKeydown}
@@ -132,7 +132,7 @@
                     id="version-comparison-file-tab"
                     bind:ref={fileTabEl}
                     class="border-b-2 px-4 py-2 focus:outline-none {activeTab === 'file'
-                        ? 'border-accent text-fg'
+                        ? 'border-accent-icon text-fg'
                         : 'border-transparent text-fg-muted hover:border-border-strong hover:text-fg'}"
                     onclick={() => (activeTab = 'file')}
                     onkeydown={handleTabKeydown}

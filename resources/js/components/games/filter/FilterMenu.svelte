@@ -33,7 +33,7 @@
                 <span class="flex min-w-0 items-center gap-2">
                     <span class="truncate">{field.label}</span>
                     {#if field.activeCount > 0}
-                        <span class="rounded-full border border-accent px-1.5 text-2xs font-medium text-accent-fg">{field.activeCount}</span>
+                        <span class="rounded-full border border-accent-icon px-1.5 text-2xs font-medium text-accent-fg">{field.activeCount}</span>
                     {/if}
                 </span>
                 <ChevronRightIcon class="h-3.5 w-3.5 flex-shrink-0 text-fg-muted" />

@@ -232,6 +232,61 @@ it('falls back to database search when meilisearch fails', function () {
         ->and($props['games']['data'][0]['english_word_count'])->toBe(25000);
 });
 
+it('restricts search to games carrying every selected private tag of the signed-in user', function () {
+    $user = User::factory()->create();
+    $both = makeSearchGame(['name' => 'Both Tags']);
+    $onlyFirst = makeSearchGame(['name' => 'First Tag']);
+    makeSearchGame(['name' => 'Untagged']);
+    $first = $user->privateTags()->create(['name' => 'Beta']);
+    $second = $user->privateTags()->create(['name' => 'alpha']);
+    $first->games()->attach([$both->id, $onlyFirst->id]);
+    $second->games()->attach([$both->id]);
+
+    $ids = fn (array $tags) => collect(
+        $this->actingAs($user)->get(route('games.index', ['selectedPrivateTags' => $tags, 'noDefaults' => 1]))
+            ->assertOk()->viewData('page')['props']['games']['data']
+    )->pluck('id')->sort()->values()->all();
+
+    expect($ids([$first->id]))->toBe(collect([$both->id, $onlyFirst->id])->sort()->values()->all())
+        ->and($ids([$first->id, $second->id]))->toBe([$both->id]);
+
+    $props = $this->actingAs($user)->get(route('games.index', ['selectedPrivateTags' => [$first->id], 'noDefaults' => 1]))
+        ->viewData('page')['props'];
+    expect($props['currentFilters']['selectedPrivateTags'])->toBe([(string) $first->id])
+        ->and(array_values($props['filters']['privateTags']))->toBe(['alpha', 'Beta']);
+});
+
+it('returns no games for a private tag nothing is attached to instead of ignoring it', function () {
+    $user = User::factory()->create();
+    makeSearchGame(['name' => 'Some Game']);
+    $empty = $user->privateTags()->create(['name' => 'Empty']);
+
+    $props = $this->actingAs($user)->get(route('games.index', ['selectedPrivateTags' => [$empty->id], 'noDefaults' => 1]))
+        ->assertOk()->viewData('page')['props'];
+
+    expect($props['games']['total'])->toBe(0);
+});
+
+it('ignores private tags that belong to someone else and for guests', function () {
+    $user = User::factory()->create();
+    $other = User::factory()->create();
+    $game = makeSearchGame(['name' => 'Other Users Tagged']);
+    makeSearchGame(['name' => 'Another Game']);
+    $foreign = $other->privateTags()->create(['name' => 'Theirs']);
+    $foreign->games()->attach($game->id);
+    $query = ['selectedPrivateTags' => [$foreign->id, 'abc'], 'noDefaults' => 1];
+
+    $asUser = $this->actingAs($user)->get(route('games.index', $query))->assertOk()->viewData('page')['props'];
+    auth()->forgetGuards();
+    $asGuest = $this->get(route('games.index', $query))->assertOk()->viewData('page')['props'];
+
+    expect($asUser['games']['total'])->toBe(2)
+        ->and($asUser['currentFilters']['selectedPrivateTags'])->toBe([])
+        ->and($asUser['filters']['privateTags'])->toBe([])
+        ->and($asGuest['games']['total'])->toBe(2)
+        ->and($asGuest['filters']['privateTags'])->toBe([]);
+});
+
 it('returns simple autocomplete results without selecting a missing cover image column', function () {
     $game = makeSearchGame([
         'name' => 'Autocomplete Match',

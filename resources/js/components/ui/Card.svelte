@@ -40,7 +40,7 @@
 
     const toneClasses: Record<CardTone, string> = {
         neutral: 'border-border',
-        primary: 'border-accent',
+        primary: 'border-accent-icon',
         success: 'border-green-600/50',
         warning: 'border-amber-600/50',
         danger: 'border-red-600/50',

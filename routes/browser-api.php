@@ -96,7 +96,6 @@ Route::middleware(['web'])->group(function () {
         Route::patch('private-tags/{tag}', [PrivateTagController::class, 'update'])->whereNumber('tag')->name('browser-api.private-tags.update');
         Route::delete('private-tags/{tag}', [PrivateTagController::class, 'destroy'])->whereNumber('tag')->name('browser-api.private-tags.destroy');
         Route::get('private-tags/{tag}/games', [PrivateTagController::class, 'games'])->whereNumber('tag')->name('browser-api.private-tags.games');
-        Route::get('games/{game}/private-tags', [PrivateTagController::class, 'forGame'])->whereNumber('game')->name('browser-api.games.private-tags.index');
         Route::put('games/{game}/private-tags/{tag}', [PrivateTagController::class, 'attach'])->whereNumber('game')->whereNumber('tag')->name('browser-api.games.private-tags.attach');
         Route::delete('games/{game}/private-tags/{tag}', [PrivateTagController::class, 'detach'])->whereNumber('game')->whereNumber('tag')->name('browser-api.games.private-tags.detach');
 

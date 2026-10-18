@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { describe, expect, test, vi } from 'vitest';
 
 import FilterBar from './FilterBar.svelte';
@@ -55,6 +55,37 @@ describe('FilterBar', () => {
                 expect.objectContaining({ preserveState: true }),
             );
         });
+    });
+
+    test('offers private tags only when the user has some, and filters by their id', async () => {
+        renderBar();
+        await openMenu();
+        expect(screen.queryByRole('menuitem', { name: /private tags/i })).toBeNull();
+        cleanup();
+
+        render(FilterBar, { props: { filters: { ...filterOptions, privateTags: { '5': 'Favorites', '9': 'Re-read' } }, currentFilters: {} } });
+        await openMenu();
+        await fireEvent.click(screen.getByRole('menuitem', { name: /private tags/i }));
+        await fireEvent.click(screen.getByRole('option', { name: 'Re-read' }));
+
+        await waitFor(() => {
+            expect(visit).toHaveBeenCalledWith(
+                expect.stringContaining('selectedPrivateTags%5B%5D=9'),
+                expect.objectContaining({ preserveState: true }),
+            );
+        });
+    });
+
+    test('shows selected private tags as removable chips', () => {
+        render(FilterBar, {
+            props: {
+                filters: { ...filterOptions, privateTags: { '5': 'Favorites' } },
+                currentFilters: { selectedPrivateTags: ['5'] },
+            },
+        });
+
+        expect(screen.getByRole('button', { name: 'Edit filter: Favorites' })).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Remove Favorites' })).toBeTruthy();
     });
 
     test('supports switching a status chip back off from the picker', async () => {

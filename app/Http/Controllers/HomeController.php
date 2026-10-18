@@ -131,6 +131,7 @@ class HomeController extends Controller
     {
         $userProgress = collect();
         $userListMemberships = collect();
+        $userPrivateTags = collect();
 
         if (Auth::check()) {
             $gameIds = collect($teasers)->flatten(1)->pluck('id')->unique()->values()->all();
@@ -149,6 +150,8 @@ class HomeController extends Controller
                 ->select('vn_list_entries.game_id', 'vn_lists.id as list_id', 'vn_lists.name', 'vn_lists.type', 'vn_lists.is_default')
                 ->get()
                 ->groupBy('game_id');
+
+            $userPrivateTags = GamesSearchResultHydrator::privateTagsByGame(Auth::id(), $gameIds);
         }
 
         foreach ($teasers as $section => $games) {
@@ -156,6 +159,7 @@ class HomeController extends Controller
                 $progress = $userProgress->get($game['id']);
                 $teasers[$section][$index]['user_progress'] = $progress ? [$progress] : [];
                 $teasers[$section][$index]['user_list_memberships'] = $userListMemberships->get($game['id'], collect())->toArray();
+                $teasers[$section][$index]['user_private_tags'] = $userPrivateTags->get($game['id'], []);
             }
         }
 

@@ -27,7 +27,7 @@
                 onSelect(tab.key);
             }}
             class="rounded-t-md px-4 py-2 text-sm font-medium transition-colors {active === tab.key
-                ? 'border-b-2 border-accent text-fg'
+                ? 'border-b-2 border-accent-icon text-fg'
                 : 'text-fg-muted hover:text-fg'}"
         >
             {tab.count === undefined ? tab.label : `${tab.label} (${tab.count})`}

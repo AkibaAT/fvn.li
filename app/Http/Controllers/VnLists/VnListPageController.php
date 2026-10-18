@@ -182,11 +182,19 @@ class VnListPageController extends Controller
             }, 'user:id,name',
         ]);
 
+        $privateTags = $isOwner
+            ? GamesSearchResultHydrator::privateTagsByGame($listOwnerId, $vnList->entries->pluck('game_id')->all())
+            : collect();
+
         foreach ($vnList->entries as $entry) {
             GamesSearchResultHydrator::hydrateWordCounts($entry->game);
 
             $entry->game->makeHidden('sourceLanguage');
             $entry->game->latestVersion?->makeHidden('languageStats');
+
+            if ($isOwner) {
+                $entry->game->user_private_tags = $privateTags->get($entry->game_id, []);
+            }
         }
 
         $allVersionIds = $vnList->entries->flatMap(function ($entry) {

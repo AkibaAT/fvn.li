@@ -75,6 +75,12 @@ services:
       - /var/log/fvn/${COMPOSE_PROJECT_NAME}:/app/storage/logs
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/app/
+    deploy:
+      resources:
+        limits:
+          memory: 6GB
+        reservations:
+          memory: 2GB
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=web"
@@ -307,6 +313,10 @@ services:
       - "--save"
       - "60"
       - "1"
+      - "--maxmemory"
+      - "1gb"
+      - "--maxmemory-policy"
+      - "volatile-lru"
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
@@ -317,6 +327,12 @@ services:
       - fvnli
     volumes:
       - redis:/data
+    deploy:
+      resources:
+        limits:
+          memory: 2GB
+        reservations:
+          memory: 256MB
   flaresolverr:
     <<: *flaresolverr
     restart: unless-stopped

@@ -4,6 +4,8 @@ import { beforeEach, expect, test, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({ fetchUserLists: vi.fn(), fetchGameListMemberships: vi.fn(), toggleUserProgressUpdates: vi.fn() }));
 vi.mock('@/api/lists', () => api);
+const tagApi = vi.hoisted(() => ({ listPrivateTags: vi.fn(), setGamePrivateTag: vi.fn(), createPrivateTag: vi.fn() }));
+vi.mock('@/api/private-tags', () => tagApi);
 vi.mock('@inertiajs/svelte', () => ({
     page: { props: { auth: { user: { id: 1 } } } },
     router: {
@@ -51,4 +53,26 @@ test('notification failures are visible and keep the previous subscription state
     await fireEvent.click(screen.getByRole('checkbox', { name: 'Notifications off' }));
     expect(await screen.findByRole('alert', { name: 'error notification: Subscription could not be saved' })).toBeVisible();
     expect(screen.getByRole('checkbox', { name: 'Notifications off' })).not.toBeChecked();
+});
+
+test('shows the assigned private tags and updates them when the dialog changes them', async () => {
+    tagApi.listPrivateTags.mockResolvedValue([
+        { id: 1, name: 'Favorites', games_count: 2 },
+        { id: 2, name: 'Re-read', games_count: 1 },
+    ]);
+    tagApi.setGamePrivateTag.mockResolvedValue(undefined);
+    render(GameCardUserSection, { gameId: 42, gameName: 'Fixture', privateTags: [{ id: 1, name: 'Favorites' }] });
+    const chips = screen.getByRole('list', { name: 'Private tags' });
+    expect(chips).toHaveTextContent('Favorites');
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit private tags' }));
+    await fireEvent.click(await screen.findByRole('checkbox', { name: 'Re-read' }));
+    await waitFor(() => expect(tagApi.setGamePrivateTag).toHaveBeenCalledWith(42, 2, true));
+    await waitFor(() => expect(screen.getAllByRole('list', { name: 'Private tags' })[0]).toHaveTextContent('Re-read'));
+});
+
+test('offers the private tag dialog without chips when nothing is assigned', () => {
+    render(GameCardUserSection, { gameId: 42, gameName: 'Fixture' });
+    expect(screen.getByRole('button', { name: 'Private tags' })).toBeVisible();
+    expect(screen.queryByRole('list', { name: 'Private tags' })).not.toBeInTheDocument();
 });

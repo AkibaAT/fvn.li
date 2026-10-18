@@ -42,6 +42,7 @@ class GamesSearchResultHydrator
         'tags',
         'user_progress',
         'user_list_memberships',
+        'user_private_tags',
     ];
 
     public static function stripForList(mixed $game): void
@@ -85,6 +86,27 @@ class GamesSearchResultHydrator
         $game->primary_language_name = $sourceLanguageId === 'eng'
             ? 'English'
             : ($game->sourceLanguage?->ref_name ?? strtoupper($sourceLanguageId));
+    }
+
+    /**
+     * @param  array<int, int>  $gameIds
+     * @return Collection<int, array<int, array{id: int, name: string}>>
+     */
+    public static function privateTagsByGame(int $userId, array $gameIds): Collection
+    {
+        if ($gameIds === []) {
+            return collect();
+        }
+
+        return DB::table('private_tag_games')
+            ->join('private_tags', 'private_tags.id', '=', 'private_tag_games.private_tag_id')
+            ->where('private_tags.user_id', $userId)
+            ->whereIn('private_tag_games.game_id', $gameIds)
+            ->orderByRaw('lower(private_tags.name)')
+            ->select('private_tag_games.game_id', 'private_tags.id', 'private_tags.name')
+            ->get()
+            ->groupBy('game_id')
+            ->map(fn (Collection $tags) => $tags->map(fn ($tag) => ['id' => $tag->id, 'name' => $tag->name])->values()->all());
     }
 
     private static function orderTagsByPopularity(mixed $game): void
@@ -169,10 +191,13 @@ class GamesSearchResultHydrator
             ->get()
             ->groupBy('game_id');
 
+        $privateTags = self::privateTagsByGame($userId, $gameIds);
+
         foreach ($items as $game) {
             $progress = $userProgress->get($game->id);
             $game->user_progress = $progress ? [$progress] : [];
             $game->user_list_memberships = $userListMemberships->get($game->id, collect())->toArray();
+            $game->user_private_tags = $privateTags->get($game->id, []);
         }
     }
 

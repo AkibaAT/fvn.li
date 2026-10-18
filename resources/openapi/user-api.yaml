@@ -367,7 +367,16 @@ paths:
                 '403':
                     $ref: '#/components/responses/Forbidden'
                 '422':
-                    $ref: '#/components/responses/ValidationError'
+                    description: 'Validation failed'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                            example:
+                                message: 'You already have a tag with this name.'
+                                errors:
+                                    name:
+                                        - 'You already have a tag with this name.'
                 '429':
                     $ref: '#/components/responses/RateLimited'
     '/private-tags/{tag}':
@@ -400,7 +409,16 @@ paths:
                 '404':
                     $ref: '#/components/responses/NotFound'
                 '422':
-                    $ref: '#/components/responses/ValidationError'
+                    description: 'Validation failed'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                            example:
+                                message: 'You already have a tag with this name.'
+                                errors:
+                                    name:
+                                        - 'You already have a tag with this name.'
                 '429':
                     $ref: '#/components/responses/RateLimited'
         delete:
@@ -1208,7 +1226,16 @@ paths:
                 '404':
                     $ref: '#/components/responses/NotFound'
                 '422':
-                    $ref: '#/components/responses/ValidationError'
+                    description: 'Validation failed'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                            example:
+                                message: 'Provide every entry in this list exactly once.'
+                                errors:
+                                    entry_ids:
+                                        - 'Provide every entry in this list exactly once.'
                 '429':
                     $ref: '#/components/responses/RateLimited'
     /me/tracked-games:
@@ -1427,7 +1454,16 @@ paths:
                 '404':
                     $ref: '#/components/responses/NotFound'
                 '422':
-                    $ref: '#/components/responses/ValidationError'
+                    description: 'Validation failed'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                            example:
+                                message: 'Updates are unavailable for paid games.'
+                                errors:
+                                    is_receiving_updates:
+                                        - 'Updates are unavailable for paid games.'
                 '429':
                     $ref: '#/components/responses/RateLimited'
     /me/search-preferences:
@@ -1510,7 +1546,16 @@ paths:
                 '403':
                     $ref: '#/components/responses/Forbidden'
                 '422':
-                    $ref: '#/components/responses/ValidationError'
+                    description: 'Validation failed'
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                            example:
+                                message: 'The selected preferred_languages.0 is invalid.'
+                                errors:
+                                    preferred_languages.0:
+                                        - 'The selected preferred_languages.0 is invalid.'
                 '429':
                     $ref: '#/components/responses/RateLimited'
     /me/ignored-games:
@@ -1749,35 +1794,11 @@ components:
                 application/json:
                     schema:
                         $ref: '#/components/schemas/ValidationError'
-                    examples:
-                        duplicateTag:
-                            summary: 'Private tag names are unique per account, ignoring case'
-                            value:
-                                message: 'You already have a tag with this name.'
-                                errors:
-                                    name:
-                                        - 'You already have a tag with this name.'
-                        incompleteReorder:
-                            summary: 'Reorder must list every entry exactly once'
-                            value:
-                                message: 'Provide every entry in this list exactly once.'
-                                errors:
-                                    entry_ids:
-                                        - 'Provide every entry in this list exactly once.'
-                        paidUpdates:
-                            summary: 'Paid games cannot receive update notifications'
-                            value:
-                                message: 'Updates are unavailable for paid games.'
-                                errors:
-                                    is_receiving_updates:
-                                        - 'Updates are unavailable for paid games.'
-                        unknownLanguage:
-                            summary: 'Languages are ISO 639-3 codes'
-                            value:
-                                message: 'The selected preferred_languages.0 is invalid.'
-                                errors:
-                                    preferred_languages.0:
-                                        - 'The selected preferred_languages.0 is invalid.'
+                    example:
+                        message: 'The name field is required.'
+                        errors:
+                            name:
+                                - 'The name field is required.'
         RateLimited:
             description: 'Rate limit exceeded'
             headers:

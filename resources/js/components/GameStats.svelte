@@ -311,7 +311,7 @@
                         tone="neutral"
                         onclick={() => (activeTab = tab.id)}
                         class="border-b-2 px-1 py-4 text-sm font-medium whitespace-nowrap {activeTab === tab.id
-                            ? 'border-accent text-fg'
+                            ? 'border-accent-icon text-fg'
                             : 'border-transparent text-fg-muted hover:border-border-strong hover:text-fg'}"
                     >
                         {tab.label}

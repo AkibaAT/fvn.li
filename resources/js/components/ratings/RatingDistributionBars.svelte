@@ -16,7 +16,7 @@
             <span class="w-20 text-sm font-medium text-fg-muted">{Number(ratingKey)} Stars</span>
             <div class="mx-2 flex-1">
                 <div class="h-4 overflow-hidden rounded-full bg-border">
-                    <div class="h-full bg-accent" style="width: {percentage}%"></div>
+                    <div class="h-full bg-accent-icon" style="width: {percentage}%"></div>
                 </div>
             </div>
             <div class="flex w-44 items-center justify-end gap-1 text-sm text-fg-faint">

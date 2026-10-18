@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -163,6 +164,20 @@ class User extends Authenticatable
     public function privateTags(): HasMany
     {
         return $this->hasMany(PrivateTag::class);
+    }
+
+    /**
+     * @param  array<int, int>  $tagIds
+     * @return array<int, int>
+     */
+    public function gameIdsWithAllPrivateTags(array $tagIds): array
+    {
+        return DB::table('private_tag_games')
+            ->whereIn('private_tag_id', $tagIds)
+            ->groupBy('game_id')
+            ->havingRaw('count(*) = ?', [count($tagIds)])
+            ->pluck('game_id')
+            ->all();
     }
 
     public function ignoredGames(): BelongsToMany

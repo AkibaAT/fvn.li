@@ -130,6 +130,7 @@
                 isPaid={game.is_paid}
                 userProgress={game.user_progress?.[0] ?? null}
                 listMemberships={game.user_list_memberships ?? []}
+                privateTags={game.user_private_tags ?? []}
             />
         {/if}
     {/if}

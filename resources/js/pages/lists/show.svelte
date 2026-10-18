@@ -21,9 +21,11 @@
     import SortableList from '@/components/drag-drop/SortableList.svelte';
     import ListEntryCard from '@/components/lists/ListEntryCard.svelte';
     import ListGroup from '@/components/lists/ListGroup.svelte';
+    import PrivateTagFilter from '@/components/lists/PrivateTagFilter.svelte';
     import { Badge, Button, Card, Switch, Textarea, TextInput } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import type { AvailableList, Game, VnList, VnListEntry } from '@/types/lists';
+    import type { PrivateTagRef } from '@/types/game';
 
     interface ListShowProps {
         vnList: VnList;
@@ -57,6 +59,41 @@
         target_list_id: '',
     });
     const entryFormAction = useAsyncAction();
+
+    let tagOverrides = $state<Record<number, PrivateTagRef[]>>({});
+    let selectedTagIds = $state<number[]>([]);
+
+    const tagsFor = (game: Game): PrivateTagRef[] => tagOverrides[game.id] ?? game.user_private_tags ?? [];
+
+    const handlePrivateTagsChange = (gameId: number, tags: PrivateTagRef[]) => {
+        tagOverrides = { ...tagOverrides, [gameId]: tags };
+    };
+
+    const tagOptions = $derived.by(() => {
+        if (!isOwner) return [];
+        const byId: Record<number, { id: number; name: string; count: number }> = {};
+        for (const entry of entries) {
+            for (const tag of tagsFor(entry.game)) {
+                byId[tag.id] ??= { id: tag.id, name: tag.name, count: 0 };
+                byId[tag.id].count++;
+            }
+        }
+        return Object.values(byId).sort((a, b) => a.name.localeCompare(b.name));
+    });
+    const activeTagIds = $derived(selectedTagIds.filter((id) => tagOptions.some((option) => option.id === id)));
+    const isFiltering = $derived(activeTagIds.length > 0);
+    const visibleEntries = $derived(
+        isFiltering
+            ? entries.filter((entry) => {
+                  const ids = tagsFor(entry.game).map((tag) => tag.id);
+                  return activeTagIds.every((id) => ids.includes(id));
+              })
+            : entries,
+    );
+
+    const toggleTagFilter = (id: number) => {
+        selectedTagIds = activeTagIds.includes(id) ? activeTagIds.filter((tagId) => tagId !== id) : [...activeTagIds, id];
+    };
 
     const freeGames = $derived(entries.filter((e) => !e.game.is_paid));
     const allFreeGamesReceiveUpdates = $derived(
@@ -387,7 +424,9 @@
 
     <Card padding="sm" class="mb-4 md:pr-6 md:pl-7">
         <div class="flex items-center justify-between">
-            <h2 class="text-title font-semibold text-fg">List Entries ({entries.length})</h2>
+            <h2 class="text-title font-semibold text-fg">
+                List Entries ({isFiltering ? `${visibleEntries.length} of ${entries.length}` : entries.length})
+            </h2>
             {#if isOwner && freeGames.length > 0}
                 <div class="flex items-center gap-3">
                     <span class="text-sm font-medium text-fg-muted">Notifications for all free entries:</span>
@@ -401,6 +440,15 @@
                 </div>
             {/if}
         </div>
+        {#if tagOptions.length > 0}
+            <PrivateTagFilter
+                class="mt-3"
+                options={tagOptions}
+                selected={activeTagIds}
+                onToggle={toggleTagFilter}
+                onClear={() => (selectedTagIds = [])}
+            />
+        {/if}
     </Card>
 
     {#if entries.length === 0}
@@ -409,6 +457,10 @@
             {#if isOwner}
                 <p class="mt-2 text-fg-muted">Browse games and add them to your list!</p>
             {/if}
+        </div>
+    {:else if visibleEntries.length === 0}
+        <div class="rounded-lg bg-surface-alt p-8 text-center">
+            <p class="text-fg-muted">No games in this list have all of the selected private tags.</p>
         </div>
     {:else}
         <div
@@ -432,7 +484,7 @@
 
         <!-- One shared surface from `lg` up; below that every entry keeps its own card. -->
         <ListGroup class="rounded-none border-0 bg-transparent px-0 lg:rounded-lg lg:border lg:border-border lg:bg-surface lg:px-3.5 lg:py-1">
-            {#if isOwner}
+            {#if isOwner && !isFiltering}
                 <SortableList
                     items={entries}
                     onReorder={(newItems) => handleReorder(newItems)}
@@ -444,7 +496,7 @@
                 </SortableList>
             {:else}
                 <div class="space-y-3 text-fg-muted md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:space-y-0 lg:divide-y lg:divide-border">
-                    {#each entries as entry (entry.id)}
+                    {#each visibleEntries as entry (entry.id)}
                         {@render gameEntry(entry)}
                     {/each}
                 </div>
@@ -466,6 +518,9 @@
         {entry}
         {handleAttachment}
         {isOwner}
+        canReorder={!isFiltering}
+        privateTags={tagsFor(entry.game)}
+        onPrivateTagsChange={handlePrivateTagsChange}
         {isDesktopViewport}
         vnListType={vnList.type}
         availableListsForMove={availableListsForMove(vnList.id)}

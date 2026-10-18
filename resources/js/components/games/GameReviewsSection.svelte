@@ -197,7 +197,7 @@
                             {/if}
                         </div>
                         <div class="flex items-center gap-1">
-                            <div class="flex items-center gap-1 text-accent">
+                            <div class="flex items-center gap-1 text-accent-icon">
                                 {#each Array.from({ length: review.rating }) as _, index (index)}
                                     <StarIcon class="h-5 w-5 fill-current" />
                                 {/each}

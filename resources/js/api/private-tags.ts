@@ -37,11 +37,6 @@ export async function privateTagGames(tag: number, pageUrl?: string): Promise<{ 
     return { games: data.data, next: data.links.next };
 }
 
-export async function gamePrivateTags(game: number): Promise<PrivateTag[]> {
-    const { data } = await http.get<{ data: PrivateTag[] }>(route('browser-api.games.private-tags.index', game));
-    return data.data;
-}
-
 export async function setGamePrivateTag(game: number, tag: number, attached: boolean): Promise<void> {
     const url = route(attached ? 'browser-api.games.private-tags.attach' : 'browser-api.games.private-tags.detach', { game, tag });
     if (attached) await http.put(url);
