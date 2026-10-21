@@ -12,29 +12,23 @@ import {
 
 describe('game card display helpers', () => {
     test('shows the count of whichever language carries most of the text', () => {
-        expect(formatWordCount({ primary_word_count: 4128, primary_language_name: 'English', english_word_count: 4128 })).toBe('4,128 words');
-        expect(formatWordCount({ primary_word_count: 1743, primary_language_name: 'Mandarin Chinese', english_word_count: 15720 })).toBe(
-            '15,720 words',
-        );
-        expect(formatWordCount({ primary_word_count: 1395, primary_language_name: 'Mandarin Chinese', english_word_count: 27 })).toBe(
-            '1,395 words in Mandarin Chinese',
-        );
-        expect(formatWordCount({ primary_word_count: 4128, primary_language_name: 'Japanese', english_word_count: null })).toBe(
-            '4,128 words in Japanese',
-        );
-        expect(formatWordCount({ primary_word_count: null, primary_language_name: 'English' })).toBeNull();
+        expect(formatWordCount({ primary_word_count: 4128, primary_language_code: 'eng', english_word_count: 4128 })).toBe('4,128 words');
+        expect(formatWordCount({ primary_word_count: 1743, primary_language_code: 'cmn', english_word_count: 15720 })).toBe('15,720 words');
+        expect(formatWordCount({ primary_word_count: 1395, primary_language_code: 'cmn', english_word_count: 27 })).toBe('1,395 words (cmn)');
+        expect(formatWordCount({ primary_word_count: 4128, primary_language_code: 'jpn', english_word_count: null })).toBe('4,128 words (jpn)');
+        expect(formatWordCount({ primary_word_count: null, primary_language_code: 'eng' })).toBeNull();
     });
 
     test('abbreviates large counts and drops the language in compact form', () => {
-        expect(
-            formatWordCount({ primary_word_count: 1165793, primary_language_name: 'English', english_word_count: 1165793 }, { compact: true }),
-        ).toBe('1.2M words');
-        expect(formatWordCount({ primary_word_count: 51425, primary_language_name: 'English', english_word_count: 51425 }, { compact: true })).toBe(
+        expect(formatWordCount({ primary_word_count: 1165793, primary_language_code: 'eng', english_word_count: 1165793 }, { compact: true })).toBe(
+            '1.2M words',
+        );
+        expect(formatWordCount({ primary_word_count: 51425, primary_language_code: 'eng', english_word_count: 51425 }, { compact: true })).toBe(
             '51,425 words',
         );
         expect(
             formatWordCount(
-                { primary_word_count: 4128, primary_language_name: 'Japanese', english_word_count: null },
+                { primary_word_count: 4128, primary_language_code: 'jpn', english_word_count: null },
                 { compact: true, withLanguage: false },
             ),
         ).toBe('4,128 words');

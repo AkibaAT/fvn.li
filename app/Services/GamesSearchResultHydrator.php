@@ -38,6 +38,7 @@ class GamesSearchResultHydrator
         'english_word_count',
         'primary_word_count',
         'primary_language_name',
+        'primary_language_code',
         'supported_languages',
         'tags',
         'user_progress',
@@ -64,6 +65,7 @@ class GamesSearchResultHydrator
             $game->english_word_count = null;
             $game->primary_word_count = null;
             $game->primary_language_name = 'English';
+            $game->primary_language_code = 'eng';
 
             return;
         }
@@ -83,6 +85,7 @@ class GamesSearchResultHydrator
             $game->primary_word_count = $game->english_word_count;
         }
 
+        $game->primary_language_code = $sourceLanguageId;
         $game->primary_language_name = $sourceLanguageId === 'eng'
             ? 'English'
             : ($game->sourceLanguage?->ref_name ?? strtoupper($sourceLanguageId));

@@ -9,7 +9,14 @@
     import ListRow from '@/components/lists/ListRow.svelte';
     import { Rating } from '@/components/ui';
     import { useGameCard, type GameCardProps } from '@/hooks/useGameCard.svelte';
-    import { formatReleasedDate, formatReleaseDates, formatUpdatedDate, formatWordCount, formatWordCountBreakdown } from '@/utils/game-card-display';
+    import {
+        GAME_TAG_LIMIT,
+        formatReleasedDate,
+        formatReleaseDates,
+        formatUpdatedDate,
+        formatWordCount,
+        formatWordCountBreakdown,
+    } from '@/utils/game-card-display';
 
     let props: GameCardProps = $props();
 
@@ -91,7 +98,13 @@
         </div>
 
         <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <GameTagList tags={orderedTags} {selectedTags} onTagClick={handleTag} limit={8} class="min-w-0 flex-1 flex-nowrap overflow-hidden" />
+            <GameTagList
+                tags={orderedTags}
+                {selectedTags}
+                onTagClick={handleTag}
+                limit={GAME_TAG_LIMIT}
+                class="min-w-0 flex-1 flex-nowrap overflow-hidden"
+            />
 
             <GlyphStrip
                 {storePlatform}

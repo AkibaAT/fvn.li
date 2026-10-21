@@ -728,5 +728,6 @@ it('includes the card facts the row renders: authors, store, community score and
         ->and($row['rating_count'])->toBe(12)
         ->and($row['english_word_count'])->toBe(20000)
         ->and($row['primary_word_count'])->toBe(12345)
-        ->and($row['primary_language_name'])->toBe('Japanese');
+        ->and($row['primary_language_name'])->toBe('Japanese')
+        ->and($row['primary_language_code'])->toBe('jpn');
 });

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 56" role="img" aria-labelledby="title">
+    <title id="title">FVN.li fox and open book, spine</title>
+    <g fill="#f2bb4a">
+        <defs><path id="half" fill-rule="evenodd" d="M6 7Q6 5 8 6L28 18V47L10 35Q8 34 8 31ZM11 13L13 24L20 19ZM12 28L13 32L24 40V34Z"/></defs>
+        <use href="#half" transform="translate(-1.2 0)"/>
+        <use href="#half" transform="matrix(-1 0 0 1 61.2 0)"/>
+        <path d="M28.8 21.5L30 20L31.2 21.5V47.2L30 49L28.8 47.2Z"/>
+    </g>
+</svg>

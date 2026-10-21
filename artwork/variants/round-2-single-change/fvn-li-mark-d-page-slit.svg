@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 56" role="img" aria-labelledby="title">
+    <title id="title">FVN.li fox and open book, page slit</title>
+    <g fill="#f2bb4a">
+        <path id="half" fill-rule="evenodd" d="M6 7Q6 5 8 6L28 18V47L10 35Q8 34 8 31ZM11 13L13 24L20 19ZM28 39.6L12.5 29.3V31.7L28 42Z"/>
+        <use href="#half" transform="matrix(-1 0 0 1 60 0)"/>
+        <path d="M28 42L30 43.5L32 42V47L30 48.5L28 47Z"/>
+    </g>
+</svg>

@@ -1,7 +1,8 @@
 import type { GameCardGame } from '@/hooks/useGameCard.svelte';
 import { formatLocalDate } from './date-formatting';
 
-type WordCountFields = Pick<GameCardGame, 'primary_word_count' | 'primary_language_name' | 'english_word_count'>;
+type WordCountFields = Pick<GameCardGame, 'primary_word_count' | 'primary_language_code' | 'english_word_count'>;
+type BreakdownFields = Pick<GameCardGame, 'primary_word_count' | 'primary_language_name' | 'english_word_count'>;
 
 export function formatAuthorsInline(authors?: string | null): string {
     if (!authors) return '';
@@ -12,6 +13,8 @@ export function formatAuthorsInline(authors?: string | null): string {
         .replace(/\s{2,}/g, ' ')
         .trim();
 }
+
+export const GAME_TAG_LIMIT = 8;
 
 const hasCount = (value: number | null | undefined): value is number => typeof value === 'number' && value > 0;
 
@@ -28,13 +31,13 @@ export function formatWordCount(game: WordCountFields, { compact = false, withLa
     if (hasCount(english) && (!hasCount(primary) || english * 2 >= primary)) return words(english, compact);
     if (!hasCount(primary)) return null;
 
-    const language = game.primary_language_name;
+    const code = game.primary_language_code;
     const label = words(primary, compact);
 
-    return withLanguage && language && language !== 'English' ? `${label} in ${language}` : label;
+    return withLanguage && code && code !== 'eng' ? `${label} (${code})` : label;
 }
 
-export function formatWordCountBreakdown(game: WordCountFields): string | null {
+export function formatWordCountBreakdown(game: BreakdownFields): string | null {
     const language = game.primary_language_name;
     if (!language || language === 'English' || !hasCount(game.primary_word_count)) return null;
 

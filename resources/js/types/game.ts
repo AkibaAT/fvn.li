@@ -87,6 +87,7 @@ export interface Game {
     english_word_count?: number | null;
     primary_word_count?: number | null;
     primary_language_name?: string | null;
+    primary_language_code?: string | null;
     tags?: GameTag[];
     gameJams?: GameJamRef[];
     supported_languages?: LanguageRef[];
