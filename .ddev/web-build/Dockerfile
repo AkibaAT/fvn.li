@@ -5,6 +5,7 @@ RUN (wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | g
     && (echo "deb https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list) \
     && rm -f /etc/apt/sources.list.d/mariadb*.list /etc/apt/sources.list.d/mariadb*.sources \
     && apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends  \
         libnspr4 \
         libnss3 \
@@ -25,3 +26,9 @@ RUN (wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | g
 
 ENV JAVA_HOME=/usr/lib/jvm/jdk-21
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+# Temurin's bundled roots do not receive Debian's CA revocations.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates-java \
+    && ln -sf /etc/ssl/certs/java/cacerts "${JAVA_HOME}/lib/security/cacerts" \
+    && rm -rf /var/lib/apt/lists/*

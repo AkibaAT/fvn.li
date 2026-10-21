@@ -47,11 +47,11 @@ for (const width of [1440, 375]) {
         await page.setViewportSize({ width, height: 1000 });
         await page.goto(`/games?noDefaults=1&search=${encodeURIComponent(f.originalName)}`);
 
-        // The dense card joins the first five tags with commas and folds the rest into +N.
-        await expect(page.locator('[data-tag-id]')).toHaveCount(5);
-        await expect(page.getByText('+7', { exact: true })).toBeVisible();
+        const tags = page.locator('[data-tag-list]');
+        await expect(tags.locator('[data-tag-id]')).toHaveCount(8);
+        await expect(tags.getByText('+4', { exact: true })).toBeVisible();
 
-        const tag = page.locator('[data-tag-id]').last();
+        const tag = tags.locator('[data-tag-id]').last();
         await tag.scrollIntoViewIfNeeded();
         await expect(tag).toBeInViewport();
         await tag.click({ trial: true });

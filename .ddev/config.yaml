@@ -2,6 +2,7 @@ name: fvn-li
 type: laravel
 docroot: public
 php_version: '8.5'
+nodejs_version: '24.22.1'
 webserver_type: nginx-fpm
 xdebug_enabled: true
 additional_hostnames:

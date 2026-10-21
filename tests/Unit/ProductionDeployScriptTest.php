@@ -4,6 +4,38 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
+use Symfony\Component\Yaml\Yaml;
+
+test('production Redis health check rejects loading and failed replies', function (string $reply, int $exitCode, bool $ready) {
+    $healthcheck = Yaml::parseFile(base_path('docker/production/docker-compose.yml'))['services']['redis']['healthcheck']['test'];
+    $command = $healthcheck[0] === 'CMD' ? array_slice($healthcheck, 1) : ['sh', '-c', $healthcheck[1]];
+    $fakeBinPath = sys_get_temp_dir() . '/fvn-redis-health-' . bin2hex(random_bytes(8));
+    mkdir($fakeBinPath);
+    file_put_contents($fakeBinPath . '/redis-cli', <<<'SH'
+#!/bin/sh
+printf '%s\n' "$FVN_REDIS_REPLY"
+exit "$FVN_REDIS_EXIT"
+SH);
+    chmod($fakeBinPath . '/redis-cli', 0755);
+
+    try {
+        $process = new Process($command, env: [
+            'PATH' => $fakeBinPath . ':' . getenv('PATH'),
+            'FVN_REDIS_REPLY' => $reply,
+            'FVN_REDIS_EXIT' => (string) $exitCode,
+        ], timeout: 5);
+        $process->run();
+
+        expect($process->isSuccessful())->toBe($ready);
+    } finally {
+        File::deleteDirectory($fakeBinPath);
+    }
+})->with([
+    'ready' => ['PONG', 0, true],
+    'loading dataset with successful CLI exit' => ['LOADING Redis is loading the dataset in memory', 0, false],
+    'authentication failure with successful CLI exit' => ['NOAUTH Authentication required', 0, false],
+    'connection failure' => ['', 1, false],
+]);
 
 test('production deploy fails before docker mutations when DenKit configuration is incomplete', function () {
     $deploymentPath = sys_get_temp_dir() . '/fvn-deploy-test-' . bin2hex(random_bytes(8));

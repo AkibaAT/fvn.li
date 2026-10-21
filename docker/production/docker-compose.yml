@@ -318,11 +318,11 @@ services:
       - "--maxmemory-policy"
       - "volatile-lru"
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: [ "CMD-SHELL", "redis-cli ping | grep -qx PONG" ]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 1m
     networks:
       - fvnli
     volumes:
