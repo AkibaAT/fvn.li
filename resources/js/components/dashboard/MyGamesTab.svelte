@@ -1,6 +1,6 @@
 <script lang="ts">
+    import { toast } from '@/utils/toast';
     import { refreshPage } from '@/utils/refreshPage';
-    import { notify } from '@/components/Toast.svelte';
     import { useAsyncAction } from '@/utils/async-action.svelte';
     import ItchioIcon from '@/components/icons/Itchio.svelte';
     import { Button } from '@/components/ui';
@@ -29,7 +29,7 @@
             { fallbackError: 'Could not sync your itch.io games.' },
         );
         if (!result) return;
-        notify(result.message, 'success');
+        toast.success(result.message);
     }
 </script>
 

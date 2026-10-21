@@ -1,8 +1,8 @@
 <script lang="ts">
+    import { toast } from '@/utils/toast';
     import ExclamationCircleIcon from '@/components/icons/ExclamationCircle.svelte';
     import { submitBugReport } from '@/api';
     import { usePage } from '@inertiajs/svelte';
-    import { notify } from '@/components/Toast.svelte';
     import { useAsyncAction } from '@/utils/async-action.svelte';
     import { Alert, Button, Dialog, TextInput, Textarea } from '@/components/ui';
 
@@ -44,12 +44,12 @@
         e.preventDefault();
 
         if (!user) {
-            notify('You must be logged in to submit a bug report.', 'error');
+            toast.error('You must be logged in to submit a bug report.');
             return;
         }
 
         if (description.trim().length < 10) {
-            notify('Please provide a more detailed description (at least 10 characters).', 'error');
+            toast.error('Please provide a more detailed description (at least 10 characters).');
             return;
         }
 
@@ -64,7 +64,7 @@
             { fallbackError: 'An error occurred while submitting the bug report.' },
         );
         if (!message) return;
-        notify(message, 'success');
+        toast.success(message);
         description = '';
         isOpen = false;
     }

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 use function Illuminate\Support\defer;
 
@@ -15,9 +17,11 @@ class RatingStatsCacheService
 
     private const int CUBE_FRESH_SECONDS = 300;
 
-    private const array LEGACY_FOREVER_NAMES = [
-        'ratings.global_stats',
-    ];
+    private const int COLD_BUILD_WAIT_SECONDS = 30;
+
+    private const int CUBE_TTL_SECONDS = 86_400;
+
+    private const int VERSION_TTL_SECONDS = 2_592_000;
 
     /**
      * @return array<string, mixed>
@@ -43,7 +47,7 @@ class RatingStatsCacheService
     {
         Cache::forget(self::cubeDirtyKey($visibleGamesOnly));
         $cube = app(RatingAnalyticsService::class)->ratingCube($visibleGamesOnly);
-        Cache::forever(self::cubeKey($visibleGamesOnly), ['cube' => $cube, 'computed_at' => now()->getTimestamp()]);
+        Cache::put(self::cubeKey($visibleGamesOnly), ['cube' => $cube, 'computed_at' => now()->getTimestamp()], self::CUBE_TTL_SECONDS);
 
         return $cube;
     }
@@ -55,25 +59,13 @@ class RatingStatsCacheService
 
     public static function clear(): void
     {
-        Cache::add(self::VERSION_KEY, 1);
-        $version = self::version();
-
-        foreach (self::LEGACY_FOREVER_NAMES as $name) {
-            Cache::forget(self::versionedKey($name, $version));
-
-            if ($version > 1) {
-                Cache::forget(self::versionedKey($name, $version - 1));
-            }
-        }
-
-        Cache::increment(self::VERSION_KEY);
-        Cache::forever(self::cubeDirtyKey(true), true);
-        Cache::forever(self::cubeDirtyKey(false), true);
+        Cache::forget(self::VERSION_KEY);
+        EdgeCache::purge([EdgeCache::RATINGS]);
+        Cache::put(self::cubeDirtyKey(true), true, self::CUBE_TTL_SECONDS);
+        Cache::put(self::cubeDirtyKey(false), true, self::CUBE_TTL_SECONDS);
 
         if (DB::transactionLevel() > 0) {
-            DB::afterCommit(function (): void {
-                Cache::increment(self::VERSION_KEY);
-            });
+            DB::afterCommit(fn () => Cache::forget(self::VERSION_KEY));
         }
     }
 
@@ -85,12 +77,15 @@ class RatingStatsCacheService
         $cached = Cache::get(self::cubeKey($visibleGamesOnly));
 
         if ($cached === null) {
-            return self::refreshCube($visibleGamesOnly);
+            return self::lock($visibleGamesOnly)->block(
+                self::COLD_BUILD_WAIT_SECONDS,
+                fn (): array => Cache::get(self::cubeKey($visibleGamesOnly))['cube'] ?? self::refreshCube($visibleGamesOnly),
+            );
         }
 
         if (Cache::has(self::cubeDirtyKey($visibleGamesOnly)) || $cached['computed_at'] < now()->subSeconds(self::CUBE_FRESH_SECONDS)->getTimestamp()) {
             defer(
-                fn () => Cache::lock('lock:' . self::cubeKey($visibleGamesOnly), 60)->get(fn () => self::refreshCube($visibleGamesOnly)),
+                fn () => self::lock($visibleGamesOnly)->get(fn () => self::refreshCube($visibleGamesOnly)),
                 self::cubeKey($visibleGamesOnly),
             );
         }
@@ -103,20 +98,18 @@ class RatingStatsCacheService
         return 'ratings.cube.' . ($visibleGamesOnly ? 'visible-games' : 'all-games');
     }
 
+    private static function lock(bool $visibleGamesOnly): Lock
+    {
+        return Cache::lock('lock:' . self::cubeKey($visibleGamesOnly), 60);
+    }
+
     private static function cubeDirtyKey(bool $visibleGamesOnly): string
     {
         return self::cubeKey($visibleGamesOnly) . '.dirty';
     }
 
-    private static function version(): int
+    private static function version(): string
     {
-        Cache::add(self::VERSION_KEY, 1);
-
-        return (int) Cache::get(self::VERSION_KEY, 1);
-    }
-
-    private static function versionedKey(string $name, int $version): string
-    {
-        return "{$name}:v{$version}";
+        return Cache::remember(self::VERSION_KEY, self::VERSION_TTL_SECONDS, fn (): string => (string) Str::uuid());
     }
 }

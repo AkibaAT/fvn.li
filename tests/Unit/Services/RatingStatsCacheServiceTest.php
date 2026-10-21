@@ -17,12 +17,3 @@ it('uses versioned keys for expiring rating stats caches', function () {
     expect(RatingStatsCacheService::key('ratings.count:test'))
         ->not->toBe($firstKey);
 });
-
-it('removes legacy versioned global stats keys during invalidation', function () {
-    $currentLegacyKey = RatingStatsCacheService::key('ratings.global_stats');
-    Cache::forever($currentLegacyKey, ['stale' => true]);
-
-    RatingStatsCacheService::clear();
-
-    expect(Cache::has($currentLegacyKey))->toBeFalse();
-});

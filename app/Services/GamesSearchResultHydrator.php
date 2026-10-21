@@ -170,10 +170,23 @@ class GamesSearchResultHydrator
         }
 
         $items = $games instanceof Collection ? $games : collect($games->items());
-        $gameIds = $items->pluck('id')->toArray();
+        $userData = $this->userData($items->pluck('id')->all(), $userId);
 
-        if (empty($gameIds)) {
-            return;
+        foreach ($items as $game) {
+            foreach ($userData[$game->id] ?? [] as $field => $value) {
+                $game->{$field} = $value;
+            }
+        }
+    }
+
+    /**
+     * @param  list<int>  $gameIds
+     * @return array<int, array{user_progress: list<object>, user_list_memberships: list<object>, user_private_tags: list<array{id: int, name: string}>}>
+     */
+    public function userData(array $gameIds, int $userId): array
+    {
+        if ($gameIds === []) {
+            return [];
         }
 
         $userProgress = DB::table('user_game_progress')
@@ -193,12 +206,17 @@ class GamesSearchResultHydrator
 
         $privateTags = self::privateTagsByGame($userId, $gameIds);
 
-        foreach ($items as $game) {
-            $progress = $userProgress->get($game->id);
-            $game->user_progress = $progress ? [$progress] : [];
-            $game->user_list_memberships = $userListMemberships->get($game->id, collect())->toArray();
-            $game->user_private_tags = $privateTags->get($game->id, []);
+        $userData = [];
+        foreach ($gameIds as $gameId) {
+            $progress = $userProgress->get($gameId);
+            $userData[$gameId] = [
+                'user_progress' => $progress ? [$progress] : [],
+                'user_list_memberships' => $userListMemberships->get($gameId, collect())->all(),
+                'user_private_tags' => $privateTags->get($gameId, []),
+            ];
         }
+
+        return $userData;
     }
 
     private function hydrateGame(mixed $game): void

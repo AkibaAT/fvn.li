@@ -23,6 +23,10 @@ use Inertia\Response;
 
 class GamesSearchController extends Controller
 {
+    private const PER_PAGE_OPTIONS = [12, 24, 48];
+
+    private const DEFAULT_PER_PAGE = 12;
+
     /**
      * Display games with search and filtering capabilities
      */
@@ -44,7 +48,10 @@ class GamesSearchController extends Controller
         $defaultSort = $isSearching ? 'relevance' : 'first_visible_at';
         $sortField = $request->get('sort', $defaultSort);
         $sortDirection = $request->get('direction', 'desc');
-        $perPage = min(96, max(8, (int) $request->get('perPage', 12)));
+        $perPage = (int) $request->get('perPage', self::DEFAULT_PER_PAGE);
+        if (! in_array($perPage, self::PER_PAGE_OPTIONS, true)) {
+            $perPage = self::DEFAULT_PER_PAGE;
+        }
 
         $usingDefaultLanguages = false;
         if (! $request->has('selectedLanguages') && ! $request->has('noDefaults') && Auth::check()) {
@@ -191,11 +198,10 @@ class GamesSearchController extends Controller
 
         if ($search = $request->get('q')) {
             $searchTerm = "%{$search}%";
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('games.name', 'ilike', $searchTerm)
-                    ->orWhere('games.authors', 'ilike', $searchTerm)
-                    ->orWhere('games.custom_tags', 'ilike', $searchTerm);
-            });
+            // ::text casts let ILIKE use the trigram indexes.
+            $query->where(fn ($q) => $q->whereRaw('games.name::text ilike ?', [$searchTerm])
+                ->orWhereRaw("regexp_replace(games.authors::text, '<[^>]*>', '', 'g') ilike ?", [$searchTerm])
+                ->orWhereRaw('games.custom_tags::text ilike ?', [$searchTerm]));
         }
 
         $games = $query->limit(10)->get(['id', 'name', 'slug', 'thumb_url']);

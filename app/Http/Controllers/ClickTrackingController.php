@@ -34,7 +34,7 @@ class ClickTrackingController extends Controller
                 return redirect()->route('games.show', $game->slug);
             }
 
-            $sessionId = $request->session()->getId();
+            $sessionId = ClickStat::visitorKey($request);
 
             $userId = $request->user()?->id;
 
@@ -97,7 +97,7 @@ class ClickTrackingController extends Controller
                 return redirect()->route('games.show', $game->slug);
             }
 
-            $sessionId = $request->session()->getId();
+            $sessionId = ClickStat::visitorKey($request);
 
             $userId = $request->user()?->id;
 
@@ -170,7 +170,7 @@ class ClickTrackingController extends Controller
                 ], 422);
             }
 
-            $sessionId = $request->session()->getId();
+            $sessionId = ClickStat::visitorKey($request);
 
             $userId = $request->user()?->id;
 

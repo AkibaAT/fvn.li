@@ -56,12 +56,12 @@ it('flags hits from blocked networks before the address is anonymised', function
         ->and($click->ip_address)->toBe('40.223.170.0');
 });
 
-it('flags crawler page views served through the tracking middleware', function () {
+it('flags crawler page views reported by the page beacon', function () {
     $game = Game::factory()->create(['is_visible' => true]);
 
     $this->withHeader('User-Agent', CRAWLER_UA)
-        ->get(route('games.show', $game->slug))
-        ->assertSuccessful();
+        ->postJson(route('api.games.view', $game), ['visitor_id' => '6f1c1c3a-2f0e-4b8e-9d55-0b2f3d1e8a11'])
+        ->assertNoContent();
 
     expect(ClickStat::where('game_id', $game->id)->where('type', ClickStat::TYPE_PAGE_VIEW)->count())->toBe(1)
         ->and(ClickStat::where('game_id', $game->id)->value('bot_reason'))

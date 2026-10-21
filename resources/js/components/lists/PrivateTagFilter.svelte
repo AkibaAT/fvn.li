@@ -32,7 +32,7 @@
             onclick={() => onToggle(option.id)}
             class={cn(
                 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm border border-dashed px-2 py-0.5 text-ui font-medium transition-colors',
-                isSelected ? 'border-solid border-accent-outline bg-accent text-on-accent' : 'border-border-strong text-fg-muted hover:text-fg',
+                isSelected ? 'border-solid border-accent-fg bg-accent text-on-accent' : 'border-border-strong text-fg-muted hover:text-fg',
             )}
         >
             {option.name}

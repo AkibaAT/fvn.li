@@ -15,6 +15,8 @@ class PreventRequestForgery extends Middleware
      */
     protected $except = [
         'api/*',
+        'browser-api/track/custom-link',
+        'browser-api/games/*/versions/*/parse-save',
     ];
 
     protected function inExceptArray($request): bool
@@ -28,7 +30,7 @@ class PreventRequestForgery extends Middleware
 
     protected function addCookieToResponse($request, $response)
     {
-        if (CachePublicPage::appliesTo($request)) {
+        if (CachePublicPage::appliesTo($request) || ! StartSession::shouldPersist($request)) {
             return $response;
         }
 

@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\UserGameProgress;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use App\Services\UserGameProgressService;
 use App\Services\VnListCacheService;
 use App\Traits\SortsVnLists;
 use Illuminate\Http\JsonResponse;
@@ -129,33 +130,14 @@ class VnListGameController extends Controller
         ]);
     }
 
-    public function updateUserProgress(UpdateUserProgressRequest $request, Game $game): JsonResponse
+    public function updateUserProgress(UpdateUserProgressRequest $request, Game $game, UserGameProgressService $progressService): JsonResponse
     {
-
-        $updateData = [
+        $progress = $progressService->save((int) Auth::id(), $game, [
             'game_version_id' => $request->game_version_id ?: null,
             'personal_notes' => $request->input('personal_notes'),
             'started_at' => $request->started_at ?: null,
             'completed_at' => $request->completed_at ?: null,
-        ];
-
-        $progress = UserGameProgress::updateOrCreate(
-            [
-                'user_id' => Auth::id(),
-                'game_id' => $game->id,
-            ],
-            $updateData
-        );
-
-        $publicListsContainingGame = VnList::where('is_public', true)
-            ->whereHas('entries', function ($query) use ($game) {
-                $query->where('game_id', $game->id);
-            })
-            ->exists();
-
-        if ($publicListsContainingGame) {
-            app(VnListCacheService::class)->clearPublicListsCache();
-        }
+        ]);
 
         return response()->json([
             'success' => true,
@@ -164,7 +146,7 @@ class VnListGameController extends Controller
         ]);
     }
 
-    public function toggleUserProgressUpdates(ToggleUserProgressUpdatesRequest $request, Game $game): JsonResponse
+    public function toggleUserProgressUpdates(ToggleUserProgressUpdatesRequest $request, Game $game, UserGameProgressService $progressService): JsonResponse
     {
         if ($game->is_paid) {
             return response()->json([
@@ -175,15 +157,7 @@ class VnListGameController extends Controller
 
         $receiveUpdates = $request->boolean('is_receiving_updates');
 
-        UserGameProgress::updateOrCreate(
-            [
-                'user_id' => Auth::id(),
-                'game_id' => $game->id,
-            ],
-            [
-                'is_receiving_updates' => $receiveUpdates,
-            ]
-        );
+        $progressService->save((int) Auth::id(), $game, ['is_receiving_updates' => $receiveUpdates]);
 
         $status = $receiveUpdates ? 'enabled' : 'disabled';
 

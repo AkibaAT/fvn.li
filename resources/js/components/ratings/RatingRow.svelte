@@ -30,7 +30,7 @@
     <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
         <div class="space-y-1">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <Link href={route('games.show', { game: row.game.slug })} class="text-lg font-medium text-fg hover:underline">
+                <Link href={route('games.show', { game: row.game.slug })} class="text-lg content-link">
                     {row.game.name}
                 </Link>
                 {#if !showRater}{@render platformMark()}{/if}
@@ -56,7 +56,7 @@
                     {#if row.user}
                         <span class="inline-flex items-center gap-1">
                             by
-                            <Link href={route('users.reviews', row.user.id)} class="inline-flex items-center gap-1 text-fg hover:underline">
+                            <Link href={route('users.reviews', row.user.id)} class="inline-flex items-center gap-1 content-link">
                                 {#if row.user.avatar}
                                     <img src={row.user.avatar} alt="" aria-hidden="true" class="h-4 w-4 rounded-full" />
                                 {/if}
@@ -64,7 +64,7 @@
                             </Link>
                         </span>
                     {:else if row.rater}
-                        <span>by <Link href={route('raters.show', row.rater.id)} class="text-fg hover:underline">{row.rater.name}</Link></span>
+                        <span>by <Link href={route('raters.show', row.rater.id)} class="content-link">{row.rater.name}</Link></span>
                     {/if}
                     {@render platformMark()}
                 </div>
@@ -93,9 +93,15 @@
                 Contains spoilers. Click to reveal.
             </Button>
         {:else}
-            <div class="mx-auto prose mt-2 text-fg-muted dark:prose-invert" class:fvn-review={row.isFvnReview} style={reviewStyle}>
-                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                {@html row.review}
+            <div class="mt-3">
+                <div
+                    class="mx-auto prose text-fg-muted dark:prose-invert [&>:first-child]:mt-0 [&>:first-child>:first-child]:mt-0 [&>:last-child]:mb-0 [&>:last-child>:last-child]:mb-0"
+                    class:fvn-review={row.isFvnReview}
+                    style={reviewStyle}
+                >
+                    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                    {@html row.review}
+                </div>
             </div>
         {/if}
     {/if}

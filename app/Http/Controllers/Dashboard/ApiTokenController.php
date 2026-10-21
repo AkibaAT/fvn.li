@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Support\UserApiAbility;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,18 +15,15 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class ApiTokenController extends Controller
 {
-    private const ABILITIES = [
-        'catalog:read', 'tags:read', 'tags:write', 'lists:read', 'lists:write',
-        'tracking:read', 'tracking:write', 'preferences:read', 'preferences:write',
-    ];
+    public const MAX_ACTIVE_TOKENS = 20;
 
     public function index(Request $request): JsonResponse
     {
         $tokens = $request->user()->tokens()->orderByDesc('created_at')->get()
-            ->filter(fn ($token) => in_array('user-api', $token->abilities, true))
+            ->filter(fn ($token) => UserApiAbility::isUserApiToken($token))
             ->map(fn ($token) => $this->metadata($token))->values();
 
-        return response()->json(['data' => $tokens, 'abilities' => self::ABILITIES]);
+        return response()->json(['data' => $tokens, 'abilities' => UserApiAbility::values()]);
     }
 
     public function store(Request $request): JsonResponse
@@ -33,10 +31,17 @@ class ApiTokenController extends Controller
         $input = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'abilities' => ['required', 'array', 'min:1'],
-            'abilities.*' => ['required', 'string', 'distinct', Rule::in(self::ABILITIES)],
+            'abilities.*' => ['required', 'string', 'distinct', Rule::enum(UserApiAbility::class)],
         ]);
+        $active = $request->user()->tokens()->where('expires_at', '>', now())->get(['abilities'])
+            ->filter(fn ($token) => UserApiAbility::isUserApiToken($token))->count();
+        if ($active >= self::MAX_ACTIVE_TOKENS) {
+            throw ValidationException::withMessages([
+                'token' => 'You can have at most ' . self::MAX_ACTIVE_TOKENS . ' active API tokens. Revoke one before creating another.',
+            ]);
+        }
         $token = $request->user()->createToken($input['name'],
-            ['user-api', ...$input['abilities']], now()->addDays(90));
+            [UserApiAbility::TOKEN_MARKER, ...$input['abilities']], now()->addDays(90));
 
         return response()->json([
             'data' => $this->metadata($token->accessToken),
@@ -66,7 +71,7 @@ class ApiTokenController extends Controller
     private function owned(Request $request, int $id): PersonalAccessToken
     {
         $token = $request->user()->tokens()->findOrFail($id);
-        abort_unless(in_array('user-api', $token->abilities, true), 404);
+        abort_unless(UserApiAbility::isUserApiToken($token), 404);
 
         return $token;
     }
@@ -86,7 +91,7 @@ class ApiTokenController extends Controller
         return [
             'id' => $token->id,
             'name' => $token->name,
-            'abilities' => array_values(array_diff($token->abilities, ['user-api'])),
+            'abilities' => array_values(array_diff($token->abilities, [UserApiAbility::TOKEN_MARKER])),
             'created_at' => $token->created_at->toIso8601String(),
             'last_used_at' => $token->last_used_at?->toIso8601String(),
             'expires_at' => $token->expires_at->toIso8601String(),

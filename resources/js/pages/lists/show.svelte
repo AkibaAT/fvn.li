@@ -1,10 +1,10 @@
 <script lang="ts">
+    import { toast } from '@/utils/toast';
     import { refreshPage } from '@/utils/refreshPage';
     import { useAsyncAction } from '@/utils/async-action.svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { Attachment } from 'svelte/attachments';
     import { Link } from '@inertiajs/svelte';
-    import { notify } from '@/components/Toast.svelte';
     import {
         destroyListEntry,
         destroyVnList,
@@ -113,7 +113,7 @@
         );
         if (!data) return;
         isEditingList = false;
-        notify('List updated successfully', 'success');
+        toast.success('List updated successfully');
     };
 
     const handleCancelListEdit = () => {
@@ -131,7 +131,7 @@
             { fallbackError: 'Failed to delete list' },
         );
         if (!deleted) return;
-        notify('List deleted successfully', 'success');
+        toast.success('List deleted successfully');
         window.location.href = route('lists.index');
     };
 
@@ -145,7 +145,7 @@
             { fallbackError: 'Failed to update visibility' },
         );
         if (!data) return;
-        notify(data.message || 'List visibility updated', 'success');
+        toast.success(data.message || 'List visibility updated');
     };
 
     const handleCompareVersions = (gameId: number, fromVersionId: number, toVersionId: number) => {
@@ -208,7 +208,7 @@
         );
         if (!data) return;
         editingEntryId = null;
-        notify('Entry updated', 'success');
+        toast.success('Entry updated');
     };
 
     const startMoving = (entry: VnListEntry) => {
@@ -229,7 +229,7 @@
         );
         if (!moved) return;
         movingEntryId = null;
-        notify('Entry moved successfully', 'success');
+        toast.success('Entry moved successfully');
     };
 
     const toggleNotificationAction = useAsyncAction();
@@ -246,7 +246,7 @@
             },
         );
         if (!data) return;
-        notify(data.message || `Notifications ${data.is_receiving_updates ? 'enabled' : 'disabled'} for "${game.effective_name}"`, 'success');
+        toast.success(data.message || `Notifications ${data.is_receiving_updates ? 'enabled' : 'disabled'} for "${game.effective_name}"`);
     };
 
     const toggleAllNotificationsAction = useAsyncAction();
@@ -264,7 +264,7 @@
             },
         );
         if (!data) return;
-        notify(data.message || `Notifications ${newStatus ? 'enabled' : 'disabled'} for all games`, 'success');
+        toast.success(data.message || `Notifications ${newStatus ? 'enabled' : 'disabled'} for all games`);
     };
 
     const reorderAction = useAsyncAction();
@@ -289,7 +289,7 @@
             entries = originalEntries;
             return;
         }
-        notify(data.message || 'List order updated', 'success');
+        toast.success(data.message || 'List order updated');
     };
 
     const availableListsForMove = (currentListId: number) => availableLists.filter((list) => list.id !== currentListId);
@@ -422,87 +422,85 @@
         </Card>
     {/if}
 
-    <Card padding="sm" class="mb-4 md:pr-6 md:pl-7">
-        <div class="flex items-center justify-between">
-            <h2 class="text-title font-semibold text-fg">
-                List Entries ({isFiltering ? `${visibleEntries.length} of ${entries.length}` : entries.length})
-            </h2>
-            {#if isOwner && freeGames.length > 0}
-                <div class="flex items-center gap-3">
-                    <span class="text-sm font-medium text-fg-muted">Notifications for all free entries:</span>
-                    <Switch
-                        checked={allFreeGamesReceiveUpdates}
-                        onchange={handleToggleAllNotifications}
-                        ariaLabel={allFreeGamesReceiveUpdates
-                            ? 'Turn off notifications for all free entries'
-                            : 'Turn on notifications for all free entries'}
-                    />
-                </div>
-            {/if}
-        </div>
-        {#if tagOptions.length > 0}
-            <PrivateTagFilter
-                class="mt-3"
-                options={tagOptions}
-                selected={activeTagIds}
-                onToggle={toggleTagFilter}
-                onClear={() => (selectedTagIds = [])}
-            />
-        {/if}
-    </Card>
-
-    {#if entries.length === 0}
-        <div class="rounded-lg bg-surface-alt p-8 text-center">
-            <p class="text-fg-muted">No visual novels in this list yet.</p>
-            {#if isOwner}
-                <p class="mt-2 text-fg-muted">Browse games and add them to your list!</p>
-            {/if}
-        </div>
-    {:else if visibleEntries.length === 0}
-        <div class="rounded-lg bg-surface-alt p-8 text-center">
-            <p class="text-fg-muted">No games in this list have all of the selected private tags.</p>
-        </div>
-    {:else}
-        <div
-            class="hidden items-center gap-3.5 rounded-t-lg border border-transparent bg-surface-alt px-3.5 py-2.5 text-sm font-medium text-fg-muted uppercase lg:flex"
-        >
-            <div class="w-8 shrink-0"></div>
-            <div class="w-18 shrink-0"></div>
-            <div class="min-w-0 flex-1">Title</div>
-            <div class="flex shrink-0 items-center gap-3">
-                <div class="w-52">Version</div>
-                <div class="w-30">Started</div>
-                {#if vnList.type === 'custom' || vnList.type === 'completed'}
-                    <div class="w-28">Completed</div>
-                {/if}
-                {#if isOwner}
-                    <div class="w-20">Actions</div>
-                    <div class="w-30 pr-1 text-right">Notifications</div>
+    <Card padding="none">
+        <div class="px-4 py-3 md:px-6">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 class="text-title font-semibold text-fg">
+                    List Entries ({isFiltering ? `${visibleEntries.length} of ${entries.length}` : entries.length})
+                </h2>
+                {#if isOwner && freeGames.length > 0}
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-medium text-fg-muted">Notifications for all free entries:</span>
+                        <Switch
+                            checked={allFreeGamesReceiveUpdates}
+                            onchange={handleToggleAllNotifications}
+                            ariaLabel={allFreeGamesReceiveUpdates
+                                ? 'Turn off notifications for all free entries'
+                                : 'Turn on notifications for all free entries'}
+                        />
+                    </div>
                 {/if}
             </div>
+            {#if tagOptions.length > 0}
+                <PrivateTagFilter
+                    class="mt-3"
+                    options={tagOptions}
+                    selected={activeTagIds}
+                    onToggle={toggleTagFilter}
+                    onClear={() => (selectedTagIds = [])}
+                />
+            {/if}
         </div>
 
-        <!-- One shared surface from `lg` up; below that every entry keeps its own card. -->
-        <ListGroup class="rounded-none border-0 bg-transparent px-0 lg:rounded-lg lg:border lg:border-border lg:bg-surface lg:px-3.5 lg:py-1">
-            {#if isOwner && !isFiltering}
-                <SortableList
-                    items={entries}
-                    onReorder={(newItems) => handleReorder(newItems)}
-                    class="space-y-3 text-fg-muted md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:space-y-0 lg:divide-y lg:divide-border"
-                >
-                    {#snippet children(entry, _index, _canDrag, handleAttachment)}
-                        {@render gameEntry(entry, handleAttachment)}
-                    {/snippet}
-                </SortableList>
-            {:else}
-                <div class="space-y-3 text-fg-muted md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:space-y-0 lg:divide-y lg:divide-border">
-                    {#each visibleEntries as entry (entry.id)}
-                        {@render gameEntry(entry)}
-                    {/each}
+        {#if entries.length === 0}
+            <div class="border-t border-border p-8 text-center">
+                <p class="text-fg-muted">No visual novels in this list yet.</p>
+                {#if isOwner}
+                    <p class="mt-2 text-fg-muted">Browse games and add them to your list!</p>
+                {/if}
+            </div>
+        {:else if visibleEntries.length === 0}
+            <div class="border-t border-border p-8 text-center">
+                <p class="text-fg-muted">No games in this list have all of the selected private tags.</p>
+            </div>
+        {:else}
+            <div
+                class="hidden items-center gap-3.5 border-t border-border bg-surface-alt px-6 py-2 text-xs font-medium tracking-wide text-fg-muted uppercase lg:flex"
+            >
+                {#if isOwner}
+                    <div class="w-8 shrink-0"></div>
+                {/if}
+                <div class="min-w-0 flex-1">Title</div>
+                <div class="flex shrink-0 items-center gap-3">
+                    <div class="w-52">Version</div>
+                    <div class="w-30">Started</div>
+                    {#if vnList.type === 'custom' || vnList.type === 'completed'}
+                        <div class="w-28">Completed</div>
+                    {/if}
+                    {#if isOwner}
+                        <div class="w-20">Actions</div>
+                        <div class="w-30 pr-1 text-right">Notifications</div>
+                    {/if}
                 </div>
-            {/if}
-        </ListGroup>
-    {/if}
+            </div>
+
+            <ListGroup class="rounded-none border-0 border-t border-border bg-transparent lg:px-6">
+                {#if isOwner && !isFiltering}
+                    <SortableList items={entries} onReorder={(newItems) => handleReorder(newItems)} class="divide-y divide-border text-fg-muted">
+                        {#snippet children(entry, _index, _canDrag, handleAttachment)}
+                            {@render gameEntry(entry, handleAttachment)}
+                        {/snippet}
+                    </SortableList>
+                {:else}
+                    <div class="divide-y divide-border text-fg-muted">
+                        {#each visibleEntries as entry (entry.id)}
+                            {@render gameEntry(entry)}
+                        {/each}
+                    </div>
+                {/if}
+            </ListGroup>
+        {/if}
+    </Card>
 </div>
 
 <VersionComparisonModal

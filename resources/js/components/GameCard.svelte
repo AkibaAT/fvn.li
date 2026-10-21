@@ -10,7 +10,14 @@
     import StoreGlyph from './games/glyphs/StoreGlyph.svelte';
     import { Card, Rating } from '@/components/ui';
     import { useGameCard, type GameCardProps } from '@/hooks/useGameCard.svelte';
-    import { formatLatestDate, formatReleaseDates, formatWordCount, formatWordCountBreakdown } from '@/utils/game-card-display';
+    import {
+        GAME_TAG_LIMIT,
+        formatReleasedDate,
+        formatReleaseDates,
+        formatUpdatedDate,
+        formatWordCount,
+        formatWordCountBreakdown,
+    } from '@/utils/game-card-display';
 
     interface Props extends GameCardProps {
         compact?: boolean;
@@ -42,9 +49,10 @@
     const { game, compact, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, nsfw, showPaid, showDemo, showSale } =
         $derived(props);
 
-    const wordCountLabel = $derived(formatWordCount(game, { compact: true, withLanguage: false }));
-    const wordCountTitle = $derived(formatWordCountBreakdown(game) ?? formatWordCount(game) ?? undefined);
-    const dateLabel = $derived(formatLatestDate(game));
+    const wordCountLabel = $derived(formatWordCount(game, { compact: true }));
+    const wordCountTitle = $derived(formatWordCountBreakdown(game) ?? undefined);
+    const releasedDate = $derived(formatReleasedDate(game));
+    const updatedDate = $derived(formatUpdatedDate(game));
     const datesTitle = $derived(formatReleaseDates(game) ?? undefined);
     const rowSpanClass = $derived(compact ? 'row-span-4' : auth?.user ? 'row-span-9 max-sm:row-span-8' : 'row-span-8 max-sm:row-span-7');
 </script>
@@ -53,7 +61,7 @@
     variant="flat"
     padding="none"
     hover
-    class="group relative grid grid-rows-subgrid content-start gap-x-0 gap-y-1.5 px-3 pt-3 pb-3.5 {rowSpanClass}"
+    class="group relative grid grid-cols-1 grid-rows-subgrid content-start gap-x-0 gap-y-1.5 px-3 pt-3 pb-3.5 {rowSpanClass}"
     data-game-card
 >
     {#if auth?.user && !compact}
@@ -63,21 +71,26 @@
     <div class="relative mb-2">
         <GameImage {game} {thumbnailUrl} />
 
-        <div class="absolute right-9 bottom-1.25 left-2 flex flex-wrap gap-1">
-            <GameFlags
-                {game}
-                {selectedStatuses}
-                {nsfw}
-                {showPaid}
-                {showDemo}
-                {showSale}
-                onStatusClick={handleStatus}
-                onNsfwToggle={handleNsfwToggle}
-                onPaidToggle={handlePaidToggle}
-                onDemoToggle={handleDemoToggle}
-                onSaleToggle={handleSaleToggle}
-                class="bg-surface shadow-sm"
-            />
+        <div class="absolute right-9 bottom-1.25 left-2 flex flex-nowrap gap-1 overflow-hidden">
+            {#snippet flags(limit: number)}
+                <GameFlags
+                    {game}
+                    {selectedStatuses}
+                    {nsfw}
+                    {showPaid}
+                    {showDemo}
+                    {showSale}
+                    onStatusClick={handleStatus}
+                    onNsfwToggle={handleNsfwToggle}
+                    onPaidToggle={handlePaidToggle}
+                    onDemoToggle={handleDemoToggle}
+                    onSaleToggle={handleSaleToggle}
+                    {limit}
+                    class="bg-surface shadow-sm"
+                />
+            {/snippet}
+            <div class="contents sm:hidden">{@render flags(1)}</div>
+            <div class="hidden sm:contents">{@render flags(2)}</div>
         </div>
 
         {#if storePlatform && !compact}
@@ -108,20 +121,27 @@
     {#if compact}
         <Rating score={game.rating_score} count={game.rating_count} class="pt-1" />
     {:else}
-        <div class="flex items-center justify-between gap-2 pt-1.5 max-sm:flex-col max-sm:items-start max-sm:gap-0.5">
-            <span class="min-w-0 truncate text-ui leading-snug {wordCountLabel ? 'text-fg-muted' : 'text-fg-faint'}" title={wordCountTitle}>
+        <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 pt-1.5">
+            <span class="min-w-0 text-ui leading-snug {wordCountLabel ? 'text-fg-muted' : 'text-fg-faint'}" title={wordCountTitle}>
                 {wordCountLabel ?? '—'}
             </span>
             <Rating score={game.rating_score} count={game.rating_count} class="shrink-0" />
         </div>
 
-        <div class="truncate text-xs leading-snug text-fg-faint max-sm:hidden" title={datesTitle}>{dateLabel ?? ''}</div>
+        <div class="text-xs leading-snug max-sm:hidden" title={datesTitle}>
+            {#if releasedDate}
+                <div class="truncate text-fg-muted">Released {releasedDate}</div>
+                {#if updatedDate}
+                    <div class="truncate text-fg-faint">Updated {updatedDate}</div>
+                {/if}
+            {/if}
+        </div>
 
         <PlatformGlyphs platforms={supportedPlatforms} {selectedPlatforms} onPlatformClick={handlePlatform} class="-ml-0.75" />
 
         <LanguageGlyphs languages={game.supported_languages ?? []} {selectedLanguages} onLanguageClick={handleLanguage} class="-my-1.25 -ml-0.75" />
 
-        <GameTagList tags={orderedTags} {selectedTags} onTagClick={handleTag} limit={5} class="content-start" />
+        <GameTagList tags={orderedTags} {selectedTags} onTagClick={handleTag} limit={GAME_TAG_LIMIT} class="content-start" />
 
         {#if auth?.user}
             <GameCardUserSection

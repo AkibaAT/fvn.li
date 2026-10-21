@@ -24,12 +24,12 @@ class GameController extends Controller
             'page' => ['sometimes', 'integer', 'min:1'],
         ]);
 
-        $query = Game::query()->where('is_visible', true)
+        $query = Game::visible()
             ->when($input['platform'] ?? null, fn ($q, $platform) => $q->where('platform', $platform));
         if ($term = trim($input['q'] ?? '')) {
             $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term) . '%';
             $query->where(fn ($q) => $q->whereRaw('name::text ilike ?', [$like])
-                ->orWhereRaw('authors::text ilike ?', [$like]));
+                ->orWhereRaw("regexp_replace(authors::text, '<[^>]*>', '', 'g') ilike ?", [$like]));
         }
 
         return GameResource::collection($query->orderBy('id')->paginate($input['per_page'] ?? 20)->withQueryString());
@@ -37,12 +37,15 @@ class GameController extends Controller
 
     public function show(int $game): GameResource
     {
-        return new GameResource(Game::query()->where('is_visible', true)->findOrFail($game));
+        return new GameResource(Game::visible()->findOrFail($game));
     }
 
     public function resolve(Request $request): GameResource|JsonResponse
     {
-        $input = $this->validateSelector($request->all());
+        [$input, $errors] = $this->checkSelector($request->all());
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
         $matches = $this->matches($input);
 
         if ($matches->isEmpty()) {
@@ -57,13 +60,17 @@ class GameController extends Controller
 
     public function resolveBatch(Request $request): JsonResponse
     {
-        $request->validate(['items' => ['required', 'array', 'min:1', 'max:50']]);
+        $request->validate(['items' => ['required', 'array', 'list', 'min:1', 'max:50']]);
         $results = [];
-        foreach ($request->input('items') as $index => $item) {
-            if (! is_array($item)) {
-                throw ValidationException::withMessages(["items.{$index}" => 'Each item must be an object.']);
+        foreach ($request->input('items') as $item) {
+            [$selector, $errors] = is_array($item)
+                ? $this->checkSelector($item)
+                : [[], ['item' => ['Each item must be an object.']]];
+            if ($errors !== []) {
+                $results[] = ['input' => is_array($item) ? $item : null, 'status' => 'invalid', 'errors' => $errors, 'game' => null];
+
+                continue;
             }
-            $selector = $this->validateSelector($item, "items.{$index}.");
             $matches = $this->matches($selector);
             $results[] = [
                 'input' => $selector,
@@ -75,34 +82,34 @@ class GameController extends Controller
         return response()->json(['data' => $results]);
     }
 
-    private function validateSelector(array $value, string $prefix = ''): array
+    /** @return array{0: array<string, mixed>, 1: array<string, list<string>>} */
+    private function checkSelector(array $value): array
     {
-        try {
-            $input = validator($value, [
-                'itch_id' => ['sometimes', 'integer', 'min:1'],
-                'steam_app_id' => ['sometimes', 'integer', 'min:1'],
-                'url' => ['sometimes', 'string', 'url:http,https', 'max:2048'],
-            ])->validate();
-        } catch (ValidationException $exception) {
-            throw ValidationException::withMessages(collect($exception->errors())
-                ->mapWithKeys(fn ($messages, $field) => [$prefix . $field => $messages])->all());
+        $validator = validator($value, [
+            'itch_id' => ['sometimes', 'integer', 'min:1'],
+            'steam_app_id' => ['sometimes', 'integer', 'min:1'],
+            'url' => ['sometimes', 'string', 'url:http,https', 'max:2048'],
+        ]);
+        if ($validator->fails()) {
+            return [[], $validator->errors()->toArray()];
         }
+        $input = $validator->validated();
         if (count($input) !== 1) {
-            throw ValidationException::withMessages([$prefix . 'selector' => 'Provide exactly one of itch_id, steam_app_id, or url.']);
+            return [[], ['selector' => ['Provide exactly one of itch_id, steam_app_id, or url.']]];
         }
         if (isset($input['url'])) {
             $url = parse_url($input['url']);
             if (isset($url['user']) || isset($url['pass'])) {
-                throw ValidationException::withMessages([$prefix . 'url' => 'URLs with credentials cannot be resolved.']);
+                return [[], ['url' => ['URLs with credentials cannot be resolved.']]];
             }
         }
 
-        return $input;
+        return [$input, []];
     }
 
     private function matches(array $selector): Collection
     {
-        $query = Game::query()->where('is_visible', true);
+        $query = Game::visible();
         if (isset($selector['itch_id'])) {
             $query->where('itch_id', $selector['itch_id']);
         } elseif (isset($selector['steam_app_id'])) {

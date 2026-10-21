@@ -46,7 +46,7 @@
     aria-label={isIgnored ? 'Remove from ignore list' : 'Add to ignore list'}
 >
     {#if isIgnored}
-        <NoSymbolSolidIcon class="h-4 w-4 text-accent-icon" />
+        <NoSymbolSolidIcon class="h-4 w-4 accent-glyph" />
     {:else}
         <NoSymbolIcon class="h-4 w-4" />
     {/if}

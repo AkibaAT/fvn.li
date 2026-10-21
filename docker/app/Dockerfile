@@ -1,8 +1,8 @@
-FROM dunglas/frankenphp:1.12.6-php8.5.8@sha256:da270879b95225345b2ee984f717aef5cba7336e1f206ec005074a79235af347
+FROM dunglas/frankenphp:1.13.2-php8.5.12@sha256:8a7a935deb33959200628497b8201423c8b777d513a62ac1b69a91c624afdb3d
 
-ARG BUN_VERSION=1.3.14
-ARG BUN_LINUX_X64_BASELINE_SHA256=a063908ae08b7852ca10939bbdc6ceed3ddabce8fb9402dce83d65d73b36e6c7
-ARG BUN_LINUX_AARCH64_SHA256=a27ffb63a8310375836e0d6f668ae17fa8d8d18b88c37c821c65331973a19a3b
+ARG BUN_VERSION=1.4.4
+ARG BUN_LINUX_X64_BASELINE_SHA256=e0446eb55995772eb9894bebae9a6be368d985a8b9271ee124486f9946eedd76
+ARG BUN_LINUX_AARCH64_SHA256=baa6bb36f51d6e58561e02bbea825038a9df454f673d6d776e8bbf86f8c7850e
 ARG BUTLER_VERSION=15.29.0
 ARG BUTLER_LINUX_AMD64_SHA256=bbb2eb17747aeec5f5d7ec0f0e5ffcd595af075fb5b75336b5b6740916470fde
 ARG BUTLER_LINUX_ARM64_SHA256=5268faa7dc0ac71c8137a7691a01430f21d20084759b2ed4bf2b954418b60457
@@ -24,7 +24,6 @@ RUN apt-get update \
         curl \
         docker-cli \
         ffmpeg \
-        gpg \
         graphviz \
         imagemagick \
         libgl1 \
@@ -81,11 +80,6 @@ RUN apt-get update \
         && rm -rf /tmp/butler-extract /tmp/butler.zip \
         && butler -V \
     ) \
-    && (wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor | tee /etc/apt/trusted.gpg.d/adoptium.gpg > /dev/null) \
-    && (echo "deb https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list) \
-    && apt-get update \
-    && apt-get install -yqq --no-install-recommends --show-progress \
-        temurin-21-jdk \
     && install-php-extensions \
         bcmath \
         bz2 \
@@ -106,11 +100,9 @@ RUN apt-get update \
         zip \
     && cp ${PHP_INI_DIR}/php.ini-production ${PHP_INI_DIR}/php.ini
 
-ENV JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64
-ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # Copy storage directory
-COPY storage /app/storage
+COPY --chown=www-data:www-data storage /app/storage
 
 # Copy configuration files
 COPY docker/app/php.ini ${PHP_INI_DIR}/conf.d/99-octane.ini
@@ -128,6 +120,6 @@ RUN apt-get -y autoremove \
     && mkdir -p /var/log/caddy \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
     && rm -f /var/log/lastlog /var/log/faillog \
-    && chown -R www-data:www-data /app
+    && chown -R --from=root:root www-data:www-data /app
 
 ENTRYPOINT ["/entrypoint.sh"]

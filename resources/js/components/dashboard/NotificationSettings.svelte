@@ -1,6 +1,6 @@
 <script lang="ts">
+    import { toast } from '@/utils/toast';
     import { refreshPage } from '@/utils/refreshPage';
-    import { notify } from '@/components/Toast.svelte';
     import { useAsyncAction } from '@/utils/async-action.svelte';
     import NotificationHealthPanel from '@/components/NotificationHealthPanel.svelte';
     import { Button, Card, Switch } from '@/components/ui';
@@ -37,10 +37,7 @@
             { fallbackError: 'Could not update browser notifications' },
         );
         if (!saved) return;
-        notify(
-            enable ? 'Browser notifications enabled for this device.' : 'Browser notifications disabled and this device was unsubscribed.',
-            'success',
-        );
+        toast.success(enable ? 'Browser notifications enabled for this device.' : 'Browser notifications disabled and this device was unsubscribed.');
     }
 
     async function toggleDiscord(): Promise<void> {
@@ -53,7 +50,7 @@
             { fallbackError: 'Could not update Discord notifications' },
         );
         if (!saved) return;
-        notify(enable ? 'Discord DMs enabled. Authorize the app and send a test DM to verify delivery.' : 'Discord DMs disabled.', 'success');
+        toast.success(enable ? 'Discord DMs enabled. Authorize the app and send a test DM to verify delivery.' : 'Discord DMs disabled.');
     }
 
     async function updateDigest(value: string): Promise<void> {
@@ -66,7 +63,7 @@
             { fallbackError: 'Could not update notification frequency' },
         );
         if (!saved) return;
-        notify('Notification frequency updated.', 'success');
+        toast.success('Notification frequency updated.');
     }
 </script>
 

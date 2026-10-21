@@ -41,6 +41,7 @@ paths:
             parameters:
                 - name: q
                   in: query
+                  description: 'Case-insensitive substring match on the game name or author names. Wildcard characters match literally.'
                   schema:
                       type: string
                       maxLength: 100
@@ -197,7 +198,7 @@ paths:
                 - Catalog
             operationId: postGamesResolve
             summary: 'Resolve up to 50 identifiers in input order'
-            description: 'Each result reports matched, unmatched, or ambiguous. One invalid input rejects the whole batch with 422.'
+            description: 'Each result reports matched, unmatched, ambiguous, or invalid, in input order. An invalid item carries its validation errors and does not affect the other items. Only a missing, non-array, empty, or oversized items list is rejected with 422.'
             x-required-ability: 'catalog:read'
             x-additional-rate-limit: '10 requests per minute per account'
             requestBody:
@@ -220,6 +221,7 @@ paths:
                                 - itch_id: 708589
                                 - url: 'https://store.steampowered.com/app/1805130/Komorebi/?curator_clanid=1'
                                 - url: 'https://example.itch.io/not-in-the-catalog'
+                                - url: 'ftp://example.org/story'
             responses:
                 '200':
                     description: 'Ordered results'
@@ -266,6 +268,13 @@ paths:
                                     - input:
                                           url: 'https://example.itch.io/not-in-the-catalog'
                                       status: unmatched
+                                      game: null
+                                    - input:
+                                          url: 'ftp://example.org/story'
+                                      status: invalid
+                                      errors:
+                                          url:
+                                              - 'The url field must be a valid URL.'
                                       game: null
                 '401':
                     $ref: '#/components/responses/Unauthorized'
@@ -1378,16 +1387,13 @@ paths:
                                         - integer
                                         - 'null'
                                 status:
-                                    type:
-                                        - string
-                                        - 'null'
+                                    type: string
                                     enum:
                                         - reading
                                         - completed
                                         - plan_to_read
                                         - on_hold
                                         - dropped
-                                        - null
                                 started_at:
                                     type:
                                         - string
@@ -1509,6 +1515,7 @@ paths:
                             properties:
                                 preferred_languages:
                                     type: array
+                                    uniqueItems: true
                                     items:
                                         type: string
                                         minLength: 3
@@ -1663,7 +1670,17 @@ components:
         bearerAuth:
             type: http
             scheme: bearer
-            description: 'User API token created on the dashboard and shown once. Tokens expire 90 days after creation; an active token can be extended on the dashboard to 90 days from extension, capped at 365 days from creation. Authenticated responses carry the expiry in X-Token-Expires-At.'
+            description: 'User API token created on the dashboard and shown once. Each account can hold at most 20 active tokens. Tokens expire 90 days after creation; an active token can be extended on the dashboard to 90 days from extension, capped at 365 days from creation. Authenticated responses carry the expiry in X-Token-Expires-At. Each operation names the ability it requires in x-required-ability.'
+            x-abilities:
+                - 'catalog:read'
+                - 'tags:read'
+                - 'tags:write'
+                - 'lists:read'
+                - 'lists:write'
+                - 'tracking:read'
+                - 'tracking:write'
+                - 'preferences:read'
+                - 'preferences:write'
     parameters:
         Page:
             name: page
@@ -2002,13 +2019,25 @@ components:
                 - game
             properties:
                 input:
-                    $ref: '#/components/schemas/GameSelector'
+                    description: 'The validated selector, or for an invalid item the item as sent (null when it is not an object)'
+                    anyOf:
+                        - $ref: '#/components/schemas/GameSelector'
+                        - type: object
+                        - type: 'null'
                 status:
                     type: string
                     enum:
                         - matched
                         - unmatched
                         - ambiguous
+                        - invalid
+                errors:
+                    description: 'Present only when status is invalid. Keys are selector fields, selector, or item.'
+                    type: object
+                    additionalProperties:
+                        type: array
+                        items:
+                            type: string
                 game:
                     anyOf:
                         - $ref: '#/components/schemas/Game'
@@ -2114,9 +2143,14 @@ components:
                         - integer
                         - 'null'
                 status:
-                    type:
-                        - string
-                        - 'null'
+                    type: string
+                    enum:
+                        - reading
+                        - completed
+                        - plan_to_read
+                        - on_hold
+                        - dropped
+                        - custom
                 started_at:
                     type:
                         - string

@@ -240,10 +240,10 @@ class MeilisearchService
             $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchTerm) . '%';
             $games->where(function (Builder $builder) use ($like) {
                 $builder
-                    ->where('name', 'ilike', $like)
-                    ->orWhere('description', 'ilike', $like)
-                    ->orWhere('authors', 'ilike', $like)
-                    ->orWhere('custom_tags', 'ilike', $like);
+                    ->whereRaw('games.name::text ilike ?', [$like])
+                    ->orWhere('games.description', 'ilike', $like)
+                    ->orWhereRaw("regexp_replace(games.authors::text, '<[^>]*>', '', 'g') ilike ?", [$like])
+                    ->orWhereRaw('games.custom_tags::text ilike ?', [$like]);
             });
         }
 

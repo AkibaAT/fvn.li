@@ -11,7 +11,7 @@ describe('list type tones', () => {
     });
 
     test('uses the accent for reading lists', () => {
-        expect(listTypeDotClass('reading')).toBe('bg-accent-icon');
+        expect(listTypeDotClass('reading')).toBe('accent-fill');
     });
 
     test('formats custom list type names', () => {

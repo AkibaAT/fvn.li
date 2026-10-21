@@ -8,7 +8,7 @@
     import PublicListResults from '@/components/lists/PublicListResults.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import { Link } from '@inertiajs/svelte';
-    import { Alert, Button, Card, Select, TabLinks, TextInput } from '@/components/ui';
+    import { Alert, Button, Card, Select, TabBar, TextInput } from '@/components/ui';
     import { useUrlSyncedFilters } from '@/hooks/useUrlSyncedFilters.svelte';
 
     interface FilterGame {
@@ -37,8 +37,6 @@
         counts = { all: 0, plan_to_read: 0, reading: 0, completed: 0, on_hold: 0, dropped: 0, custom: 0 },
     }: Props = $props();
 
-    let localLists = $state(untrack(() => lists.data));
-    let localCounts = $state(untrack(() => counts));
     let searchInput = $state(untrack(() => initialSearch));
     let currentSearch = $state(untrack(() => initialSearch));
     let currentSort = $state(untrack(() => initialSort));
@@ -46,18 +44,6 @@
     let activeGame = $state<FilterGame | null>(untrack(() => initialFilterGame));
     let page = $state(untrack(() => lists.current_page));
     let perPage = $state(untrack(() => lists.per_page));
-
-    $effect(() => {
-        localLists = lists.data;
-        localCounts = counts;
-        searchInput = initialSearch;
-        currentSearch = initialSearch;
-        currentSort = initialSort;
-        type = initialType;
-        activeGame = initialFilterGame;
-        page = lists.current_page;
-        perPage = lists.per_page;
-    });
 
     const typeLabel = (t: string) => t.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
@@ -103,13 +89,13 @@
     }
 
     const tabs = $derived([
-        { key: 'all', label: 'All Lists', count: localCounts.all, href: tabHref('all') },
-        { key: 'plan_to_read', label: typeLabel('plan_to_read'), count: localCounts.plan_to_read, href: tabHref('plan_to_read') },
-        { key: 'reading', label: typeLabel('reading'), count: localCounts.reading, href: tabHref('reading') },
-        { key: 'completed', label: typeLabel('completed'), count: localCounts.completed, href: tabHref('completed') },
-        { key: 'on_hold', label: typeLabel('on_hold'), count: localCounts.on_hold, href: tabHref('on_hold') },
-        { key: 'dropped', label: typeLabel('dropped'), count: localCounts.dropped, href: tabHref('dropped') },
-        { key: 'custom', label: 'Custom', count: localCounts.custom, href: tabHref('custom') },
+        { id: 'all', label: 'All Lists', count: counts.all, href: tabHref('all') },
+        { id: 'plan_to_read', label: typeLabel('plan_to_read'), count: counts.plan_to_read, href: tabHref('plan_to_read') },
+        { id: 'reading', label: typeLabel('reading'), count: counts.reading, href: tabHref('reading') },
+        { id: 'completed', label: typeLabel('completed'), count: counts.completed, href: tabHref('completed') },
+        { id: 'on_hold', label: typeLabel('on_hold'), count: counts.on_hold, href: tabHref('on_hold') },
+        { id: 'dropped', label: typeLabel('dropped'), count: counts.dropped, href: tabHref('dropped') },
+        { id: 'custom', label: 'Custom', count: counts.custom, href: tabHref('custom') },
     ]);
 </script>
 
@@ -180,7 +166,15 @@
             Showing lists containing:
             <Link href={route('games.show', activeGame.slug)} class="font-medium hover:underline">{activeGame.name}</Link>
             {#snippet actions()}
-                <Button type="button" variant="ghost" tone="info" size="icon-sm" onclick={clearGameFilter} title="Clear filter">
+                <Button
+                    type="button"
+                    variant="ghost"
+                    tone="info"
+                    size="icon-sm"
+                    onclick={clearGameFilter}
+                    ariaLabel="Clear filter"
+                    title="Clear filter"
+                >
                     <XMarkIcon class="h-4 w-4" />
                 </Button>
             {/snippet}
@@ -188,8 +182,10 @@
     {/if}
 
     <Card variant="flat" padding="lg">
-        <TabLinks
+        <TabBar
             {tabs}
+            ariaLabel="List type"
+            class="mb-0"
             active={type}
             onSelect={(tab) => {
                 type = tab;
@@ -199,7 +195,7 @@
     </Card>
 
     <PublicListResults
-        lists={{ ...lists, data: localLists }}
+        {lists}
         showUser
         emptyMessage="There are no public lists available for this category."
         isLoading={filterSync.isLoading}

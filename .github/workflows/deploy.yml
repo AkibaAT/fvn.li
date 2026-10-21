@@ -72,7 +72,7 @@ jobs:
         run: ddev composer audit --locked --no-interaction
 
       - name: Audit Bun dependencies
-        run: ddev bun audit --audit-level=high
+        run: ddev bun audit
 
       - name: Check patch whitespace
         run: |
@@ -258,11 +258,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with:
-          node-version: '24'
+          node-version: '24.22.1'
           package-manager-cache: false
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         name: Install Bun
+        with:
+          bun-version-file: package.json
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -277,9 +279,9 @@ jobs:
         run: mv docker/production/docker-compose.yml docker-compose.yml
 
       - name: Deploy to server using rsync
-        uses: burnett01/rsync-deployments@155b6d6c1219ab2224c20c58d423a3f1b850395f # 9
+        uses: burnett01/rsync-deployments@2cbb5ed94b73d111d07a40b071b1c7d3c0272435 # 9
         with:
-          switches: -rlptvz --delete --dirs --exclude-from=scripts/rsync-exclude.txt --chmod=D2775,F664,F+X
+          switches: -rlptvz --delete --dirs --filter='P /public/build/assets/**' --exclude-from=scripts/rsync-exclude.txt --chmod=D2775,F664,F+X
           path: ./
           remote_path: ${{ env.DEPLOY_PATH }}
           remote_host: ${{ secrets.DEPLOY_HOST }}

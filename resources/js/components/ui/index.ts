@@ -20,6 +20,5 @@ export { default as Flag } from './Flag.svelte';
 /** @public Grid/list layout switch shared by the catalogue pages. */
 export { default as ViewToggle } from './ViewToggle.svelte';
 export { default as TabBar } from './TabBar.svelte';
-export { default as TabLinks } from './TabLinks.svelte';
 export { default as EmptyState } from './EmptyState.svelte';
 export * from './tones';

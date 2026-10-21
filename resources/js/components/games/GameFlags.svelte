@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Flag } from '@/components/ui';
+    import { cn } from '@/utils/cn';
     import type { GameCardGame } from '@/hooks/useGameCard.svelte';
 
     interface Props {
@@ -14,6 +15,7 @@
         onPaidToggle?: () => void;
         onDemoToggle?: () => void;
         onSaleToggle?: () => void;
+        limit?: number;
         class?: string;
     }
 
@@ -29,6 +31,7 @@
         onPaidToggle,
         onDemoToggle,
         onSaleToggle,
+        limit = Infinity,
         class: className = '',
     }: Props = $props();
 
@@ -82,8 +85,22 @@
             },
         ].filter((flag) => Boolean(flag.label)),
     );
+
+    const visibleFlags = $derived(flags.slice(0, limit));
+    const hiddenFlags = $derived(flags.slice(limit));
 </script>
 
-{#each flags as flag (flag.key)}
+{#each visibleFlags as flag (flag.key)}
     <Flag label={flag.label as string} active={flag.active} ariaLabel={flag.ariaLabel} onclick={flag.onclick} class={className} />
 {/each}
+{#if hiddenFlags.length > 0}
+    <span
+        class={cn(
+            'inline-flex items-center self-center rounded-sm border border-border-strong px-1.25 py-px text-micro font-semibold text-fg-muted',
+            className,
+        )}
+        title={hiddenFlags.map((flag) => flag.label).join(', ')}
+    >
+        +{hiddenFlags.length}
+    </span>
+{/if}

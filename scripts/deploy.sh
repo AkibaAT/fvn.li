@@ -64,6 +64,28 @@ artisan() {
   compose_exec_app php artisan "$@"
 }
 
+migrate_before_start() {
+  docker compose up -d --wait redis
+  docker compose run --rm --no-deps -T \
+    --user "${APP_EXEC_USER}" \
+    --label traefik.enable=false \
+    --entrypoint php \
+    app artisan migrate --force
+}
+
+prune_build_assets() {
+  local manifest=public/build/manifest.json
+  local retention_days="${BUILD_ASSET_RETENTION_DAYS:-7}"
+  local file
+
+  [ -f "${manifest}" ] || return 0
+
+  find public/build/assets -type f -mtime +"${retention_days}" -print0 |
+    while IFS= read -r -d '' file; do
+      grep -qF "\"${file#public/build/}\"" "${manifest}" || rm -f "${file}"
+    done
+}
+
 bootstrap_denkit_stash_db() {
   docker compose up -d db
   ./scripts/bootstrap-denkit-stash-db.sh
@@ -162,6 +184,7 @@ if [ -n "${DOCKER_IMAGE:-}" ] || [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
   # Full restart
   docker compose down --remove-orphans
   bootstrap_denkit_stash_db
+  migrate_before_start
   docker compose up -d
   bootstrap_denkit_stash_user
 
@@ -171,7 +194,6 @@ if [ -n "${DOCKER_IMAGE:-}" ] || [ -n "${DOCKER_IMAGE_SOCIAL_IMAGES:-}" ]; then
   artisan storage:link
   artisan config:cache
   artisan cache:forget app.icon-version
-  artisan migrate --force
   artisan schedule-monitor:sync
   artisan meilisearch:embedders
 
@@ -190,14 +212,11 @@ else
 
     artisan storage:link
 
-    # Clear Laravel caches
     artisan config:clear
+    artisan migrate --force
     artisan route:clear
     artisan view:clear
     artisan cache:clear
-
-    # Run migrations
-    artisan migrate --force
     artisan schedule-monitor:sync
 
     artisan meilisearch:embedders
@@ -218,6 +237,7 @@ else
 
     # Start the containers without pulling (using existing image)
     bootstrap_denkit_stash_db
+    migrate_before_start
     docker compose up -d --remove-orphans
     bootstrap_denkit_stash_user
 
@@ -227,13 +247,15 @@ else
     artisan storage:link
     artisan config:cache
     artisan cache:forget app.icon-version
-    artisan migrate --force
     artisan schedule-monitor:sync
     artisan meilisearch:embedders
 
     echo "Container started successfully!"
   fi
 fi
+
+artisan edge-cache:purge
+prune_build_assets
 
 # Show running containers
 docker compose ps

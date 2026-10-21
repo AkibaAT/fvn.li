@@ -27,7 +27,7 @@
     <button
         type="button"
         onclick={() => (showMenu = !showMenu)}
-        class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface text-fg-muted transition-colors hover:text-fg"
+        class="hit-area relative inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface text-fg-muted transition-colors hover:text-fg"
         title="Change appearance"
         aria-label="Change appearance"
         aria-haspopup="menu"

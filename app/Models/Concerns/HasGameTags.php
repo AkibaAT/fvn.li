@@ -7,6 +7,7 @@ namespace App\Models\Concerns;
 use App\Models\GameJam;
 use App\Models\Tag;
 use App\Services\GameFilterService;
+use App\Services\GamePageCacheService;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -80,7 +81,7 @@ trait HasGameTags
         // If the game is already saved, sync tags immediately
         if ($this->exists && $this->id) {
             $this->tags()->sync($tagIds);
-            $this->bumpRecommendationCacheVersion();
+            $this->tagsChanged();
             Log::info('Synced tags for existing game', [
                 'game_id' => $this->id,
                 'game_name' => $this->name,
@@ -142,7 +143,7 @@ trait HasGameTags
             $customTagIds = $this->getCustomTagIds();
             if (! empty($customTagIds) && $this->exists && $this->id) {
                 $this->tags()->syncWithoutDetaching($customTagIds);
-                $this->bumpRecommendationCacheVersion();
+                $this->tagsChanged();
             }
 
             return;
@@ -167,7 +168,7 @@ trait HasGameTags
 
         // Sync the tags
         $this->tags()->sync($this->pendingTagIds);
-        $this->bumpRecommendationCacheVersion();
+        $this->tagsChanged();
 
         Log::info('Synced pending tags for game', [
             'game_id' => $this->id,
@@ -176,6 +177,13 @@ trait HasGameTags
         ]);
 
         $this->pendingTagIds = [];
+    }
+
+    public function tagsChanged(): void
+    {
+        Cache::add('games.recommendations.version', 1);
+        Cache::increment('games.recommendations.version');
+        GamePageCacheService::invalidate($this->id);
     }
 
     private function getCustomTagIds(): array
@@ -198,12 +206,6 @@ trait HasGameTags
         }
 
         return $tagIds;
-    }
-
-    private function bumpRecommendationCacheVersion(): void
-    {
-        Cache::add('games.recommendations.version', 1);
-        Cache::increment('games.recommendations.version');
     }
 
     private function queueSearchIndexRefreshAfterCommit(): void

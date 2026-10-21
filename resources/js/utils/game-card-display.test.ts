@@ -17,10 +17,10 @@ describe('game card display helpers', () => {
             '15,720 words',
         );
         expect(formatWordCount({ primary_word_count: 1395, primary_language_name: 'Mandarin Chinese', english_word_count: 27 })).toBe(
-            '1,395 words in Mandarin Chinese',
+            '1,395 words (Mandarin Chinese)',
         );
         expect(formatWordCount({ primary_word_count: 4128, primary_language_name: 'Japanese', english_word_count: null })).toBe(
-            '4,128 words in Japanese',
+            '4,128 words (Japanese)',
         );
         expect(formatWordCount({ primary_word_count: null, primary_language_name: 'English' })).toBeNull();
     });

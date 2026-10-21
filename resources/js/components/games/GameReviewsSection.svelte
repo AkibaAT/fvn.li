@@ -197,9 +197,9 @@
                             {/if}
                         </div>
                         <div class="flex items-center gap-1">
-                            <div class="flex items-center gap-1 text-accent-icon">
+                            <div class="flex items-center gap-1">
                                 {#each Array.from({ length: review.rating }) as _, index (index)}
-                                    <StarIcon class="h-5 w-5 fill-current" />
+                                    <StarIcon class="h-5 w-5 accent-glyph" />
                                 {/each}
                             </div>
                             <div class="flex items-center">
@@ -211,6 +211,7 @@
                                         tone="neutral"
                                         size="icon-sm"
                                         class="text-fg-muted hover:text-fg"
+                                        ariaLabel="View on itch.io"
                                         title="View on itch.io"
                                     >
                                         <ExternalLinkIcon class="h-5 w-5" />
@@ -224,6 +225,7 @@
                                         size="icon-sm"
                                         onclick={() => onCopyReviewLink(review.id)}
                                         class="text-fg-faint hover:text-fg"
+                                        ariaLabel={copiedReviewId === review.id ? 'Link copied!' : 'Copy link to review'}
                                         title={copiedReviewId === review.id ? 'Link copied!' : 'Copy link to review'}
                                     >
                                         {#if copiedReviewId === review.id}
@@ -240,6 +242,7 @@
                                     size="icon-sm"
                                     onclick={() => onReportReview(review.id, review.user?.name || review.rater?.name || 'Unknown')}
                                     class="text-fg-faint hover:text-red-600 dark:hover:text-red-400"
+                                    ariaLabel="Report review"
                                     title="Report review"
                                 >
                                     <FlagIcon class="h-5 w-5" />

@@ -25,7 +25,7 @@
     aria-label={ariaLabel}
     aria-pressed={active}
     data-flag="true"
-    class="group/flag inline-flex h-6 shrink-0 items-center"
+    class="group/flag hit-area-y relative inline-flex h-6 shrink-0 items-center"
 >
     <span
         class={cn(

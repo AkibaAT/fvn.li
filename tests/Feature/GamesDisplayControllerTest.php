@@ -15,6 +15,7 @@ use App\Models\VnList;
 use App\Models\VnListEntry;
 use App\Services\DenKitStashPersistenceService;
 use App\Services\GameSocialMetaBuilder;
+use App\Services\GameStatsService;
 use App\Services\RouteGraphService;
 use App\Services\SimilarGamesService;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -561,6 +562,16 @@ test('game show caches page data until the game is saved', function () {
     expect($reviews())->toHaveCount(0);
 });
 
+test('game show refreshes a cached review when its author is renamed', function () {
+    [$game, $rating] = gameWithOneReview();
+    $reviewer = fn () => $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->json('props.reviews.data.0.user.name');
+    $reviewer();
+
+    $rating->user->update(['name' => 'Renamed Reviewer']);
+
+    expect($reviewer())->toBe('Renamed Reviewer');
+});
+
 test('game show drops cached page data when a review changes', function () {
     [$game, $rating] = gameWithOneReview();
     $reviews = fn () => $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->json('props.reviews.data');
@@ -606,4 +617,80 @@ test('game show builds fresh page data for users who can edit the game', functio
 
     expect($response->json('props.reviews.data'))->toHaveCount(0)
         ->and($response->json('props.editPermissions.canEdit'))->toBeTrue();
+});
+
+test('game show clamps out-of-range pages to the last real page', function () {
+    [$game] = gameWithOneReview();
+
+    $props = $this->withHeaders(gameShowInertiaHeaders())
+        ->get(route('games.show', ['game' => $game, 'page' => 999, 'versionsPage' => -4]))
+        ->json('props');
+
+    expect($props['reviews']['current_page'])->toBe(1)
+        ->and($props['reviews']['data'])->toHaveCount(1)
+        ->and($props['gameVersions']['current_page'])->toBe(1);
+});
+
+test('game show drops a public list from cached page data once it turns private', function () {
+    [$game] = gameWithOneReview();
+    $list = VnList::factory()->create(['is_public' => true]);
+    VnListEntry::factory()->create(['vn_list_id' => $list->id, 'game_id' => $game->id]);
+    $lists = fn () => $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->json('props.publicLists');
+
+    expect($lists())->toHaveCount(1);
+
+    $list->update(['is_public' => false]);
+
+    expect($lists())->toHaveCount(0);
+});
+
+test('game show drops a deleted public list from cached page data', function () {
+    [$game] = gameWithOneReview();
+    $list = VnList::factory()->create(['is_public' => true]);
+    VnListEntry::factory()->create(['vn_list_id' => $list->id, 'game_id' => $game->id]);
+    $lists = fn () => $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->json('props.publicLists');
+
+    expect($lists())->toHaveCount(1);
+
+    $list->delete();
+
+    expect($lists())->toHaveCount(0);
+});
+
+test('game show rebuilds cached page data when the game tags change', function () {
+    [$game, $rating] = gameWithOneReview();
+    $reviews = fn () => $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->json('props.reviews.data');
+
+    expect($reviews())->toHaveCount(1);
+
+    DB::table('ratings')->where('id', $rating->id)->delete();
+    $game->syncTagsFromString('Mystery');
+
+    expect($reviews())->toHaveCount(0);
+});
+
+test('game show refreshes both games when a review moves between them', function () {
+    [$game, $rating] = gameWithOneReview();
+    $other = Game::factory()->create(['is_visible' => true]);
+    $reviews = fn (Game $target) => $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $target))->json('props.reviews.data');
+
+    expect($reviews($game))->toHaveCount(1)
+        ->and($reviews($other))->toHaveCount(0);
+
+    $rating->update(['game_id' => $other->id]);
+
+    expect($reviews($game))->toHaveCount(0)
+        ->and($reviews($other))->toHaveCount(1);
+});
+
+test('game show rebuilds cached page data when the game stats cache is cleared', function () {
+    [$game, $rating] = gameWithOneReview();
+    $reviews = fn () => $this->withHeaders(gameShowInertiaHeaders())->get(route('games.show', $game))->json('props.reviews.data');
+
+    expect($reviews())->toHaveCount(1);
+
+    DB::table('ratings')->where('id', $rating->id)->delete();
+    GameStatsService::clearCache($game->id);
+
+    expect($reviews())->toHaveCount(0);
 });

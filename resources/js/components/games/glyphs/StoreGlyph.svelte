@@ -26,7 +26,7 @@
     {title}
     aria-label="{title} store"
     aria-pressed={active}
-    class={cn('group/glyph inline-flex size-6 shrink-0 items-center justify-center', className)}
+    class={cn('group/glyph hit-area-y relative inline-flex size-6 shrink-0 items-center justify-center', className)}
 >
     <span
         class={clsx(

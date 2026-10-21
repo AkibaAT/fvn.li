@@ -80,7 +80,7 @@ class UserPreferencesController extends Controller
 
         $preferences = UserPreference::updateOrCreate(
             ['user_id' => $authId],
-            ['excluded_tags' => array_map('intval', $request->input('excluded_tags') ?? [])],
+            ['excluded_tags' => $request->input('excluded_tags') ?? []],
         );
 
         return response()->json([

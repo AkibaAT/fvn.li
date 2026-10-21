@@ -4,6 +4,38 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
+use Symfony\Component\Yaml\Yaml;
+
+test('production Redis health check rejects loading and failed replies', function (string $reply, int $exitCode, bool $ready) {
+    $healthcheck = Yaml::parseFile(base_path('docker/production/docker-compose.yml'))['services']['redis']['healthcheck']['test'];
+    $command = $healthcheck[0] === 'CMD' ? array_slice($healthcheck, 1) : ['sh', '-c', $healthcheck[1]];
+    $fakeBinPath = sys_get_temp_dir() . '/fvn-redis-health-' . bin2hex(random_bytes(8));
+    mkdir($fakeBinPath);
+    file_put_contents($fakeBinPath . '/redis-cli', <<<'SH'
+#!/bin/sh
+printf '%s\n' "$FVN_REDIS_REPLY"
+exit "$FVN_REDIS_EXIT"
+SH);
+    chmod($fakeBinPath . '/redis-cli', 0755);
+
+    try {
+        $process = new Process($command, env: [
+            'PATH' => $fakeBinPath . ':' . getenv('PATH'),
+            'FVN_REDIS_REPLY' => $reply,
+            'FVN_REDIS_EXIT' => (string) $exitCode,
+        ], timeout: 5);
+        $process->run();
+
+        expect($process->isSuccessful())->toBe($ready);
+    } finally {
+        File::deleteDirectory($fakeBinPath);
+    }
+})->with([
+    'ready' => ['PONG', 0, true],
+    'loading dataset with successful CLI exit' => ['LOADING Redis is loading the dataset in memory', 0, false],
+    'authentication failure with successful CLI exit' => ['NOAUTH Authentication required', 0, false],
+    'connection failure' => ['', 1, false],
+]);
 
 test('production deploy fails before docker mutations when DenKit configuration is incomplete', function () {
     $deploymentPath = sys_get_temp_dir() . '/fvn-deploy-test-' . bin2hex(random_bytes(8));
@@ -47,4 +79,85 @@ SH);
     } finally {
         File::deleteDirectory($deploymentPath);
     }
+});
+
+/**
+ * @return list<string>
+ */
+function deployDockerCommands(string $envDeploy, string $runningApp): array
+{
+    $deploymentPath = sys_get_temp_dir() . '/fvn-deploy-test-' . bin2hex(random_bytes(8));
+    $fakeBinPath = $deploymentPath . '/bin';
+    mkdir($fakeBinPath, 0777, true);
+    mkdir($deploymentPath . '/scripts');
+
+    copy(base_path('scripts/deploy.sh'), $deploymentPath . '/scripts/deploy.sh');
+    foreach (['bootstrap-denkit-stash-db.sh', 'bootstrap-denkit-stash-user.sh'] as $script) {
+        file_put_contents($deploymentPath . '/scripts/' . $script, "#!/bin/sh\n");
+        chmod($deploymentPath . '/scripts/' . $script, 0755);
+    }
+    file_put_contents($deploymentPath . '/.env', implode("\n", [
+        'DB_USERNAME=fvn',
+        'DB_PASSWORD=database-secret',
+        'DENKIT_STASH_IMAGE=registry.example/denkit-stash:latest',
+        'DENKIT_STASH_POSTGRES_PASSWORD=stash-secret',
+        'DENKIT_STASH_S3_ACCESS_KEY=rustfs-access',
+        'DENKIT_STASH_S3_SECRET_KEY=rustfs-secret',
+        'DENKIT_API_KEY_HASH_SECRET=hash-secret',
+        '',
+    ]));
+    file_put_contents($deploymentPath . '/.env.deploy', $envDeploy);
+    file_put_contents($fakeBinPath . '/docker', <<<'SH'
+#!/bin/sh
+printf '%s\n' "$*" >> "${DOCKER_LOG}"
+[ "$*" = "compose ps app" ] && printf '%s\n' "${RUNNING_APP}"
+exit 0
+SH);
+    chmod($fakeBinPath . '/docker', 0755);
+
+    try {
+        $process = new Process(['bash', './scripts/deploy.sh'], $deploymentPath, [
+            'PATH' => $fakeBinPath . ':' . getenv('PATH'),
+            'DOCKER_LOG' => $deploymentPath . '/docker.log',
+            'RUNNING_APP' => $runningApp,
+        ]);
+        $process->run();
+
+        expect($process->isSuccessful())->toBeTrue($process->getOutput() . $process->getErrorOutput());
+
+        return file($deploymentPath . '/docker.log', FILE_IGNORE_NEW_LINES);
+    } finally {
+        File::deleteDirectory($deploymentPath);
+    }
+}
+
+/**
+ * @param  list<string>  $commands
+ */
+function firstCommandMatching(array $commands, string $pattern): ?int
+{
+    return array_key_first(preg_grep($pattern, $commands));
+}
+
+test('production deploy migrates before starting the new app containers', function (string $envDeploy) {
+    $commands = deployDockerCommands($envDeploy, '');
+    $migrate = firstCommandMatching($commands, '/artisan migrate --force/');
+    $start = firstCommandMatching($commands, '/^compose up -d( --remove-orphans)?$/');
+
+    expect($migrate)->not->toBeNull()
+        ->and($start)->not->toBeNull()
+        ->and($commands[$migrate])->toStartWith('compose run --rm --no-deps')
+        ->and($migrate)->toBeLessThan($start);
+})->with([
+    'image update' => ["DOCKER_IMAGE=registry.example/fvn:latest\n"],
+    'stopped stack' => [''],
+]);
+
+test('production hot reload migrates before restarting workers', function () {
+    $commands = deployDockerCommands('', 'app  Up 2 hours');
+    $migrate = firstCommandMatching($commands, '/artisan migrate --force/');
+
+    expect($migrate)->not->toBeNull()
+        ->and($migrate)->toBeLessThan(firstCommandMatching($commands, '#frankenphp/workers/restart#'))
+        ->and($migrate)->toBeLessThan(firstCommandMatching($commands, '/restart laravel-queue/'));
 });

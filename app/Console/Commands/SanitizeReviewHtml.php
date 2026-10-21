@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\Rating;
+use App\Services\GamePageCacheService;
 use App\Services\HtmlSanitizerService;
 use Exception;
 use Illuminate\Console\Command;
@@ -109,6 +110,7 @@ class SanitizeReviewHtml extends Command
                         'review' => $sanitized,
                         'is_reviewed' => $isReviewed,
                     ])->saveQuietly();
+                    GamePageCacheService::invalidate($rating->game_id);
 
                 } catch (Exception $e) {
                     $stats['errors']++;

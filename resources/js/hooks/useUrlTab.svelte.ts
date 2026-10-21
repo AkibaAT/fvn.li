@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/svelte';
+import { page, router } from '@inertiajs/svelte';
 import { SvelteURL } from 'svelte/reactivity';
 
 type Options = {
@@ -6,15 +6,11 @@ type Options = {
     readHash?: boolean;
 };
 
-/**
- * URL-synced tab selection: reads the `tab` query param once, and pushes a
- * debounced-free history update on change (the default tab removes the param).
- */
 export function useUrlTab<T extends string>(validTabs: readonly T[], defaultTab: T, { readHash = false }: Options = {}) {
     function readInitial(): T {
-        if (typeof window === 'undefined') return defaultTab;
-        const url = new SvelteURL(window.location.href);
-        const tab = url.searchParams.get('tab') ?? (readHash ? url.hash.slice(1) : null);
+        const url = new SvelteURL(page.url, 'http://localhost');
+        const hash = readHash && typeof window !== 'undefined' ? window.location.hash.slice(1) : null;
+        const tab = url.searchParams.get('tab') ?? hash;
         return (validTabs as readonly string[]).includes(tab ?? '') ? (tab as T) : defaultTab;
     }
 

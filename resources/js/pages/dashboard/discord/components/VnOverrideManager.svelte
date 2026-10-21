@@ -257,6 +257,7 @@
                                         variant="ghost"
                                         tone="danger"
                                         size="icon-sm"
+                                        ariaLabel="Delete override"
                                         title="Delete override"
                                     >
                                         <TrashIcon class="h-4 w-4" />

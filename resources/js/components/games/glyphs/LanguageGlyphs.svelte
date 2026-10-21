@@ -67,7 +67,7 @@
             title={label}
             aria-label={label}
             aria-pressed={isActive}
-            class={clsx('group/glyph size-6 shrink-0 items-center justify-center', slots[index])}
+            class={clsx('group/glyph hit-area-y relative size-6 shrink-0 items-center justify-center', slots[index])}
         >
             <span
                 class={clsx(

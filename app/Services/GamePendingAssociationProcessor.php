@@ -71,6 +71,7 @@ class GamePendingAssociationProcessor
         }
 
         $game->tags()->sync($game->pendingTagIds);
+        $game->tagsChanged();
 
         Log::info('Synced pending tags for game', [
             'game_id' => $game->id,

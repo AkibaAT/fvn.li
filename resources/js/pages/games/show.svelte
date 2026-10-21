@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { untrack } from 'svelte';
     import { refreshPage } from '@/utils/refreshPage';
     import { toast } from '@/utils/toast';
     import { getErrorMessage } from '@/utils/async-action.svelte';
@@ -21,6 +22,7 @@
     import { formatLocalDate } from '@/utils/date-formatting';
     import { escapeStyleElementText } from '@/utils/style-html';
     import { getGamePlatforms } from '@/utils/game-show';
+    import { recordGamePageView } from '@/utils/page-view';
     import { fetchReviews, fetchVersions, fetchCharacterStats, fetchFileStats, uploadThumbnail } from '@/api';
     import type { GameFact, GameShowProps, Screenshot } from '@/types/game-show';
 
@@ -31,7 +33,6 @@
         supportedLanguages,
         englishStats,
         primaryStats,
-        primaryLanguageLabel,
         versionCharacterCounts = {},
         versionHasFileStats = {},
         versionHasDialogueLines = {},
@@ -51,6 +52,13 @@
         estimatedReadingTime = null,
         metaTags,
     }: GameShowProps = $props();
+
+    let recordedGameId: number | null = null;
+    $effect(() => {
+        if (game.id === recordedGameId) return;
+        recordedGameId = game.id;
+        recordGamePageView(game.id);
+    });
 
     const auth = $derived((page.props as any)?.auth);
     const isAuthenticated = $derived(Boolean(auth?.user));
@@ -92,7 +100,7 @@
     let fileStatsData = $state<any>(null);
 
     let reviewsPage = $state(1);
-    let reviewsPerPage = $derived(reviews?.per_page ?? reviews?.meta?.per_page ?? 5);
+    let reviewsPerPage = $state(untrack(() => reviews?.per_page ?? reviews?.meta?.per_page ?? 5));
     let reviewsData = $state<any>(null);
 
     const currentReviews = $derived(reviewsData?.reviews ?? reviews?.data ?? []);
@@ -240,14 +248,18 @@
 
     const facts = $derived.by((): GameFact[] => {
         const items: GameFact[] = [];
+        if (game.status) items.push({ label: 'Status', value: game.status });
         const primaryWords = primaryStats?.words;
         if (typeof primaryWords === 'number' && primaryWords > 0) {
-            const isEnglish = !primaryLanguageLabel || primaryLanguageLabel === 'EN';
+            const primaryLanguage = primaryStats?.language.ref_name;
+            const isEnglish = !primaryLanguage || primaryLanguage === 'English';
             const englishWords = englishStats?.words;
             items.push({
-                label: isEnglish ? 'Words' : `Words (${primaryLanguageLabel})`,
+                label: 'Words',
                 value: primaryWords.toLocaleString(),
-                hint: !isEnglish && typeof englishWords === 'number' && englishWords > 0 ? ` · EN ${englishWords.toLocaleString()}` : undefined,
+                hint: isEnglish
+                    ? undefined
+                    : ` in ${primaryLanguage}${typeof englishWords === 'number' && englishWords > 0 ? ` · ${englishWords.toLocaleString()} in English` : ''}`,
             });
         }
         if (estimatedReadingTime) {
@@ -294,7 +306,6 @@
         }, 2000);
     };
 
-    const filteredReviews = $derived(currentReviews);
     let reviewsLoading = $state(false);
     let versionsLoading = $state(false);
 
@@ -577,7 +588,7 @@
 />
 
 <GameReviewsSection
-    reviews={filteredReviews}
+    reviews={currentReviews}
     gameId={game.id}
     hasRatings={(game.rating_count ?? 0) > 0}
     initialUserReview={userReview}

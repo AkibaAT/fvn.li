@@ -26,7 +26,7 @@ test('a failed list change preserves prior successful deletions and counts', asy
     await deleted.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(deleted).toHaveCount(0);
     await expect(page.getByText('List deleted successfully.', { exact: true })).toBeVisible();
-    const allTab = page.getByRole('link', { name: /^All Lists \(/ });
+    const allTab = page.getByRole('tab', { name: /^All Lists \(/ });
     const savedCount = await allTab.textContent();
     await page.route(`**/browser-api/vn-lists/${fixture.listIds[1]}/toggle-visibility`, (route) =>
         route.fulfill({ status: 500, json: { message: 'Simulated failure' } }),
@@ -43,7 +43,7 @@ test('deleting the last list on a page returns to a populated page with correct 
     await page.getByRole('article', { name: 'Last public list', exact: true }).getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.getByRole('article', { name: 'Public list', exact: true })).toBeVisible();
     await expect(page).toHaveURL((url) => url.searchParams.get('visibility') === 'public' && url.searchParams.get('page') === '1');
-    await expect(page.getByRole('link', { name: 'Public Lists (1)', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Public Lists (1)', exact: true })).toBeVisible();
 });
 
 test('visibility changes update both filtered lists immediately', async ({ page }, info) => {
@@ -53,11 +53,11 @@ test('visibility changes update both filtered lists immediately', async ({ page 
     const originalCount = await page.getByRole('article').count();
     await list.getByRole('button', { name: 'Make Private', exact: true }).click();
     await expect(list).toHaveCount(0);
-    await expect(page.getByRole('link', { name: `Public Lists (${originalCount - 1})`, exact: true })).toBeVisible();
-    await page.getByRole('link', { name: /^Private Lists \(/ }).click();
+    await expect(page.getByRole('tab', { name: `Public Lists (${originalCount - 1})`, exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: /^Private Lists \(/ }).click();
     await list.getByRole('button', { name: 'Make Public', exact: true }).click();
     await expect(list).toHaveCount(0);
-    await expect(page.getByRole('link', { name: `Public Lists (${originalCount})`, exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: `Public Lists (${originalCount})`, exact: true })).toBeVisible();
     await expect(page).toHaveURL(/visibility=private/);
     await page.screenshot({ path: info.outputPath('filtered-lists.png'), fullPage: true });
 });

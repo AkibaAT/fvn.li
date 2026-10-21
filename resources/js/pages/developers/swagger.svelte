@@ -38,7 +38,7 @@
 
 <PageHeader title="API explorer" description="Browse endpoints and try requests with a token from your dashboard.">
     {#snippet actions()}
-        <Link href={route('developers')} class="text-sm font-medium text-accent-fg underline">API guide</Link>
+        <Link href={route('developers')} class="text-sm content-link">API guide</Link>
         <Button href={route('dashboard')} variant="outline">Manage tokens</Button>
     {/snippet}
 </PageHeader>

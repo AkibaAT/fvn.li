@@ -69,7 +69,7 @@
     const visitFilter = (filters: Parameters<typeof gamesFilterUrl>[0]) => router.visit(gamesFilterUrl(filters));
 </script>
 
-<Card variant="flat" padding="lg" class="mb-6">
+<Card variant="flat" padding="lg" class="mb-6 max-sm:p-4">
     <div class="flex flex-col gap-6 md:flex-row">
         {#if game.is_visible && (currentThumbnail || editPermissions.canEdit)}
             <div class="relative shrink-0 self-start">
@@ -149,7 +149,7 @@
                         onPlatformClick={(platform) => visitFilter({ selectedPlatforms: [platform] })}
                         onLanguageClick={(iso) => visitFilter({ selectedLanguages: [iso] })}
                         languageLimit="full"
-                        class="flex-wrap gap-y-1.5 overflow-visible"
+                        class="flex-wrap gap-y-1.5 overflow-visible max-sm:[&_button]:w-11"
                     />
                 {/if}
             </div>
@@ -161,7 +161,7 @@
                         <dd class="mt-0.5 text-sm font-medium text-fg">
                             {#if hasRating}
                                 <span class="inline-flex items-center gap-1">
-                                    <StarIcon class="h-3.5 w-3.5 fill-current text-accent-icon" />
+                                    <StarIcon class="h-3.5 w-3.5 accent-glyph" />
                                     <span class="font-semibold">{game.rating_score.toFixed(1)}</span>
                                     {#if game.rating_count > 0}
                                         <span class="font-normal text-fg-faint">
@@ -207,7 +207,7 @@
                         <span class="sr-only">Tags:</span>
                         {#each tags as tag, index (tag.id)}
                             {#if index > 0}<span class="text-fg-faint">, </span>{/if}
-                            <Link href={route('tags.show', tag.slug)} class="hover:text-fg hover:underline">{tag.name}</Link>
+                            <Link href={route('tags.show', tag.slug)} class="content-link">{tag.name}</Link>
                         {/each}
                     </p>
                 {/if}
@@ -247,7 +247,7 @@
                     {onContentUpdate}
                 />
             {:else}
-                <div class="game_description prose max-w-none dark:prose-invert">
+                <div class="game_description prose max-w-none">
                     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                     {@html description}
                 </div>

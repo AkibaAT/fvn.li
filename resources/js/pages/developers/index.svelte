@@ -40,7 +40,7 @@ POST /api/v1/games/resolve
     <Card variant="flat" padding="lg" class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-title font-semibold text-fg">Get started</h2>
-            <a href={route('developers.openapi')} class="text-sm font-medium text-accent-fg underline">OpenAPI 3.1 specification</a>
+            <a href={route('developers.openapi')} class="text-sm content-link">OpenAPI 3.1 specification</a>
         </div>
         <p class="text-sm text-fg-muted">
             Create a named token in your <Link href={route('dashboard')} class="underline">dashboard</Link>, choose the permissions your client needs,

@@ -1,7 +1,6 @@
 <script lang="ts">
     import { refreshPage } from '@/utils/refreshPage';
     import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
-    import { notify } from '@/components/Toast.svelte';
     import { getErrorMessage, useAsyncAction } from '@/utils/async-action.svelte';
     import { toast } from '@/utils/toast';
     import { page } from '@inertiajs/svelte';
@@ -186,7 +185,7 @@
         );
         if (!data) return;
         notificationStatus = data.is_receiving_updates;
-        notify(`Notifications ${data.is_receiving_updates ? 'enabled' : 'disabled'} for "${gameName}"`, 'success');
+        toast.success(`Notifications ${data.is_receiving_updates ? 'enabled' : 'disabled'} for "${gameName}"`);
     };
 
     const userListsInGame = $derived(userLists.filter((list) => listStates[list.id]));

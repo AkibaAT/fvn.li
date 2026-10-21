@@ -209,7 +209,7 @@ test('export stream writes complete JSON and CSV files into a valid ZIP', functi
 
 test('exports search preferences and owned bug conversations while neutralizing CSV formulas', function () {
     $this->user->update(['name' => '=1+1']);
-    $this->user->preferences()->create(['preferred_languages' => ['eng'], 'excluded_tags' => ['tag']]);
+    $this->user->preferences()->create(['preferred_languages' => ['eng'], 'excluded_tags' => [7]]);
     $bug = BugReport::create([
         'user_id' => $this->user->id, 'page_url' => '/games', 'description' => '@SUM(1,1)', 'admin_notes' => 'Internal only',
     ]);

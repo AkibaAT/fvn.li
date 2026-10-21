@@ -234,7 +234,6 @@ class AccountMergeService
         foreach ([
             'bug_reports' => ['user_id', 'resolved_by'],
             'bug_report_comments' => ['user_id'],
-            'android_builds' => ['user_id'],
             'push_subscriptions' => ['user_id'],
             'discord_servers' => ['owner_user_id'],
             'discord_server_members' => ['user_id'],

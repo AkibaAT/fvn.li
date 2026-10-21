@@ -22,7 +22,7 @@ $older = GameVersion::withoutEvents(fn () => GameVersion::factory()->create([
     'route_graph_data' => $graph,
 ]));
 $rater = Rater::factory()->create();
-for ($i = 1; $i <= 12; $i++) {
+for ($i = 1; $i <= 16; $i++) {
     $ratedGame = Game::withoutEvents(fn () => Game::factory()->create([
         'name' => "History fixture {$suffix} {$i}",
         'is_visible' => true,

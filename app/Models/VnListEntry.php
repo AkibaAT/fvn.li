@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\GamePageCacheService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -43,6 +44,13 @@ class VnListEntry extends Model
             if (! $entry->sort_order) {
                 $entry->sort_order = static::where('vn_list_id', $entry->vn_list_id)
                     ->max('sort_order') + 10;
+            }
+        });
+        static::created(fn (VnListEntry $entry) => GamePageCacheService::invalidate($entry->game_id));
+        static::deleted(fn (VnListEntry $entry) => GamePageCacheService::invalidate($entry->game_id));
+        static::updated(function (VnListEntry $entry): void {
+            if ($entry->wasChanged(['vn_list_id', 'game_id'])) {
+                GamePageCacheService::invalidateMany([$entry->game_id, $entry->getOriginal('game_id')]);
             }
         });
     }

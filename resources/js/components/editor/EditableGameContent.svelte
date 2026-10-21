@@ -338,7 +338,7 @@
         </div>
     {/if}
 
-    <div class="game_description prose max-w-none text-fg-muted dark:prose-invert {isEditing ? 'rounded-md border border-border-strong' : ''}">
+    <div class="game_description prose max-w-none text-fg-muted {isEditing ? 'rounded-md border border-border-strong' : ''}">
         {#if isEditing}
             {#if showEditorLoading}
                 <div class="flex h-64 items-center justify-center text-sm text-fg-muted">Loading editor...</div>

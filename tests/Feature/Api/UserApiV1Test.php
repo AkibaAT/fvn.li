@@ -5,7 +5,9 @@ declare(strict_types=1);
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Models\PrivateTag;
+use App\Models\Tag;
 use App\Models\User;
+use App\Models\UserPreference;
 use App\Models\VnListEntry;
 
 function userApiToken(User $user, array $abilities): string
@@ -63,8 +65,19 @@ it('resolves visible games by IDs or stored platform URLs without guessing', fun
         ['itch_id' => 41235], ['url' => 'https://example.org/story'], ['itch_id' => 99999], ['steam_app_id' => 222],
     ]])->assertOk()->assertJsonPath('data.0.status', 'matched')->assertJsonPath('data.1.status', 'matched')
         ->assertJsonPath('data.2.status', 'unmatched')->assertJsonPath('data.3.status', 'ambiguous');
-    $this->postJson('/api/v1/games/resolve', ['items' => [['url' => 'ftp://example.org/story']]])
-        ->assertUnprocessable()->assertJsonValidationErrors('items.0.url');
+    $mixed = $this->postJson('/api/v1/games/resolve', ['items' => [
+        ['url' => 'ftp://example.org/story'], ['itch_id' => 41235], 'itch_id', ['itch_id' => 41235, 'steam_app_id' => 222],
+    ]])->assertOk()->json('data');
+    expect($mixed[0])->toMatchArray(['input' => ['url' => 'ftp://example.org/story'], 'status' => 'invalid', 'game' => null])
+        ->and(array_keys($mixed[0]['errors']))->toBe(['url'])
+        ->and($mixed[1])->toMatchArray(['status' => 'matched', 'input' => ['itch_id' => 41235]])
+        ->and($mixed[1]['game']['id'])->toBe($itch->id)
+        ->and($mixed[2])->toBe(['input' => null, 'status' => 'invalid', 'errors' => ['item' => ['Each item must be an object.']], 'game' => null])
+        ->and($mixed[3]['errors'])->toBe(['selector' => ['Provide exactly one of itch_id, steam_app_id, or url.']]);
+    $this->postJson('/api/v1/games/resolve', ['items' => []])->assertUnprocessable()->assertJsonValidationErrors('items');
+    $this->postJson('/api/v1/games/resolve', ['items' => array_fill(0, 51, ['itch_id' => 1])])
+        ->assertUnprocessable()->assertJsonValidationErrors('items');
+    $this->postJson('/api/v1/games/resolve', ['items' => 'itch_id'])->assertUnprocessable()->assertJsonValidationErrors('items');
 });
 
 it('matches search wildcards literally', function () {
@@ -78,6 +91,17 @@ it('matches search wildcards literally', function () {
     $this->getJson('/api/v1/games?q=' . urlencode('e_x'))->assertOk()->assertJsonCount(0, 'data');
     $this->getJson('/api/v1/games?q=Romance&per_page=1')->assertOk()
         ->assertJsonPath('links.next', fn (string $next) => str_contains($next, 'q=Romance') && str_contains($next, 'per_page=1'));
+});
+
+it('searches author names without matching their link markup', function () {
+    $this->withToken(userApiToken(User::factory()->create(), ['catalog:read']));
+    $game = Game::factory()->create(['name' => 'Moonlit Tale', 'authors' => '<a href="https://polar-cake.itch.io" target="_blank">Polar Cake</a>']);
+
+    $this->getJson('/api/v1/games?q=' . urlencode('polar cake'))->assertOk()
+        ->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $game->id);
+    foreach (['itch', 'href', 'blank', 'https'] as $markup) {
+        $this->getJson('/api/v1/games?q=' . $markup)->assertOk()->assertJsonCount(0, 'data');
+    }
 });
 
 it('keeps private tags per user and permits tagging watched non-itch games', function () {
@@ -126,8 +150,8 @@ it('manages lists with owner checks, default exclusivity, notes and exact reorde
         ->assertJsonPath('data.0.id', $secondEntry)->assertJsonPath('data.1.id', $entry);
     expect(VnListEntry::findOrFail($secondEntry)->sort_order)->toBe(10);
     $target = $this->postJson('/api/v1/lists', ['name' => 'Another list'])->assertCreated()->json('data.id');
-    $this->postJson("/api/v1/lists/{$list}/entries/{$entry}/move", ['target_list_id' => $target])->assertOk()
-        ->assertJsonPath('data.private_notes', 'Keep private');
+    $this->postJson("/api/v1/lists/{$list}/entries/{$entry}/move", ['target_list_id' => (string) $target])->assertOk()
+        ->assertJsonPath('data.list_id', $target)->assertJsonPath('data.private_notes', 'Keep private');
     $this->getJson("/api/v1/lists/{$other->vnLists()->first()->id}")->assertNotFound()->assertExactJson(['message' => 'Not found.']);
     expect($this->getJson('/api/v1/lists')->assertOk()->json('data.*.type'))
         ->toBe(['reading', 'plan_to_read', 'completed', 'on_hold', 'dropped', 'custom', 'custom']);
@@ -154,6 +178,10 @@ it('validates tracking writes and throttles writes per account', function () {
     $this->patchJson("/api/v1/me/tracked-games/{$paid->id}", ['personal_notes' => 'Wishlisted'])->assertCreated()
         ->assertJsonPath('data.status', 'reading')->assertJsonPath('data.is_receiving_updates', false);
     $this->patchJson("/api/v1/me/tracked-games/{$game->id}", ['game_version_id' => $wrongVersion->id])->assertUnprocessable();
+    $this->patchJson("/api/v1/me/tracked-games/{$game->id}", ['game_version_id' => 'abc'])->assertUnprocessable()
+        ->assertJsonValidationErrors('game_version_id');
+    $this->patchJson("/api/v1/me/tracked-games/{$game->id}", ['status' => null])->assertUnprocessable()
+        ->assertJsonValidationErrors('status');
     $this->patchJson("/api/v1/me/tracked-games/{$game->id}", [
         'status' => 'reading', 'is_receiving_updates' => true, 'game_version_id' => $version->id,
         'started_at' => '2026-09-01', 'personal_notes' => 'Keep private',
@@ -161,11 +189,14 @@ it('validates tracking writes and throttles writes per account', function () {
         ->assertJsonPath('data.game_version_id', $version->id)
         ->assertJsonPath('data.personal_notes', 'Keep private');
     expect($this->getJson('/api/v1/me/tracked-games')->assertOk()->json('data.*.game_id'))->toEqualCanonicalizing([$paid->id, $game->id]);
-    $this->patchJson('/api/v1/me/search-preferences', ['excluded_tag_ids' => []])->assertOk();
+    $tag = Tag::create(['name' => 'Horror']);
+    $this->patchJson('/api/v1/me/search-preferences', ['excluded_tag_ids' => [(string) $tag->id]])->assertOk()
+        ->assertJsonPath('data.excluded_tag_ids', [$tag->id]);
+    expect(UserPreference::where('user_id', $user->id)->firstOrFail()->getRawOriginal('excluded_tags'))->toBe("[{$tag->id}]");
     $this->putJson("/api/v1/me/ignored-games/{$game->id}")->assertNoContent();
     $this->getJson('/api/v1/me/ignored-games')->assertOk()->assertJsonPath('data.0.id', $game->id);
 
-    for ($i = 0; $i < 24; $i++) {
+    for ($i = 0; $i < 22; $i++) {
         $this->patchJson('/api/v1/me/search-preferences', ['excluded_tag_ids' => []])->assertOk();
     }
     $this->patchJson('/api/v1/me/search-preferences', ['excluded_tag_ids' => []])->assertStatus(429)

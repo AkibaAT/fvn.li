@@ -1,10 +1,11 @@
 <script lang="ts">
+    import { toast } from '@/utils/toast';
     import type { Snippet } from 'svelte';
     import { page } from '@inertiajs/svelte';
     import { onMount } from 'svelte';
     import Container from '@/components/Container.svelte';
     import Footer from '@/components/footer/Footer.svelte';
-    import Toast, { notify } from '@/components/Toast.svelte';
+    import Toast from '@/components/Toast.svelte';
     import Header from '@/components/layout/Header.svelte';
     import FlashMessages from '@/components/layout/FlashMessages.svelte';
     import { useRouteAccessibility } from '@/hooks/useAccessibility.svelte';
@@ -25,8 +26,8 @@
     useRouteAccessibility();
 
     $effect(() => {
-        if (flash?.message) notify(String(flash.message), 'success');
-        if (flash?.error) notify(String(flash.error), 'error');
+        if (flash?.message) toast.success(String(flash.message));
+        if (flash?.error) toast.error(String(flash.error));
     });
 
     onMount(() => {
@@ -80,9 +81,7 @@
     });
 </script>
 
-<a href="#main-content" class="skip-link rounded-lg border border-accent-outline bg-accent px-4 py-2 font-medium text-on-accent">
-    Skip to main content
-</a>
+<a href="#main-content" class="skip-link rounded-lg border border-accent-fg bg-accent px-4 py-2 font-medium text-on-accent">Skip to main content</a>
 
 <div class="flex min-h-screen flex-col bg-page text-fg">
     <Header />

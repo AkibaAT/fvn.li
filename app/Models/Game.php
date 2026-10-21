@@ -19,6 +19,7 @@ use DateMalformedStringException;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -269,6 +270,11 @@ class Game extends Model
     public function userProgress(): HasMany
     {
         return $this->hasMany(UserGameProgress::class);
+    }
+
+    public function scopeVisible(Builder $query): void
+    {
+        $query->where($query->qualifyColumn('is_visible'), true);
     }
 
     public function resolveRouteBinding($value, $field = null): Game

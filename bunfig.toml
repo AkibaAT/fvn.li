@@ -2,4 +2,4 @@
 exact = true
 ignoreScripts = true
 minimumReleaseAge = 259200
-minimumReleaseAgeExcludes = ["brace-expansion"]
+minimumReleaseAgeExcludes = ["brace-expansion", "follow-redirects", "postcss-selector-parser", "smol-toml", "source-map-js", "vite"]

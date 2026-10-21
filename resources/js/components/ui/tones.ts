@@ -16,7 +16,7 @@ const listTypeMetadata = {
 } as const satisfies Record<string, { tone: BadgeTone; label: string; icon: Component }>;
 
 const listTypeDotClasses = {
-    reading: 'bg-accent-icon',
+    reading: 'accent-fill',
     completed: 'bg-green-500',
     plan_to_read: 'bg-amber-500',
     on_hold: 'bg-orange-500',

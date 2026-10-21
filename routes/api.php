@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\DiscordNotificationsController;
 use App\Http\Controllers\Api\DiscordServerController;
 use App\Http\Controllers\Api\DiscordSubscriptionController;
 use App\Http\Controllers\Api\DiscordWebhookEventsController;
+use App\Http\Controllers\Api\GamePageViewController;
 use App\Http\Controllers\Api\GameReviewsController;
 use App\Http\Controllers\Api\RenpyAnalyzerController;
 use App\Http\Controllers\Api\UserNotificationsController;
@@ -118,3 +119,7 @@ Route::get('game-reviews', [GameReviewsController::class, 'getGameReviews']);
 Route::get('game-reviews/paginated', [GameReviewsController::class, 'getPaginatedReviews']);
 
 Route::post('renpy-analyzer/analyze', [RenpyAnalyzerController::class, 'analyze']);
+
+Route::post('games/{game:id}/view', GamePageViewController::class)
+    ->middleware('throttle:60,1')
+    ->name('api.games.view');

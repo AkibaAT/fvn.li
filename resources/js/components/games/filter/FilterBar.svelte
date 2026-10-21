@@ -8,6 +8,7 @@
     import { cn } from '@/utils/cn';
     import FilterMenu from './FilterMenu.svelte';
     import FilterValuePicker from './FilterValuePicker.svelte';
+    import { availableFilterFields, buildFilterChips, findFilterField, type FilterFieldId } from './filter-fields';
     import { useGameFilters } from '@/hooks/useGameFilters.svelte';
     import { usePlatformIcons, type GameCardPlatform } from '@/hooks/usePlatformIcons';
     import type { CurrentFilters, FilterOptions } from '@/types';
@@ -20,9 +21,8 @@
 
     let { filters, currentFilters, class: className = '' }: Props = $props();
 
-    const { updateFilters, toggleFilter, clearFilters, buildActiveFilterChips } = useGameFilters({
+    const { updateFilters, clearFilters } = useGameFilters({
         getCurrentFilters: () => currentFilters,
-        getFilters: () => filters,
         onGamesPage: true,
     });
 
@@ -30,87 +30,47 @@
     const getPlatformIcon = (platform: string) => getTypedPlatformIcon(platform as GameCardPlatform);
 
     let menuOpen = $state(false);
-    let activeField = $state<string | null>(null);
+    let activeFieldId = $state<FilterFieldId | null>(null);
+    let returnFocusField = $state<FilterFieldId | null>(null);
+
+    const activeField = $derived(activeFieldId ? findFilterField(activeFieldId) : undefined);
 
     function openMenu() {
-        activeField = null;
+        activeFieldId = null;
+        returnFocusField = null;
         menuOpen = !menuOpen;
     }
 
     function handlePopoverClose() {
         menuOpen = false;
-        activeField = null;
+        activeFieldId = null;
     }
 
-    const fieldCatalog = [
-        { id: 'tags', label: 'Tags', group: 'Refine' },
-        { id: 'privateTag', label: 'Private tags', group: 'Refine' },
-        { id: 'status', label: 'Status', group: 'Refine' },
-        { id: 'language', label: 'Language', group: 'Refine' },
-        { id: 'readingTime', label: 'Reading time', group: 'Refine' },
-        { id: 'platform', label: 'Platform', group: 'Platform & store' },
-        { id: 'storePlatform', label: 'Store', group: 'Platform & store' },
-        { id: 'content', label: 'Content rating', group: 'Content & price' },
-        { id: 'price', label: 'Price & availability', group: 'Content & price' },
-        { id: 'engine', label: 'Engine', group: 'Details' },
-        { id: 'gameJam', label: 'Game jam', group: 'Details' },
-        { id: 'visibility', label: 'Visibility', group: 'Details' },
-    ];
+    function selectField(field: FilterFieldId) {
+        returnFocusField = field;
+        activeFieldId = field;
+    }
 
-    const fieldActiveCounts = $derived<Record<string, number>>({
-        tags: (currentFilters.selectedTags?.length ?? 0) + (currentFilters.excludedTags?.length ?? 0),
-        privateTag: currentFilters.selectedPrivateTags?.length ?? 0,
-        status: currentFilters.selectedStatuses?.length ?? 0,
-        language: currentFilters.selectedLanguages?.length ?? 0,
-        readingTime: currentFilters.readingTime ? 1 : 0,
-        platform: currentFilters.selectedPlatforms?.length ?? 0,
-        storePlatform: currentFilters.selectedStorePlatforms?.length ?? 0,
-        content: (currentFilters.sfw ? 1 : 0) + (currentFilters.nsfw ? 1 : 0),
-        price:
-            (currentFilters.showFree ? 1 : 0) +
-            (currentFilters.showPaid ? 1 : 0) +
-            (currentFilters.showDemo ? 1 : 0) +
-            (currentFilters.showSale ? 1 : 0),
-        engine: currentFilters.selectedEngines?.length ?? 0,
-        gameJam: currentFilters.selectedGameJams?.length ?? 0,
-        visibility: currentFilters.showIgnored ? 1 : 0,
-    });
+    function backToMenu() {
+        returnFocusField = activeFieldId;
+        activeFieldId = null;
+    }
 
-    const hasPrivateTags = $derived(Object.keys(filters.privateTags ?? {}).length > 0);
+    const chips = $derived(buildFilterChips(currentFilters, filters));
 
     const menuFields = $derived(
-        fieldCatalog
-            .filter((field) => field.id !== 'privateTag' || hasPrivateTags)
-            .map((field) => ({ ...field, activeCount: fieldActiveCounts[field.id] ?? 0 })),
+        availableFilterFields(filters).map((field) => ({
+            id: field.id,
+            label: field.label,
+            group: field.group,
+            activeCount: chips.filter((chip) => chip.field.id === field.id).length,
+        })),
     );
 
-    const chips = $derived(buildActiveFilterChips());
-
-    const chipFieldMap: Record<string, string> = {
-        status: 'status',
-        engine: 'engine',
-        platform: 'platform',
-        storePlatform: 'storePlatform',
-        language: 'language',
-        gameJam: 'gameJam',
-        tag: 'tags',
-        excludeTag: 'tags',
-        privateTag: 'privateTag',
-        readingTime: 'readingTime',
-        sfw: 'content',
-        nsfw: 'content',
-        free: 'price',
-        paid: 'price',
-        demo: 'price',
-        sale: 'price',
-    };
-
-    function editChipField(chipType: string) {
-        activeField = chipFieldMap[chipType] ?? null;
+    function editChipField(field: FilterFieldId) {
+        selectField(field);
         menuOpen = true;
     }
-
-    const chipLabel = (chip: (typeof chips)[number]) => (chip.type === 'excludeTag' ? chip.label.replace(/^Exclude:\s*/, '') : chip.label);
 </script>
 
 <div
@@ -132,7 +92,7 @@
             <PlusIcon class="h-3.5 w-3.5" />
             Filter
             {#if chips.length > 0}
-                <span class="rounded-full border border-accent-icon px-1.5 text-2xs font-medium text-accent-fg">{chips.length}</span>
+                <span class="rounded-full border border-accent-fg bg-accent px-1.5 text-2xs font-medium text-on-accent">{chips.length}</span>
             {/if}
         </button>
 
@@ -143,17 +103,11 @@
                 aria-label="Filter builder"
             >
                 {#if activeField}
-                    <FilterValuePicker
-                        field={activeField}
-                        {filters}
-                        {currentFilters}
-                        {toggleFilter}
-                        {updateFilters}
-                        onBack={() => (activeField = null)}
-                        {getPlatformIcon}
-                    />
+                    {#key activeField.id}
+                        <FilterValuePicker field={activeField} {filters} {currentFilters} {updateFilters} onBack={backToMenu} {getPlatformIcon} />
+                    {/key}
                 {:else}
-                    <FilterMenu fields={menuFields} onSelect={(field) => (activeField = field)} />
+                    <FilterMenu fields={menuFields} onSelect={selectField} focusField={returnFocusField} />
                 {/if}
             </div>
         {/if}
@@ -168,17 +122,17 @@
                 >
                     <button
                         type="button"
-                        onclick={() => editChipField(chip.type)}
-                        aria-label="Edit filter: {chipLabel(chip)}"
+                        onclick={() => editChipField(chip.field.id)}
+                        aria-label="Edit filter: {chip.accessibleLabel}"
                         class="inline-flex h-full items-center gap-1.5 px-2.5 transition-colors hover:bg-surface"
                     >
-                        {#if chip.type === 'language' && chip.flagCode}
+                        {#if chip.flagCode}
                             <span class="fi fi-{chip.flagCode} rounded-sm"></span>
-                        {:else if chip.type === 'platform' && chip.value && getPlatformIcon(chip.value)}
+                        {:else if chip.field.id === 'platform' && chip.value && getPlatformIcon(chip.value)}
                             {@const iconMeta = getPlatformIcon(chip.value)}
                             {@const PlatformIconComponent = iconMeta.icon}
                             <PlatformIconComponent class="h-3.5 w-3.5 text-fg-muted" />
-                        {:else if chip.type === 'storePlatform' && chip.value}
+                        {:else if chip.field.id === 'storePlatform' && chip.value}
                             {#if chip.value === 'itch_io'}
                                 <Itchio class="h-3.5 w-3.5 text-fg-muted" monochrome />
                             {:else if chip.value === 'steam'}
@@ -186,24 +140,24 @@
                             {:else if chip.value === 'other'}
                                 <GlobeIcon class="h-3.5 w-3.5 text-fg-muted" />
                             {/if}
-                        {:else if chip.type === 'excludeTag'}
+                        {:else if chip.excluded}
                             <span class="text-fg-muted" aria-hidden="true">not</span>
                         {/if}
-                        {chipLabel(chip)}
+                        {chip.label}
                     </button>
-                    {#if chip.onClear}
-                        <button
-                            type="button"
-                            onclick={chip.onClear}
-                            aria-label="Remove {chipLabel(chip)}"
-                            class="inline-flex h-full w-6 items-center justify-center border-l border-border text-fg-faint transition-colors hover:text-fg"
-                        >
-                            <XMarkIcon class="h-3.5 w-3.5" />
-                        </button>
-                    {/if}
+                    <button
+                        type="button"
+                        onclick={() => updateFilters(chip.clear)}
+                        aria-label="Remove {chip.accessibleLabel}"
+                        class="inline-flex h-full w-6 items-center justify-center border-l border-border text-fg-faint transition-colors hover:text-fg"
+                    >
+                        <XMarkIcon class="h-3.5 w-3.5" />
+                    </button>
                 </span>
             {/each}
         </div>
-        <button type="button" onclick={clearFilters} class="px-1 text-ui text-fg-muted transition-colors hover:text-fg">Clear</button>
+        <button type="button" onclick={clearFilters} aria-label="Clear all filters" class="px-1 text-ui text-fg-muted transition-colors hover:text-fg"
+            >Clear</button
+        >
     {/if}
 </div>

@@ -66,7 +66,6 @@ return [
         'access_token',
         'api_key',
         'client_secret',
-        'keystore_path', // Android build keystores contain sensitive paths
         'private_notes', // User's private VN list notes
     ],
 
@@ -156,10 +155,6 @@ return [
         'App\Models\SocialAccount' => [
             'exclude_fields' => ['token', 'refresh_token', 'provider_data'],
             'sensitive' => true, // Contains OAuth tokens and user data
-        ],
-        'App\Models\AndroidBuild' => [
-            'exclude_fields' => ['keystore_path'],
-            'sensitive' => true, // Contains sensitive build paths
         ],
         'App\Models\VnListEntry' => [
             'exclude_fields' => ['private_notes'],

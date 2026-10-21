@@ -126,6 +126,7 @@
         tone={showSidebar ? 'primary' : 'neutral'}
         size="icon-sm"
         onclick={onToggleSidebar}
+        ariaLabel={showSidebar ? 'Hide details' : 'Show details'}
         title={showSidebar ? 'Hide details' : 'Show details'}
     >
         <PanelLeftIcon class="h-4 w-4" />
@@ -141,6 +142,7 @@
             onclick={() => document.getElementById('save-upload')?.click()}
             disabled={isUploadingSave}
             loading={isUploadingSave}
+            ariaLabel="Upload Ren'Py save or persistent file to mark seen nodes"
             title="Upload Ren'Py save or persistent file to mark seen nodes"
         >
             <ArrowUpTrayIcon class="h-4 w-4" />

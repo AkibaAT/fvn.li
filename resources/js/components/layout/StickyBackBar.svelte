@@ -56,7 +56,7 @@
     });
 </script>
 
-<div bind:this={barEl} class="sticky top-14 z-40 -mt-2 mb-3 bg-page py-2">
+<div bind:this={barEl} class="relative z-40 -mt-2 mb-3 bg-page py-2 sm:sticky sm:top-14">
     <div class="flex h-10 items-center gap-2 rounded-lg border border-border bg-surface pr-1.5 pl-2">
         <Link
             {href}
@@ -68,8 +68,8 @@
         </Link>
         {#if sections.length > 0}
             <span class="h-4 w-px shrink-0 bg-border" aria-hidden="true"></span>
-            <nav aria-label="Page sections" class="min-w-0 flex-1 scrollbar-none overflow-x-auto">
-                <ul class="flex items-center gap-0.5 whitespace-nowrap">
+            <nav aria-label="Page sections" class="min-w-0 flex-1 scrollbar-none overflow-x-auto mask-r-from-[calc(100%-2rem)] mask-r-to-100%">
+                <ul class="flex items-center gap-0.5 pr-8 whitespace-nowrap">
                     {#each sections as section (section.id)}
                         <li>
                             <a

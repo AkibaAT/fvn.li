@@ -19,7 +19,7 @@ class UpdateUserProgressRequest extends FormRequest
         return [
             'progress' => ['prohibited'],
             'hours_played' => ['prohibited'],
-            'game_version_id' => ['nullable', Rule::exists('game_versions', 'id')->where('game_id', $this->route('game')?->id)],
+            'game_version_id' => ['nullable', 'integer', Rule::exists('game_versions', 'id')->where('game_id', $this->route('game')?->id)],
             'personal_notes' => ['nullable', 'string'],
             'started_at' => ['nullable', 'date'],
             'completed_at' => ['nullable', 'date'],

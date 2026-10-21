@@ -12,11 +12,10 @@ final class IconVersion
 
     /**
      * Cache-busting version for the site icons, derived from their mtimes.
-     * Cached until the deploy script forgets the key.
      */
     public static function get(): int
     {
-        return (int) Cache::rememberForever(self::CACHE_KEY, fn (): int => max(
+        return (int) Cache::remember(self::CACHE_KEY, now()->addDays(30), fn (): int => max(
             (int) filemtime(public_path('favicon.ico')),
             (int) filemtime(public_path('icon-192.png')),
             (int) filemtime(public_path('apple-touch-icon.png')),

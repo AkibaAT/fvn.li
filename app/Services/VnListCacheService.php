@@ -12,7 +12,7 @@ class VnListCacheService
 {
     public function key(string $name): string
     {
-        $version = Cache::rememberForever('public_lists.version', fn () => (string) Str::uuid());
+        $version = Cache::remember('public_lists.version', now()->addDays(30), fn () => (string) Str::uuid());
 
         return "{$name}:{$version}";
     }
@@ -23,5 +23,6 @@ class VnListCacheService
         if (DB::transactionLevel() > 0) {
             DB::afterCommit(fn () => Cache::forget('public_lists.version'));
         }
+        EdgeCache::purge([EdgeCache::LISTS]);
     }
 }

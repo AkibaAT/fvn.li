@@ -51,11 +51,21 @@ test('production docker base image is pinned to an immutable php patch image dig
 
     preg_match('/^FROM\s+([^\s]+)$/m', $dockerfile, $matches);
     $baseImage = $matches[1] ?? '';
+    preg_match('/frankenphp:([\d.]+)-php/', $baseImage, $version);
+    expect(version_compare($version[1] ?? '0', '1.13.2', '>='))->toBeTrue();
 
     expect($baseImage)
         ->toMatch('/^dunglas\/frankenphp:\d+\.\d+\.\d+-php8\.5\.\d+@sha256:[a-f0-9]{64}$/')
         ->toContain('@sha256:')
         ->not->toMatch('/^dunglas\/frankenphp:php8\.5(@|$)/');
+});
+
+test('production php includes the October 2026 critical security fixes', function () {
+    $dockerfile = file_get_contents(productionDockerFile('docker/app/Dockerfile'));
+    preg_match('/-php(8\.5\.\d+)@/', $dockerfile, $matches);
+
+    // CVE-2026-109618 and CVE-2026-109619 require the 2026-10-21 security release.
+    expect(version_compare($matches[1] ?? '0', '8.5.12', '>='))->toBeTrue();
 });
 
 test('dependabot scans all maintained container definitions', function () {
@@ -87,4 +97,20 @@ test('frankenphp web override remains bounded separately from global cli config'
         ->and($caddyfile)->toContain('memory_limit 1G')
         ->and($caddyfile)->toContain('max_execution_time 60')
         ->and($caddyfile)->toContain('max_input_time 60');
+});
+
+test('browser images match the Playwright client', function () {
+    $package = json_decode(file_get_contents(base_path('package.json')), true, flags: JSON_THROW_ON_ERROR);
+    $socialPackage = json_decode(file_get_contents(base_path('docker/social-images/package.json')), true, flags: JSON_THROW_ON_ERROR);
+    $version = $package['devDependencies']['@playwright/test'];
+    $dockerfile = file_get_contents(base_path('docker/social-images/Dockerfile'));
+    $playwright = Yaml::parseFile(base_path('.ddev/docker-compose.playwright.yaml'))['services']['playwright'];
+
+    expect($version)->toBe('1.64.1')
+        ->and($socialPackage['dependencies']['playwright-core'])->toBe($version)
+        ->and($dockerfile)->toContain('playwright:v' . $version . '-noble@sha256:')
+        ->and($playwright['image'])->toBe('ddev-${DDEV_SITENAME}-playwright:' . $version)
+        ->and($playwright['build']['context'])->toBe('../docker/social-images')
+        ->and($playwright['command'][2])->toContain('node "$$package/cli.js" run-server', 'installed_version')
+        ->and($playwright['volumes'])->toContain('${DDEV_APPROOT}:/var/www/html:ro');
 });

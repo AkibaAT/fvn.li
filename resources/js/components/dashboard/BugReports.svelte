@@ -1,8 +1,8 @@
 <script lang="ts">
+    import { toast } from '@/utils/toast';
     import { formatLocalDate, formatLocalDateTime } from '@/utils/date-formatting';
     import ChevronRightIcon from '@/components/icons/ChevronRight.svelte';
     import { addBugReportComment, closeBugReport, fetchBugReport, type BugReportComment, type BugReportDetail, type BugReportSummary } from '@/api';
-    import { notify } from '@/components/Toast.svelte';
     import { getErrorMessage } from '@/utils/async-action.svelte';
     import LoadingSpinner from '@/components/LoadingSpinner.svelte';
     import { Badge, Button, Dialog, Textarea } from '@/components/ui';
@@ -55,7 +55,7 @@
             bugReports = bugReports.map((r) => (r.id === reportId ? { ...r, unread_count: 0 } : r));
         } catch (error) {
             if (generation !== reportGeneration) return;
-            notify(getErrorMessage(error, 'Failed to load bug report'), 'error');
+            toast.error(getErrorMessage(error, 'Failed to load bug report'));
             bugReportModalOpen = false;
         } finally {
             if (generation === reportGeneration) loadingBugReport = false;
@@ -84,9 +84,9 @@
             if (generation !== reportGeneration) return;
             bugReportComments = [...bugReportComments, comment];
             if (newComment === draft) newComment = '';
-            notify('Comment added', 'success');
+            toast.success('Comment added');
         } catch (error) {
-            notify(getErrorMessage(error, 'Failed to add comment'), 'error');
+            toast.error(getErrorMessage(error, 'Failed to add comment'));
         } finally {
             if (generation === reportGeneration) submittingComment = false;
         }
@@ -102,9 +102,9 @@
             await closeBugReport(reportId);
             bugReports = bugReports.filter((r) => r.id !== reportId);
             if (generation === reportGeneration) closeBugReportModal();
-            notify('Ticket closed', 'success');
+            toast.success('Ticket closed');
         } catch (error) {
-            notify(getErrorMessage(error, 'Failed to close ticket'), 'error');
+            toast.error(getErrorMessage(error, 'Failed to close ticket'));
         } finally {
             if (generation === reportGeneration) closingTicket = false;
         }

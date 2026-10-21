@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Support\UserApiAbility;
 use Closure;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
@@ -15,7 +16,7 @@ class RequireUserApiToken
     public function handle(Request $request, Closure $next): Response
     {
         $token = $request->user()?->currentAccessToken();
-        if (! $token instanceof PersonalAccessToken || ! in_array('user-api', $token->abilities, true)) {
+        if (! $token instanceof PersonalAccessToken || ! UserApiAbility::isUserApiToken($token)) {
             throw new AuthenticationException;
         }
 

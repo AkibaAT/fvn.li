@@ -26,7 +26,7 @@
             title={iconMeta.title}
             aria-label={iconMeta.title}
             aria-pressed={isActive}
-            class="group/glyph inline-flex size-6 shrink-0 items-center justify-center"
+            class="group/glyph hit-area-y relative inline-flex size-6 shrink-0 items-center justify-center"
         >
             <span
                 class={clsx(

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\GamePageCacheService;
 use App\Services\VnListCacheService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -44,6 +45,21 @@ class VnList extends Model
     {
         static::saved(fn () => app(VnListCacheService::class)->clearPublicListsCache());
         static::deleted(fn () => app(VnListCacheService::class)->clearPublicListsCache());
+        static::updated(function (VnList $list): void {
+            if (($list->is_public || $list->getOriginal('is_public')) && $list->wasChanged(['is_public', 'name', 'description', 'type', 'user_id'])) {
+                $list->invalidateGamePages();
+            }
+        });
+        static::deleting(function (VnList $list): void {
+            if ($list->is_public) {
+                $list->invalidateGamePages();
+            }
+        });
+    }
+
+    public function invalidateGamePages(): void
+    {
+        GamePageCacheService::invalidateMany($this->entries()->pluck('game_id'));
     }
 
     public function scopeInDisplayOrder(Builder $query): void

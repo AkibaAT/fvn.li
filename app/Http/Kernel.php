@@ -17,7 +17,6 @@ use App\Http\Middleware\RequireSanctumTokenAbility;
 use App\Http\Middleware\RequireUserApiToken;
 use App\Http\Middleware\StartSession;
 use App\Http\Middleware\ThrottleUserApiIp;
-use App\Http\Middleware\TrackPageViews;
 use App\Http\Middleware\TrimStrings;
 use App\Http\Middleware\TrustProxies;
 use App\Http\Middleware\ValidateSignature;
@@ -29,6 +28,7 @@ use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
 use Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests;
+use Illuminate\Foundation\Http\Middleware\InvokeDeferredCallbacks;
 use Illuminate\Foundation\Http\Middleware\ValidatePostSize;
 use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Middleware\SetCacheHeaders;
@@ -47,6 +47,7 @@ class Kernel extends HttpKernel
      * @var array<int, class-string|string>
      */
     protected $middleware = [
+        InvokeDeferredCallbacks::class,
         // \App\Http\Middleware\TrustHosts::class,
         TrustProxies::class,
         HandleCors::class,
@@ -109,7 +110,6 @@ class Kernel extends HttpKernel
         'throttle' => ThrottleRequests::class,
         'verified' => EnsureEmailIsVerified::class,
         'admin' => AdminPanelAccess::class,
-        'track.page.views' => TrackPageViews::class,
         'sanctum.token' => RequireSanctumTokenAbility::class,
         'user.api.token' => RequireUserApiToken::class,
     ];

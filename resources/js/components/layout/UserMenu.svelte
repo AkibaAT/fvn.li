@@ -31,13 +31,13 @@
 </script>
 
 {#if !user}
-    <Link href={route('login')} class="text-sm font-medium text-fg-muted transition-colors hover:text-fg">Log in</Link>
+    <Link href={route('login')} class="hit-area relative text-sm font-medium text-fg-muted transition-colors hover:text-fg">Log in</Link>
 {:else}
     <Popover bind:open={showUserMenu}>
         <button
             type="button"
             onclick={() => (showUserMenu = !showUserMenu)}
-            class="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-surface px-1.5 text-fg-muted transition-colors hover:text-fg"
+            class="hit-area relative inline-flex h-8 items-center gap-2 rounded-md border border-border bg-surface px-1.5 text-fg-muted transition-colors hover:text-fg"
             aria-expanded={showUserMenu}
             aria-haspopup="menu"
             aria-controls="user-menu"

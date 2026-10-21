@@ -6,7 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Game;
 use App\Models\GameVersion;
-use App\Models\UserGameProgress;
+use App\Services\UserGameProgressService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Schema;
 
 class UserGameProgressController extends Controller
 {
-    public function update(Request $request, Game $game): JsonResponse
+    public function update(Request $request, Game $game, UserGameProgressService $progressService): JsonResponse
     {
         $user = Auth::user();
 
@@ -25,7 +25,7 @@ class UserGameProgressController extends Controller
         }
 
         $validated = $request->validate([
-            'game_version_id' => 'nullable|exists:game_versions,id',
+            'game_version_id' => 'nullable|integer|exists:game_versions,id',
             'status' => 'nullable|string|in:reading,completed,plan_to_read,on_hold,dropped',
             'personal_notes' => 'nullable|string|max:1000',
             'progress' => 'nullable|integer|min:0|max:100',
@@ -56,13 +56,7 @@ class UserGameProgressController extends Controller
                 $values['progress'] = $validated['progress'];
             }
 
-            $progress = UserGameProgress::updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                    'game_id' => $game->id,
-                ],
-                $values
-            );
+            $progress = $progressService->save($user->id, $game, $values);
 
             return response()->json([
                 'message' => 'Game progress updated successfully',

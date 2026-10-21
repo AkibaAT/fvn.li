@@ -33,7 +33,7 @@ class HomeController extends Controller
 
     public function home(): Response
     {
-        $stats = Cache::rememberForever('home.stats', function () {
+        $stats = Cache::remember('home.stats', now()->addDay(), function () {
             return [
                 'totalGames' => Game::where('is_visible', true)->count(),
                 'totalRatings' => DB::table('ratings')

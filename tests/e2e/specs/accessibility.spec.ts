@@ -28,18 +28,17 @@ function saveReport(pageName: string, results: any) {
 }
 
 async function gotoWithAppearance(page: Page, path: string, appearance: Appearance) {
-    await page.addInitScript((mode) => {
-        localStorage.setItem('appearance', mode);
-    }, appearance);
+    await page.context().addCookies([
+        {
+            name: 'appearance',
+            value: appearance,
+            url: baseURL,
+        },
+    ]);
 
     await page.goto(path);
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#main-content')).toBeVisible();
 
-    await page.evaluate((mode) => {
-        localStorage.setItem('appearance', mode);
-        document.cookie = `appearance=${mode};path=/;max-age=31536000;SameSite=Lax`;
-        document.documentElement.classList.toggle('dark', mode === 'dark');
-    }, appearance);
     await expect
         .poll(() => page.evaluate((mode) => document.documentElement.classList.contains('dark') === (mode === 'dark'), appearance))
         .toBe(true);
@@ -51,7 +50,6 @@ async function gotoWithAppearance(page: Page, path: string, appearance: Appearan
                 .map((animation) => animation.finished.catch(() => undefined)),
         ),
     );
-    await expect(page.locator('#main-content')).toBeVisible();
 }
 
 async function authenticatePage(page: Page) {
@@ -138,6 +136,23 @@ test.describe('Accessibility Scans @accessibility', () => {
             });
         }
     }
+
+    test('Accessibility scans can start while a background request is pending', async ({ page }) => {
+        let requestPending = false;
+        await page.route('**/e2e-pending-request', () => {
+            requestPending = true;
+            // Keep this request pending so network idleness cannot signal page readiness.
+        });
+        await page.addInitScript(() => {
+            document.addEventListener('DOMContentLoaded', () => {
+                void fetch('/e2e-pending-request');
+            });
+        });
+
+        await gotoWithAppearance(page, '/games', 'dark');
+        expect(requestPending).toBe(true);
+        await scanAndAssert(page, 'games-listing-pending-request-dark');
+    });
 
     const authenticatedPagesToScan = [
         { name: 'lists-authenticated', path: '/lists' },
@@ -240,7 +255,7 @@ test.describe('Accessibility Scans @accessibility', () => {
 test.describe('Accessibility - Keyboard Navigation @accessibility', () => {
     test('Homepage keyboard navigation', async ({ page }) => {
         await page.goto('/');
-        await page.waitForLoadState('networkidle');
+        await expect(page.locator('#main-content')).toBeVisible();
 
         await page.keyboard.press('Tab');
 
@@ -291,7 +306,7 @@ test.describe('Accessibility - Keyboard Navigation @accessibility', () => {
 test.describe('Accessibility - Screen Reader Support @accessibility', () => {
     test('Homepage has proper ARIA landmarks', async ({ page }) => {
         await page.goto('/');
-        await page.waitForLoadState('networkidle');
+        await expect(page.locator('#main-content')).toBeVisible();
 
         const main = page.getByRole('main');
         await expect(main).toBeVisible();
@@ -305,7 +320,7 @@ test.describe('Accessibility - Screen Reader Support @accessibility', () => {
 
     test('Images have alt text', async ({ page }) => {
         await page.goto('/');
-        await page.waitForLoadState('networkidle');
+        await expect(page.locator('#main-content')).toBeVisible();
 
         const images = page.locator('img');
         const count = await images.count();
@@ -320,7 +335,7 @@ test.describe('Accessibility - Screen Reader Support @accessibility', () => {
 
     test('Form inputs have labels', async ({ page }) => {
         await page.goto('/login');
-        await page.waitForLoadState('networkidle');
+        await expect(page.locator('#main-content')).toBeVisible();
 
         const inputs = page.locator('input[type="text"], input[type="email"], input[type="password"]');
         const count = await inputs.count();
@@ -350,7 +365,7 @@ test.describe('Accessibility - Screen Reader Support @accessibility', () => {
 
     test('Buttons have accessible names', async ({ page }) => {
         await page.goto('/');
-        await page.waitForLoadState('networkidle');
+        await expect(page.locator('#main-content')).toBeVisible();
 
         const buttons = page.locator('button, a[role="button"]');
         const count = await buttons.count();

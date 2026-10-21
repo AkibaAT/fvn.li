@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\DialogueLine;
+use App\Models\GameVersion;
 use App\Models\VersionCharacterStats;
 use App\Models\VersionLanguageStats;
 use Illuminate\Support\Facades\DB;
@@ -349,6 +350,8 @@ class CharacterStatsCalculationService
             );
             $languageStatsUpdated++;
         }
+
+        GameStatsService::clearCache((int) GameVersion::whereKey($versionId)->value('game_id'));
 
         return $languageStatsUpdated;
     }

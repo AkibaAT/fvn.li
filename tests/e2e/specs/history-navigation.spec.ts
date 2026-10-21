@@ -137,7 +137,7 @@ for (const scope of ['ratings', 'rater']) {
 
 test('game pagination and sort changes restore their controls and results', async ({ page }) => {
     // Pin the page size so the fixture search spans multiple pages regardless of the default.
-    await page.goto(`/games?noDefaults=1&perPage=8&search=${encodeURIComponent(fixture.gameSearch)}`);
+    await page.goto(`/games?noDefaults=1&perPage=12&search=${encodeURIComponent(fixture.gameSearch)}`);
     const pageLink = (n: number) => page.getByRole('link', { name: `Go to page ${n}`, exact: true });
     await pageLink(2).click();
     await expect(pageLink(2)).toHaveAttribute('aria-current', 'page');

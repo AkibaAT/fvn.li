@@ -7,26 +7,10 @@
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { MetaTags } from '@/types/meta-tags';
-    import type { OptimizedScreenshotVariants } from '@/constants/screenshot-variants';
     import type { Game } from '@/types/game';
     import { Link } from '@inertiajs/svelte';
 
-    /**
-     * Home teasers carry the display-only author/screenshot extras beside the
-     * shared core; `user_progress` keeps the GameCardGame row shape so teasers
-     * stay assignable to the GameCard/GameUpdateRow props.
-     */
     interface HomeGame extends Game {
-        rating?: string;
-        authors_html?: string;
-        authors_text?: string;
-        has_author_links?: boolean;
-        screenshots?: Array<{
-            url?: string;
-            thumbnail_url?: string;
-            optimized?: OptimizedScreenshotVariants;
-        }>;
-        game_engine: string;
         latest_version_number?: string | null;
         user_progress?: Array<{ id: number; game_id: number; user_id: number; is_receiving_updates: boolean }>;
     }
@@ -84,7 +68,7 @@
         },
     ]);
 
-    const hasTeasers = $derived(sections.some((section) => section.games.length > 0));
+    const firstSection = $derived(sections.find((section) => section.games.length > 0));
 </script>
 
 <SeoHead {metaTags} />
@@ -95,21 +79,20 @@
         description="Indexed from itch.io and Steam. Follow a title to get notified when it updates."
         descriptionWidth="readable"
         class="mb-12 max-sm:mb-8"
-    >
-        {#snippet actions()}
-            {#if hasTeasers}
-                <ViewToggle value={viewMode} onchange={setViewMode} label="Home layout" />
-            {/if}
-        {/snippet}
-    </PageHeader>
+    />
 
     <div class="space-y-10 max-sm:space-y-8">
         {#each sections as section (section.title)}
             {#if section.games.length}
                 <section>
-                    <div class="mb-3.5 flex items-baseline justify-between gap-4">
+                    <div class="mb-3.5 flex items-center justify-between gap-4">
                         <h2 class="text-title leading-none font-semibold text-fg">{section.title}</h2>
-                        <Link href={section.href} class="text-ui text-fg-muted transition-colors hover:text-fg">{section.linkLabel} →</Link>
+                        <div class="flex items-center gap-4">
+                            {#if section === firstSection}
+                                <ViewToggle value={viewMode} onchange={setViewMode} label="Home layout" />
+                            {/if}
+                            <Link href={section.href} class="text-ui text-fg-muted transition-colors hover:text-fg">{section.linkLabel} →</Link>
+                        </div>
                     </div>
 
                     {#if viewMode === 'list'}

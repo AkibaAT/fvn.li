@@ -1,7 +1,10 @@
 services:
   playwright:
     container_name: ddev-${DDEV_SITENAME}-playwright
-    image: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
+    # Keep the Dockerfile and @playwright/test version in sync; the server follows installed dependencies.
+    image: ddev-${DDEV_SITENAME}-playwright:1.64.1
+    build:
+      context: ../docker/social-images
     init: true
     ipc: host
     working_dir: /home/pwuser

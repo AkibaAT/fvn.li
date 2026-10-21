@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Dashboard\ApiTokenController;
 use App\Models\User;
+use App\Support\UserApiAbility;
 use Inertia\Testing\AssertableInertia as Assert;
 
 it('keeps the developer guide, API explorer, and specification behind a browser login', function () {
@@ -76,4 +78,30 @@ it('limits token management to the owner\'s user API tokens', function () {
         ->deleteJson("/browser-api/dashboard/api-tokens/{$userToken->id}")->assertNotFound();
 
     expect($owner->tokens()->count())->toBe(2);
+});
+
+it('caps active user API tokens per account', function () {
+    $user = User::factory()->create();
+    for ($i = 0; $i < ApiTokenController::MAX_ACTIVE_TOKENS - 1; $i++) {
+        $user->createToken("script {$i}", [UserApiAbility::TOKEN_MARKER, 'catalog:read'], now()->addDays(90));
+    }
+    $user->createToken('expired', [UserApiAbility::TOKEN_MARKER, 'catalog:read'], now()->subDay());
+    $user->createToken('fvn-discord-bot', ['discord-bot']);
+    $this->actingAs($user);
+
+    $this->postJson('/browser-api/dashboard/api-tokens', ['name' => 'Last', 'abilities' => ['catalog:read']])->assertCreated();
+    $this->postJson('/browser-api/dashboard/api-tokens', ['name' => 'Too many', 'abilities' => ['catalog:read']])
+        ->assertUnprocessable()->assertJsonValidationErrors('token');
+
+    $user->tokens()->where('name', 'script 0')->delete();
+    $this->postJson('/browser-api/dashboard/api-tokens', ['name' => 'Replacement', 'abilities' => ['catalog:read']])->assertCreated();
+});
+
+it('throttles token creation per account', function () {
+    $this->actingAs(User::factory()->create());
+    for ($i = 0; $i < 10; $i++) {
+        $this->postJson('/browser-api/dashboard/api-tokens', ['name' => "Script {$i}", 'abilities' => ['catalog:read']])->assertCreated();
+    }
+    $this->postJson('/browser-api/dashboard/api-tokens', ['name' => 'Script 10', 'abilities' => ['catalog:read']])
+        ->assertStatus(429)->assertHeader('Retry-After');
 });

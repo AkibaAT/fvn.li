@@ -1,6 +1,6 @@
 <script lang="ts">
+    import { toast } from '@/utils/toast';
     import { fetchNotificationHealth, testNotificationChannel, type NotificationHealth } from '@/api/notifications';
-    import { notify } from '@/components/Toast.svelte';
     import { getErrorMessage } from '@/utils/async-action.svelte';
     import { Badge, Button } from '@/components/ui';
     import { waitForDiscordTest } from '@/utils/discord-test-polling';
@@ -40,7 +40,7 @@
         refresh().catch((error) => {
             if (!active) return;
             loading = false;
-            notify(getErrorMessage(error, 'Failed to load notification health'), 'error');
+            toast.error(getErrorMessage(error, 'Failed to load notification health'));
         });
         return () => {
             active = false;
@@ -67,9 +67,9 @@
             }
 
             await refresh();
-            notify(channel === 'browser' ? 'Test notification sent to this browser.' : 'Discord test DM delivered.', 'success');
+            toast.success(channel === 'browser' ? 'Test notification sent to this browser.' : 'Discord test DM delivered.');
         } catch (error) {
-            notify(getErrorMessage(error, 'Notification test failed'), 'error');
+            toast.error(getErrorMessage(error, 'Notification test failed'));
         } finally {
             testing = null;
         }
@@ -77,15 +77,15 @@
 
     async function resubscribe(): Promise<void> {
         if (!vapidPublicKey) {
-            notify('Browser push is not configured on the server.', 'error');
+            toast.error('Browser push is not configured on the server.');
             return;
         }
         try {
             await subscribeToPush(vapidPublicKey);
             await refresh();
-            notify('This browser is subscribed to notifications.', 'success');
+            toast.success('This browser is subscribed to notifications.');
         } catch (error) {
-            notify(getErrorMessage(error, 'Could not subscribe this browser'), 'error');
+            toast.error(getErrorMessage(error, 'Could not subscribe this browser'));
         }
     }
 </script>

@@ -728,5 +728,20 @@ it('includes the card facts the row renders: authors, store, community score and
         ->and($row['rating_count'])->toBe(12)
         ->and($row['english_word_count'])->toBe(20000)
         ->and($row['primary_word_count'])->toBe(12345)
-        ->and($row['primary_language_name'])->toBe('Japanese');
+        ->and($row['primary_language_name'])->toBe('Japanese')
+        ->and($row)->not->toHaveKey('primary_language_code');
+});
+
+it('clears the public lists cache only when progress changes on a game in the owner\'s public list', function () {
+    $owner = User::factory()->create();
+    [, $game] = makeListWithEntry($owner);
+    $stranger = User::factory()->create();
+    $cache = app(VnListCacheService::class);
+
+    $version = $cache->key('fixture');
+    $this->actingAs($stranger)->putJson(route('api.user-progress.update', $game), ['personal_notes' => 'Mine'])->assertOk();
+    expect($cache->key('fixture'))->toBe($version);
+
+    $this->actingAs($owner)->putJson(route('api.user-progress.update', $game), ['personal_notes' => 'Shown publicly'])->assertOk();
+    expect($cache->key('fixture'))->not->toBe($version);
 });

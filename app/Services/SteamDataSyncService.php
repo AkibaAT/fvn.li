@@ -455,6 +455,7 @@ class SteamDataSyncService
 
         // Sync tags to the game
         $game->tags()->sync($tagIds);
+        $game->tagsChanged();
 
         Log::info('Synced Steam tags', [
             'game_id' => $game->id,

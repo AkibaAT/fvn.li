@@ -77,6 +77,31 @@ it('serves the previous snapshot after a rating change and refreshes it once the
     expect($count())->toBe(2);
 });
 
+it('refreshes a stale snapshot after a web request is answered', function () {
+    $game = Game::factory()->create(['is_visible' => true]);
+    snapshotRating($game);
+    $count = fn () => RatingStatsCacheService::count(onlyReviews: true, stars: null, visibleGamesOnly: true, platform: null);
+
+    expect($count())->toBe(1);
+
+    snapshotRating($game);
+
+    $this->get(route('ratings.index'))->assertOk();
+
+    expect(Cache::has('ratings.cube.visible-games.dirty'))->toBeFalse()
+        ->and($count())->toBe(2);
+});
+
+it('waits for an in-flight build instead of computing a missing snapshot alongside it', function () {
+    $game = Game::factory()->create(['is_visible' => true]);
+    snapshotRating($game);
+    Cache::lock('lock:ratings.cube.visible-games', 1)->get();
+    $startedAt = microtime(true);
+
+    expect(RatingStatsCacheService::count(onlyReviews: true, stars: null, visibleGamesOnly: true, platform: null))->toBe(1)
+        ->and(microtime(true) - $startedAt)->toBeGreaterThan(0.5);
+});
+
 it('refreshes both snapshots from the scheduled command', function () {
     $game = Game::factory()->create(['is_visible' => true]);
     snapshotRating($game);

@@ -4,120 +4,49 @@
     import GlobeIcon from '@/components/icons/Globe.svelte';
     import Itchio from '@/components/icons/Itchio.svelte';
     import Steam from '@/components/icons/Steam.svelte';
-    import { SvelteSet } from 'svelte/reactivity';
+    import { rovingFocus } from '@/utils/roving-focus';
     import type { CurrentFilters, FilterOptions } from '@/types';
     import type { PlatformIconMeta } from '@/hooks/usePlatformIcons';
-
-    interface LanguageOption {
-        ref_name?: string;
-        name?: string;
-        flag_code?: string;
-    }
-
-    type FlagDef = {
-        value: string;
-        label: string;
-        key: keyof CurrentFilters;
-    };
+    import { fieldChips, fieldClearPatch, optionFlagCode, optionLabel, type FilterField, type FilterOptionItem } from './filter-fields';
 
     interface Props {
-        field: string;
+        field: FilterField;
         filters: FilterOptions;
         currentFilters: CurrentFilters;
-        toggleFilter: (type: string, value: string) => void;
         updateFilters: (filters: Partial<CurrentFilters>) => void;
         onBack: () => void;
         getPlatformIcon: (platform: string) => PlatformIconMeta;
     }
 
-    let { field, filters, currentFilters, toggleFilter, updateFilters, onBack, getPlatformIcon }: Props = $props();
+    let { field, filters, currentFilters, updateFilters, onBack, getPlatformIcon }: Props = $props();
 
-    const readingTimeDefaults: Record<string, string> = {
-        short: 'Short (< 10k words)',
-        medium: 'Medium (10k-50k words)',
-        long: 'Long (> 50k words)',
-    };
-
-    const contentFlags: FlagDef[] = [
-        { value: 'sfw', label: 'Safe for Work', key: 'sfw' },
-        { value: 'nsfw', label: 'NSFW Content', key: 'nsfw' },
-    ];
-
-    const priceFlags: FlagDef[] = [
-        { value: 'showFree', label: 'Free Games', key: 'showFree' },
-        { value: 'showPaid', label: 'Paid Games', key: 'showPaid' },
-        { value: 'showDemo', label: 'Has Demo', key: 'showDemo' },
-        { value: 'showSale', label: 'On Sale', key: 'showSale' },
-    ];
-
-    const visibilityFlags: FlagDef[] = [{ value: 'showIgnored', label: 'Show ignored games', key: 'showIgnored' }];
-
-    type MultiProperty =
-        | 'selectedStatuses'
-        | 'selectedEngines'
-        | 'selectedPlatforms'
-        | 'selectedStorePlatforms'
-        | 'selectedLanguages'
-        | 'selectedGameJams'
-        | 'selectedTags'
-        | 'selectedPrivateTags';
-
-    const multiConfigs = $derived<
-        Record<
-            string,
-            { title: string; options: Record<string, string | LanguageOption>; property: MultiProperty; icon?: 'flag' | 'platform' | 'store' }
-        >
-    >({
-        status: { title: 'Status', options: filters.statuses, property: 'selectedStatuses' },
-        engine: { title: 'Engine', options: filters.gameEngines, property: 'selectedEngines' },
-        platform: { title: 'Platform', options: filters.platforms, property: 'selectedPlatforms', icon: 'platform' },
-        storePlatform: { title: 'Store', options: filters.storePlatforms, property: 'selectedStorePlatforms', icon: 'store' },
-        language: { title: 'Language', options: filters.languages, property: 'selectedLanguages', icon: 'flag' },
-        gameJam: { title: 'Game jam', options: filters.gameJams, property: 'selectedGameJams' },
-        tags: { title: 'Tags', options: filters.tags, property: 'selectedTags' },
-        privateTag: { title: 'Private tags', options: filters.privateTags ?? {}, property: 'selectedPrivateTags' },
-    });
+    const OPTION_SELECTOR = '[role="option"]';
 
     let tagOperator = $state<'include' | 'exclude'>('include');
     let search = $state('');
     let searchEl = $state<HTMLInputElement>();
+    let listEl = $state<HTMLElement>();
 
-    $effect(() => {
-        searchEl?.focus();
-    });
-
-    const isTags = $derived(field === 'tags');
-    const multiConfig = $derived(multiConfigs[field]);
-    const flagDefs = $derived(field === 'content' ? contentFlags : field === 'price' ? priceFlags : field === 'visibility' ? visibilityFlags : null);
-    const isSingle = $derived(field === 'readingTime');
-    const title = $derived(
-        multiConfig?.title ??
-            (field === 'readingTime'
-                ? 'Reading time'
-                : ((flagDefs?.[0] && (field === 'content' ? 'Content rating' : field === 'price' ? 'Price & availability' : 'Visibility')) ?? '')),
-    );
-
-    const selectedValues = $derived((currentFilters[multiConfig?.property ?? 'selectedStatuses'] as string[] | undefined) ?? []);
-    const excludedTags = $derived(currentFilters.excludedTags ?? []);
-
-    const options = $derived.by(() => {
-        if (isSingle) return filters.readingTimeOptions || readingTimeDefaults;
-        if (multiConfig) return multiConfig.options;
-        return {};
-    });
+    const multiField = $derived(field.kind === 'multi' ? field : null);
+    const flagDefs = $derived(field.kind === 'flags' ? field.flags : null);
+    const canExclude = $derived(Boolean(multiField?.excludeProperty));
+    const selectedValues = $derived(multiField ? (currentFilters[multiField.property] ?? []) : []);
+    const excludedValues = $derived(multiField?.excludeProperty ? (currentFilters[multiField.excludeProperty] ?? []) : []);
+    const hasActive = $derived(fieldChips(field, currentFilters, filters).length > 0);
 
     const optionEntries = $derived.by(() => {
-        const entries = Object.entries(options) as Array<[string, string | LanguageOption]>;
-        const compare = ([leftValue, leftItem]: [string, string | LanguageOption], [rightValue, rightItem]: [string, string | LanguageOption]) =>
-            displayLabel(leftValue, leftItem).localeCompare(displayLabel(rightValue, rightItem), undefined, { sensitivity: 'base', numeric: true });
-
+        if (field.kind === 'flags') return [];
+        const entries = Object.entries(field.options(filters)) as Array<[string, FilterOptionItem]>;
         return entries.sort(([leftValue, leftItem], [rightValue, rightItem]) => {
-            if (isTags) {
-                const leftActive = tagMembership(leftValue) !== null;
-                const rightActive = tagMembership(rightValue) !== null;
+            if (canExclude) {
+                const leftActive = membership(leftValue) !== null;
+                const rightActive = membership(rightValue) !== null;
                 if (leftActive !== rightActive) return leftActive ? -1 : 1;
             }
-            return compare([leftValue, leftItem], [rightValue, rightItem]);
+            return optionLabel(leftValue, leftItem).localeCompare(optionLabel(rightValue, rightItem), undefined, {
+                sensitivity: 'base',
+                numeric: true,
+            });
         });
     });
 
@@ -127,85 +56,52 @@
             .replace(/[\u0300-\u036f]/g, '')
             .toLowerCase();
 
-    function displayLabel(value: string, item: string | LanguageOption | undefined): string {
-        if (!item) return value;
-        if (typeof item === 'string') return item;
-        return item.name || item.ref_name || value;
-    }
-
-    function flagCode(item: string | LanguageOption | undefined): string | undefined {
-        return typeof item === 'object' ? item?.flag_code : undefined;
-    }
-
     const compactSearchText = (value: string) => normalizeSearchText(value).replace(/[^\p{L}\p{N}]+/gu, '');
 
     function matchesSearch(label: string, query: string): boolean {
-        const normalizedLabel = normalizeSearchText(label);
-        const normalizedQuery = normalizeSearchText(query);
-
-        return normalizedLabel.includes(normalizedQuery) || compactSearchText(label).includes(compactSearchText(query));
+        return normalizeSearchText(label).includes(normalizeSearchText(query)) || compactSearchText(label).includes(compactSearchText(query));
     }
 
     const showSearch = $derived(optionEntries.length > 8);
 
     const filteredEntries = $derived(
-        showSearch && search ? optionEntries.filter(([value, item]) => matchesSearch(displayLabel(value, item), search)) : optionEntries,
+        showSearch && search ? optionEntries.filter(([value, item]) => matchesSearch(optionLabel(value, item), search)) : optionEntries,
     );
 
-    function tagMembership(value: string): 'include' | 'exclude' | null {
-        if ((currentFilters.selectedTags ?? []).includes(value)) return 'include';
-        if ((currentFilters.excludedTags ?? []).includes(value)) return 'exclude';
+    $effect(() => {
+        (searchEl ?? listEl?.querySelector<HTMLElement>(OPTION_SELECTOR))?.focus();
+    });
+
+    function focusFirstOption(event: KeyboardEvent) {
+        if (event.key !== 'ArrowDown') return;
+        const first = listEl?.querySelector<HTMLElement>(OPTION_SELECTOR);
+        if (!first) return;
+        event.preventDefault();
+        first.focus();
+    }
+
+    function membership(value: string): 'include' | 'exclude' | null {
+        if (selectedValues.includes(value)) return 'include';
+        if (excludedValues.includes(value)) return 'exclude';
         return null;
     }
 
-    function setTagMembership(value: string, target: 'include' | 'exclude' | null) {
-        const include = new SvelteSet(currentFilters.selectedTags ?? []);
-        const exclude = new SvelteSet(currentFilters.excludedTags ?? []);
-        include.delete(value);
-        exclude.delete(value);
-        if (target === 'include') include.add(value);
-        if (target === 'exclude') exclude.add(value);
-        updateFilters({ selectedTags: [...include], excludedTags: [...exclude] });
-    }
+    function toggleValue(value: string) {
+        if (!multiField) return;
+        const { property, excludeProperty } = multiField;
+        const target = tagOperator === 'exclude' && excludeProperty ? 'exclude' : 'include';
+        const current = membership(value);
+        const next = current === target ? null : target;
+        const changes: Partial<CurrentFilters> = {};
 
-    function handleRowClick(value: string) {
-        if (isTags) {
-            const membership = tagMembership(value);
-            const active = membership === (tagOperator === 'include' ? 'include' : 'exclude');
-            setTagMembership(value, active ? null : tagOperator);
-            return;
+        if (current === 'include' || next === 'include') {
+            changes[property] = next === 'include' ? [...selectedValues, value] : selectedValues.filter((item) => item !== value);
         }
-        if (multiConfig) {
-            const toggleTypes: Record<string, string> = {
-                status: 'status',
-                engine: 'engine',
-                platform: 'platform',
-                storePlatform: 'storePlatform',
-                language: 'language',
-                gameJam: 'gameJam',
-                tags: 'tag',
-                privateTag: 'privateTag',
-            };
-            const type = isTags ? 'tag' : toggleTypes[field];
-            if (type) toggleFilter(type, value);
+        if (excludeProperty && (current === 'exclude' || next === 'exclude')) {
+            changes[excludeProperty] = next === 'exclude' ? [...excludedValues, value] : excludedValues.filter((item) => item !== value);
         }
+        updateFilters(changes);
     }
-
-    function clearField() {
-        if (isTags) updateFilters({ selectedTags: [], excludedTags: [] });
-        else if (multiConfig) updateFilters({ [multiConfig.property]: [] } as Partial<CurrentFilters>);
-        else if (isSingle) updateFilters({ readingTime: '' });
-    }
-
-    const hasActive = $derived(
-        isTags
-            ? selectedValues.length + excludedTags.length > 0
-            : isSingle
-              ? Boolean(currentFilters.readingTime)
-              : flagDefs
-                ? flagDefs.some((def) => Boolean(currentFilters[def.key]))
-                : selectedValues.length > 0,
-    );
 </script>
 
 <div class="flex min-h-0 flex-col">
@@ -220,12 +116,13 @@
             Filters
         </button>
         <span class="min-w-0 flex-1 truncate text-center text-ui font-medium text-fg" aria-live="polite">
-            {title}
+            {field.label}
         </span>
         {#if hasActive}
             <button
                 type="button"
-                onclick={clearField}
+                onclick={() => updateFilters(fieldClearPatch(field))}
+                aria-label="Clear {field.label.toLowerCase()} filter"
                 class="rounded-md px-1.5 text-xs text-fg-muted transition-colors hover:text-fg focus:outline-none"
             >
                 Clear
@@ -235,14 +132,14 @@
         {/if}
     </div>
 
-    {#if isTags}
-        <div class="flex gap-1 px-2 pt-2" role="group" aria-label="Tag filter operator">
+    {#if canExclude}
+        <div class="flex gap-1 px-2 pt-2" role="group" aria-label="{field.label} filter operator">
             <button
                 type="button"
                 onclick={() => (tagOperator = 'include')}
                 aria-pressed={tagOperator === 'include'}
                 class="h-6 flex-1 rounded-md border px-2 text-xs font-medium transition-colors {tagOperator === 'include'
-                    ? 'border-accent-icon bg-accent/10 text-fg'
+                    ? 'border-accent-fg bg-accent/25 text-fg dark:bg-accent/12'
                     : 'border-border text-fg-muted hover:text-fg'}"
             >
                 Include
@@ -252,7 +149,7 @@
                 onclick={() => (tagOperator = 'exclude')}
                 aria-pressed={tagOperator === 'exclude'}
                 class="h-6 flex-1 rounded-md border px-2 text-xs font-medium transition-colors {tagOperator === 'exclude'
-                    ? 'border-accent-icon bg-accent/10 text-fg'
+                    ? 'border-accent-fg bg-accent/25 text-fg dark:bg-accent/12'
                     : 'border-border text-fg-muted hover:text-fg'}"
             >
                 Exclude
@@ -265,78 +162,81 @@
             <input
                 bind:this={searchEl}
                 bind:value={search}
+                onkeydown={focusFirstOption}
                 type="text"
-                placeholder="Search {title.toLowerCase()}..."
-                aria-label="Search {title.toLowerCase()}"
+                placeholder="Search {field.label.toLowerCase()}..."
+                aria-label="Search {field.label.toLowerCase()}"
                 class="block w-full rounded-md border border-border bg-surface-alt px-2 py-1.5 text-ui text-fg transition-colors placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
             />
         </div>
     {/if}
 
     <div
+        bind:this={listEl}
         class="max-h-72 overflow-y-auto p-1.5"
-        role={multiConfig || flagDefs ? 'listbox' : 'radiogroup'}
-        aria-label="{title} options"
-        aria-multiselectable={multiConfig || flagDefs ? 'true' : undefined}
+        role="listbox"
+        aria-label="{field.label} options"
+        aria-multiselectable={field.kind !== 'single'}
+        {@attach rovingFocus(OPTION_SELECTOR)}
     >
         {#if flagDefs}
-            {#each flagDefs as def (def.value)}
+            {#each flagDefs as def (def.key)}
                 <button
                     type="button"
                     role="option"
                     aria-selected={Boolean(currentFilters[def.key])}
-                    onclick={() => updateFilters({ [def.key]: !currentFilters[def.key] } as Partial<CurrentFilters>)}
+                    onclick={() => updateFilters({ [def.key]: !currentFilters[def.key] })}
                     class="popover-row-hover flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-none"
                 >
                     <span class="flex h-4 w-4 flex-shrink-0 items-center justify-center" aria-hidden="true">
                         {#if currentFilters[def.key]}
-                            <CheckIcon class="h-3.5 w-3.5 text-accent-icon" />
+                            <CheckIcon class="h-3.5 w-3.5 text-accent-fg" />
                         {/if}
                     </span>
                     {def.label}
                 </button>
             {/each}
-        {:else if isSingle}
+        {:else if field.kind === 'single'}
             {#each optionEntries as [value, item] (value)}
+                {@const isSelected = currentFilters[field.property] === value}
                 <button
                     type="button"
-                    role="radio"
-                    aria-checked={currentFilters.readingTime === value}
-                    onclick={() => updateFilters({ readingTime: value })}
+                    role="option"
+                    aria-selected={isSelected}
+                    onclick={() => updateFilters({ [field.property]: value })}
                     class="popover-row-hover flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-none"
                 >
                     <span
-                        class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border {currentFilters.readingTime === value
-                            ? 'border-accent-icon'
+                        class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border {isSelected
+                            ? 'border-accent-fg'
                             : 'border-border-strong'}"
                         aria-hidden="true"
                     >
-                        {#if currentFilters.readingTime === value}
-                            <span class="h-2 w-2 rounded-full bg-accent-icon"></span>
+                        {#if isSelected}
+                            <span class="h-2 w-2 rounded-full accent-fill"></span>
                         {/if}
                     </span>
-                    {displayLabel(value, item)}
+                    {optionLabel(value, item)}
                 </button>
             {/each}
         {:else if filteredEntries.length === 0}
             <div class="px-2 py-3 text-center text-ui text-fg-muted" role="status">
-                No {title.toLowerCase()} found
+                No {field.label.toLowerCase()} found
             </div>
         {:else}
             {#each filteredEntries as [value, item] (value)}
-                {@const isSelected = selectedValues.includes(value)}
-                {@const membership = isTags ? tagMembership(value) : isSelected ? 'include' : null}
-                {@const activeInOperator = isTags ? membership === tagOperator : isSelected}
+                {@const valueMembership = membership(value)}
+                {@const activeInOperator = canExclude ? valueMembership === tagOperator : valueMembership === 'include'}
                 <button
                     type="button"
                     role="option"
                     aria-selected={activeInOperator}
-                    onclick={() => handleRowClick(value)}
+                    onclick={() => toggleValue(value)}
                     class="popover-row-hover flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-none"
                 >
                     <span
                         class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-sm border {activeInOperator
-                            ? 'border-accent-outline bg-accent text-on-accent'
+                            ? 'border-accent-fg bg-accent text-on-accent'
                             : 'border-border-strong'}"
                         aria-hidden="true"
                     >
@@ -344,13 +244,13 @@
                             <CheckIcon class="h-3 w-3" />
                         {/if}
                     </span>
-                    {#if multiConfig?.icon === 'flag' && flagCode(item)}
-                        <span class="fi fi-{flagCode(item)} rounded-sm"></span>
-                    {:else if multiConfig?.icon === 'platform' && getPlatformIcon(value)}
+                    {#if multiField?.icon === 'flag' && optionFlagCode(item)}
+                        <span class="fi fi-{optionFlagCode(item)} rounded-sm"></span>
+                    {:else if multiField?.icon === 'platform' && getPlatformIcon(value)}
                         {@const iconMeta = getPlatformIcon(value)}
                         {@const PlatformIconComponent = iconMeta.icon}
                         <PlatformIconComponent class="h-3.5 w-3.5 text-fg-muted" />
-                    {:else if multiConfig?.icon === 'store'}
+                    {:else if multiField?.icon === 'store'}
                         {#if value === 'itch_io'}
                             <Itchio class="h-3.5 w-3.5 text-fg-muted" monochrome />
                         {:else if value === 'steam'}
@@ -360,11 +260,11 @@
                         {/if}
                     {/if}
                     <span class="min-w-0 flex-1 truncate">
-                        {displayLabel(value, item)}
+                        {optionLabel(value, item)}
                     </span>
-                    {#if isTags && membership && membership !== tagOperator}
+                    {#if canExclude && valueMembership && valueMembership !== tagOperator}
                         <span class="flex-shrink-0 rounded-full bg-surface-alt px-1.5 py-0.5 text-2xs text-fg-muted">
-                            {membership === 'include' ? 'Included' : 'Excluded'}
+                            {valueMembership === 'include' ? 'Included' : 'Excluded'}
                         </span>
                     {/if}
                 </button>

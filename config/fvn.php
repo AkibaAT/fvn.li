@@ -41,6 +41,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Edge Cache TTL
+    |--------------------------------------------------------------------------
+    |
+    | Shared-cache seconds for tagged pages with purging.
+    |
+    */
+
+    'edge_cache_ttl' => (int) env('EDGE_CACHE_TTL', 86400),
+
+    /*
+    |--------------------------------------------------------------------------
     | Game Page Cache TTL
     |--------------------------------------------------------------------------
     |
@@ -49,6 +60,6 @@ return [
     |
     */
 
-    'game_page_cache_ttl' => (int) env('GAME_PAGE_CACHE_TTL', 300),
+    'game_page_cache_ttl' => (int) env('GAME_PAGE_CACHE_TTL', 86400),
 
 ];

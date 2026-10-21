@@ -99,16 +99,15 @@
     // --- Tab state ---
     type Tab = 'account' | 'my-games' | 'additions' | 'search' | 'private-tags';
     const hasItchio = $derived(!!itchioData?.username);
-    const allTabs: { id: Tab; label: string; condition?: boolean }[] = [
+    const tabs: { id: Tab; label: string }[] = [
         { id: 'account', label: 'Account' },
         { id: 'my-games', label: 'My Games' },
         { id: 'additions', label: 'VN Additions' },
         { id: 'search', label: 'Search Preferences' },
         { id: 'private-tags', label: 'Private Tags' },
     ];
-    const tabs = $derived(allTabs.filter((t) => t.condition !== false));
     const urlTab = useUrlTab<Tab>(
-        allTabs.map((t) => t.id),
+        tabs.map((t) => t.id),
         'account',
         { readHash: true },
     );
@@ -140,7 +139,7 @@
 
 <BugReports initialReports={activeBugReports || []} openReportId={openBugReportId()} />
 
-{#if urlTab.activeTab === 'account'}
+<div hidden={urlTab.activeTab !== 'account'}>
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div class="space-y-6 lg:col-span-3">
             <Card variant="flat" padding="lg">
@@ -195,10 +194,7 @@
             </Card>
         </div>
     </div>
-{/if}
-
-<!-- Tab components stay mounted and are toggled with `hidden` so their local
-     state (drafts, saved preferences, ignored games) survives tab switches. -->
+</div>
 
 <div hidden={urlTab.activeTab !== 'my-games'}>
     <MyGamesTab {hasItchio} {itchioData} {myGames} {myGamesClickStats} />

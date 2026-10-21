@@ -1,12 +1,5 @@
-<script lang="ts" module>
-    import { toastStore, type ToastType } from '@/utils/toast';
-
-    export function notify(message: string, type: ToastType = 'info') {
-        toastStore.add(message, type);
-    }
-</script>
-
 <script lang="ts">
+    import { toastStore, type ToastType } from '@/utils/toast';
     import CheckCircleIcon from '@/components/icons/CheckCircle.svelte';
     import ExclamationCircleIcon from '@/components/icons/ExclamationCircle.svelte';
     import InformationCircleIcon from '@/components/icons/InformationCircle.svelte';

@@ -26,7 +26,7 @@
         type="button"
         data-tag-id={tag.id}
         onclick={() => onTagClick(tag.id)}
-        class="cursor-pointer hover:underline {isTagActive ? 'font-semibold text-fg' : 'text-fg-muted'}"
+        class="hit-area-y relative cursor-pointer hover:underline {isTagActive ? 'font-semibold text-fg' : 'text-fg-muted'}"
         title={isTagActive ? 'Click to remove this filter' : 'Click to filter by this tag'}
     >
         {tag.name}

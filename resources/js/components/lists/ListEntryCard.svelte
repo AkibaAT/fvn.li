@@ -208,24 +208,24 @@
     />
 {/snippet}
 
-<div class="rounded-lg border border-border bg-surface lg:rounded-none lg:border-0 lg:bg-transparent">
-    <ListRow class="hidden border-b-0 lg:flex">
-        {#snippet leading()}
-            {#if isOwner && canReorder}
-                <div class="flex w-8 shrink-0">
-                    <DragHandle size="md" class="drag-handle" attachment={isDesktopViewport ? (handleAttachment ?? undefined) : undefined} />
-                </div>
-            {:else}
-                <div class="w-8 shrink-0"></div>
-            {/if}
-        {/snippet}
+{#snippet ownerLeading()}
+    {#if canReorder}
+        <div class="flex w-8 shrink-0">
+            <DragHandle size="md" class="drag-handle" attachment={isDesktopViewport ? (handleAttachment ?? undefined) : undefined} />
+        </div>
+    {:else}
+        <div class="w-8 shrink-0"></div>
+    {/if}
+{/snippet}
 
+<div>
+    <ListRow class="hidden border-b-0 lg:flex" leading={isOwner ? ownerLeading : undefined}>
         {#snippet media()}
             <GameImage {game} thumbnailUrl={getGameThumbnail(game)} alt={game.effective_name} class="h-13 w-18 rounded-md border border-border" />
         {/snippet}
 
         {#snippet body()}
-            {@render titleRow('font-medium break-words text-fg hover:underline')}
+            {@render titleRow('content-link break-words')}
 
             {@render authorsRow('mt-0.5 truncate text-ui leading-snug text-fg-muted')}
 
@@ -296,7 +296,7 @@
             <GameImage {game} thumbnailUrl={getGameThumbnail(game)} alt={game.effective_name} class="h-32 w-32 rounded-md border border-border" />
 
             <div class="flex-1">
-                {@render titleRow('text-lg font-medium text-fg hover:underline')}
+                {@render titleRow('content-link text-lg')}
 
                 {@render authorsRow('mt-1 line-clamp-2 text-xs leading-snug text-fg-muted')}
 

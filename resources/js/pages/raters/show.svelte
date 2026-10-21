@@ -8,7 +8,6 @@
     import RatingStatsCard from '@/components/ratings/RatingStatsCard.svelte';
     import { emptyStats, type GlobalStats, type RatingRowData } from '@/components/ratings/types';
     import { Button, Card, Dialog } from '@/components/ui';
-    import { alertToneClasses } from '@/components/ui/Alert.svelte';
     import { Link } from '@inertiajs/svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { MetaTags } from '@/types/meta-tags';
@@ -122,7 +121,13 @@
         })),
     );
 
-    const toneForAvg = (avg: number) => alertToneClasses[avg >= 4 ? 'success' : avg >= 3 ? 'neutral' : 'danger'];
+    const phraseToneClasses = {
+        positive: 'border-accent-fg/40 bg-accent/25 text-fg dark:bg-accent/12',
+        neutral: 'border-border bg-surface-alt text-fg',
+        negative: 'border-dashed border-border-strong bg-surface text-fg-muted',
+    } as const;
+
+    const phraseTone = (avg: number) => phraseToneClasses[avg >= 4 ? 'positive' : avg >= 3 ? 'neutral' : 'negative'];
 
     function closePhrasesDialog() {
         showContext = false;
@@ -143,10 +148,9 @@
             {:else}
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {#each Object.entries(safePhrases) as [phrase, data] (phrase)}
-                        {@const tone = toneForAvg(data.avg_rating)}
-                        <div class="flex items-center justify-between rounded-md border p-2 {tone.box} {tone.title}">
+                        <div class="flex items-center justify-between rounded-md border p-2 {phraseTone(data.avg_rating)}">
                             <span class="flex-grow">{phrase}</span>
-                            <div class="ml-2 flex items-center gap-2 text-sm opacity-75">
+                            <div class="ml-2 flex items-center gap-2 text-sm text-fg-muted">
                                 <span>{data.count}x</span>
                                 <span>({data.avg_rating.toFixed(1)}★)</span>
                                 <Button
@@ -172,9 +176,9 @@
         </div>
         {#if Object.keys(safePhrases).length > 0}
             <div class="mt-4 flex gap-4 text-sm text-fg-muted">
-                <div><span class="mr-1 inline-block h-3 w-3 rounded-sm border {alertToneClasses.success.box}"></span>Positive context (4-5★)</div>
-                <div><span class="mr-1 inline-block h-3 w-3 rounded-sm border {alertToneClasses.neutral.box}"></span>Neutral context (3★)</div>
-                <div><span class="mr-1 inline-block h-3 w-3 rounded-sm border {alertToneClasses.danger.box}"></span>Negative context (1-2★)</div>
+                <div><span class="mr-1 inline-block h-3 w-3 rounded-sm border {phraseToneClasses.positive}"></span>Positive context (4-5★)</div>
+                <div><span class="mr-1 inline-block h-3 w-3 rounded-sm border {phraseToneClasses.neutral}"></span>Neutral context (3★)</div>
+                <div><span class="mr-1 inline-block h-3 w-3 rounded-sm border {phraseToneClasses.negative}"></span>Negative context (1-2★)</div>
             </div>
         {/if}
     </Card>
@@ -196,7 +200,7 @@
         class="overflow-hidden"
     >
         {#snippet header()}
-            <div class="border-b border-border p-4">
+            <div class="border-b border-border p-6">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <h2 class="text-title font-semibold text-fg">Rating History</h2>

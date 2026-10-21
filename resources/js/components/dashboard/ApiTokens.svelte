@@ -1,7 +1,6 @@
 <script lang="ts">
     import { createApiToken, extendApiToken, listApiTokens, revokeApiToken, type ApiToken } from '@/api/api-tokens';
-    import { getErrorMessage } from '@/utils/async-action.svelte';
-    import { toast } from '@/utils/toast';
+    import { useAsyncAction } from '@/utils/async-action.svelte';
     import { Button, Card, Checkbox, TextInput } from '@/components/ui';
     import { Link } from '@inertiajs/svelte';
     import { onMount } from 'svelte';
@@ -13,17 +12,15 @@
     let name = $state('');
     let abilities = $state<string[]>(['catalog:read', 'tags:read', 'lists:read']);
     let secret = $state('');
-    let busy = $state(false);
-    let loading = $state(true);
+
+    const loadAction = useAsyncAction();
+    const tokenAction = useAsyncAction();
 
     onMount(async () => {
-        try {
-            ({ tokens, abilities: scopes } = await listApiTokens());
-        } catch (error) {
-            toast.error(getErrorMessage(error, 'Could not load API tokens'));
-        } finally {
-            loading = false;
-        }
+        const loaded = await loadAction.run(listApiTokens, { fallbackError: 'Could not load API tokens' });
+        if (!loaded) return;
+        tokens = loaded.tokens;
+        scopes = loaded.abilities;
     });
 
     function toggle(scope: string) {
@@ -31,39 +28,35 @@
     }
 
     async function create() {
-        if (!name.trim() || abilities.length === 0 || busy) return;
-        busy = true;
-        try {
-            const created = await createApiToken(name.trim(), abilities);
-            tokens = [created.token, ...tokens];
-            secret = created.secret;
-            name = '';
-        } catch (error) {
-            toast.error(getErrorMessage(error, 'Could not create API token'));
-        } finally {
-            busy = false;
-        }
+        if (!name.trim() || abilities.length === 0 || tokenAction.isLoading) return;
+        const created = await tokenAction.run(() => createApiToken(name.trim(), abilities), { fallbackError: 'Could not create API token' });
+        if (!created) return;
+        tokens = [created.token, ...tokens];
+        secret = created.secret;
+        name = '';
     }
 
     async function extend(token: ApiToken) {
-        try {
-            const extended = await extendApiToken(token.id);
-            tokens = tokens.map((item) => (item.id === token.id ? extended : item));
-            toast.success('Token extended');
-        } catch (error) {
-            toast.error(getErrorMessage(error, 'Could not extend token'));
-        }
+        if (tokenAction.isLoading) return;
+        const extended = await tokenAction.run(() => extendApiToken(token.id), {
+            success: 'Token extended',
+            fallbackError: 'Could not extend token',
+        });
+        if (!extended) return;
+        tokens = tokens.map((item) => (item.id === token.id ? extended : item));
     }
 
     async function revoke(token: ApiToken) {
-        if (!confirm(`Revoke “${token.name}”? Scripts using it will stop working.`)) return;
-        try {
-            await revokeApiToken(token.id);
-            tokens = tokens.filter((item) => item.id !== token.id);
-            toast.success('Token revoked');
-        } catch (error) {
-            toast.error(getErrorMessage(error, 'Could not revoke token'));
-        }
+        if (tokenAction.isLoading || !confirm(`Revoke “${token.name}”? Scripts using it will stop working.`)) return;
+        const revoked = await tokenAction.run(
+            async () => {
+                await revokeApiToken(token.id);
+                return true;
+            },
+            { success: 'Token revoked', fallbackError: 'Could not revoke token' },
+        );
+        if (!revoked) return;
+        tokens = tokens.filter((item) => item.id !== token.id);
     }
 
     const daysLeft = (token: ApiToken) => Math.ceil((new Date(token.expires_at).getTime() - Date.now()) / DAY_MS);
@@ -101,11 +94,11 @@
                 {/each}
             </div>
         </fieldset>
-        <Button type="submit" disabled={busy || !name.trim() || abilities.length === 0}>Create token</Button>
+        <Button type="submit" disabled={tokenAction.isLoading || !name.trim() || abilities.length === 0}>Create token</Button>
     </form>
 
     <h3 class="mt-6 mb-2 font-semibold text-fg">Your tokens</h3>
-    {#if loading}<p class="text-sm text-fg-muted">Loading…</p>{/if}
+    {#if loadAction.isLoading}<p class="text-sm text-fg-muted">Loading…</p>{/if}
     <ul class="space-y-3">
         {#each tokens as token (token.id)}
             <li class="rounded border border-border p-3">
@@ -116,7 +109,7 @@
                             type="button"
                             size="xs"
                             variant="outline"
-                            disabled={!token.is_extendable}
+                            disabled={tokenAction.isLoading || !token.is_extendable}
                             ariaLabel={`Extend ${token.name}`}
                             onclick={() => extend(token)}>Extend</Button
                         >
@@ -125,6 +118,7 @@
                             size="xs"
                             variant="outline"
                             tone="danger"
+                            disabled={tokenAction.isLoading}
                             ariaLabel={`Revoke ${token.name}`}
                             onclick={() => revoke(token)}>Revoke</Button
                         >

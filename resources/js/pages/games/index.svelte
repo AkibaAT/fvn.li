@@ -2,7 +2,7 @@
     import InformationCircleIcon from '@/components/icons/InformationCircle.svelte';
     import NoSymbolIcon from '@/components/icons/NoSymbol.svelte';
     import FilterBar from '@/components/games/filter/FilterBar.svelte';
-    import { useGameFilters } from '@/hooks/useGameFilters.svelte';
+    import { DEFAULT_GAMES_PER_PAGE, GAMES_PER_PAGE_OPTIONS, useGameFilters } from '@/hooks/useGameFilters.svelte';
     import { fetchRandomGameSlug } from '@/api';
     import SortControls from '@/components/games/SortControls.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
@@ -68,7 +68,6 @@
 
     const { updateFilters, toggleFilter, buildPageUrl } = useGameFilters({
         getCurrentFilters: () => currentFilters,
-        getFilters: () => filters,
         onGamesPage: true,
     });
 
@@ -88,7 +87,7 @@
             current_page?: number;
             last_page?: number;
         };
-        const perPageVal = Number(rawMeta.per_page ?? currentFilters.perPage ?? 12) || 12;
+        const perPageVal = Number(rawMeta.per_page ?? currentFilters.perPage ?? DEFAULT_GAMES_PER_PAGE) || DEFAULT_GAMES_PER_PAGE;
         const total = Number(rawMeta.total ?? rawTop.total ?? games?.data?.length ?? 0) || 0;
         const current = Number(rawMeta.current_page ?? rawTop.current_page ?? 1) || 1;
         const last = Number(rawMeta.last_page ?? rawTop.last_page ?? Math.max(1, Math.ceil(total / perPageVal))) || 1;
@@ -181,11 +180,11 @@
         {currentFilters}
         {ignoredGameIds}
         {viewMode}
-        onPlatformClick={(p) => toggleFilter('platform', p)}
-        onLanguageClick={(iso) => toggleFilter('language', iso)}
-        onTagClick={(tagId) => toggleFilter('tag', tagId)}
-        onStatusClick={(status) => toggleFilter('status', status)}
-        onStorePlatformClick={(platform) => toggleFilter('storePlatform', platform)}
+        onPlatformClick={(p) => toggleFilter('selectedPlatforms', p)}
+        onLanguageClick={(iso) => toggleFilter('selectedLanguages', iso)}
+        onTagClick={(tagId) => toggleFilter('selectedTags', tagId)}
+        onStatusClick={(status) => toggleFilter('selectedStatuses', status)}
+        onStorePlatformClick={(platform) => toggleFilter('selectedStorePlatforms', platform)}
         onNsfwToggle={() => updateFilters({ nsfw: !currentFilters.nsfw })}
         onPaidToggle={() => updateFilters({ showPaid: !currentFilters.showPaid })}
         onDemoToggle={() => updateFilters({ showDemo: !currentFilters.showDemo })}
@@ -198,7 +197,7 @@
         label="results"
         onChange={(page) => updateFilters({ page })}
         onPerPageChange={(perPage) => updateFilters({ perPage })}
-        perPageOptions={[12, 24, 48]}
+        perPageOptions={[...GAMES_PER_PAGE_OPTIONS]}
         {buildPageUrl}
     />
 </div>

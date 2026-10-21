@@ -37,7 +37,7 @@
     <button
         type="button"
         onclick={() => onDirectionChange(isDescending ? 'asc' : 'desc')}
-        class="inline-flex h-7 w-7 items-center justify-center rounded-md text-ui text-fg-muted transition-colors hover:text-fg"
+        class="hit-area relative inline-flex h-7 w-7 items-center justify-center rounded-md text-ui text-fg-muted transition-colors hover:text-fg"
         title={isDescending ? 'Sort descending' : 'Sort ascending'}
         aria-label={isDescending ? 'Sort descending' : 'Sort ascending'}
     >

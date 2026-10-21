@@ -64,7 +64,7 @@ class GameStatsService
 
     public static function cacheKey(int $gameId, string $name): string
     {
-        $version = Cache::rememberForever("game_stats.{$gameId}.version", fn () => (string) Str::uuid());
+        $version = Cache::remember("game_stats.{$gameId}.version", now()->addDays(30), fn () => (string) Str::uuid());
 
         return "{$name}:{$version}";
     }
@@ -73,6 +73,7 @@ class GameStatsService
     {
         Cache::forget("game_stats.{$gameId}.version");
         Cache::forget('dialogue.games_list');
+        GamePageCacheService::invalidate($gameId);
         if (DB::transactionLevel() > 0) {
             DB::afterCommit(function () use ($gameId): void {
                 Cache::forget("game_stats.{$gameId}.version");

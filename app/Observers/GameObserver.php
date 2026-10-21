@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Models\Game;
 use App\Services\Discord\DiscordCatalogMessageSyncService;
+use App\Services\EdgeCache;
 use App\Services\GameFilterService;
 use App\Services\GameStatsService;
 use App\Services\HomePageCacheService;
@@ -21,6 +22,7 @@ class GameObserver
     {
         GameFilterService::clearCache();
         HomePageCacheService::clearAll(); // Clear home page cache for new game
+        EdgeCache::purge([EdgeCache::GAMES]);
         $this->bumpRecommendationCacheVersion();
 
         // This handles the case where a game is imported with is_visible = true from the start
@@ -59,6 +61,7 @@ class GameObserver
     public function updated(Game $game): void
     {
         Log::debug('Game updated event triggered', ['game_id' => $game->id]);
+        EdgeCache::purge([EdgeCache::GAMES, EdgeCache::game($game->id)]);
 
         // Track when a game first becomes visible and log the visibility change
         if ($game->wasChanged('is_visible')) {
@@ -199,6 +202,7 @@ class GameObserver
 
     public function deleted(Game $game): void
     {
+        EdgeCache::purge([EdgeCache::GAMES, EdgeCache::game($game->id)]);
         app(VnListCacheService::class)->clearPublicListsCache();
         GameFilterService::clearCache();
         HomePageCacheService::clearAll(); // Clear home page cache when game deleted

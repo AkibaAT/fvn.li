@@ -10,7 +10,9 @@ use App\Http\Resources\UserApi\ListResource;
 use App\Models\Game;
 use App\Models\VnList;
 use App\Models\VnListEntry;
+use App\Services\GamePageCacheService;
 use App\Services\VnListCacheService;
+use App\Services\VnListService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -30,26 +32,18 @@ class ListController extends Controller
         return new ListResource($this->owned($request, $list)->loadCount('entries'));
     }
 
-    public function store(Request $request): ListResource
+    public function store(Request $request, VnListService $lists): ListResource
     {
         $input = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('vn_lists')->where('user_id', $request->user()->id)],
             'description' => ['nullable', 'string', 'max:1000'],
             'is_public' => ['sometimes', 'boolean'],
         ]);
-        $list = $request->user()->vnLists()->create([
-            'name' => $input['name'],
-            'description' => $input['description'] ?? null,
-            'is_public' => $input['is_public'] ?? false,
-            'is_default' => false,
-            'type' => 'custom',
-        ]);
-        $this->clearPublic($list);
 
-        return new ListResource($list->loadCount('entries'));
+        return new ListResource($lists->create($request->user(), $input)->loadCount('entries'));
     }
 
-    public function update(Request $request, int $list): ListResource
+    public function update(Request $request, int $list, VnListService $lists): ListResource
     {
         $owned = $this->owned($request, $list);
         $input = $request->validate([
@@ -57,13 +51,8 @@ class ListController extends Controller
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'is_public' => ['sometimes', 'boolean'],
         ]);
-        $wasPublic = $owned->is_public;
-        $owned->update($input);
-        if ($wasPublic || $owned->is_public) {
-            app(VnListCacheService::class)->clearPublicListsCache();
-        }
 
-        return new ListResource($owned->loadCount('entries'));
+        return new ListResource($lists->update($owned, $input)->loadCount('entries'));
     }
 
     public function destroy(Request $request, int $list): JsonResponse
@@ -71,7 +60,6 @@ class ListController extends Controller
         $owned = $this->owned($request, $list);
         $this->authorize('delete', $owned);
         $owned->delete();
-        $this->clearPublic($owned);
 
         return response()->json(status: 204);
     }
@@ -87,7 +75,7 @@ class ListController extends Controller
     public function addGame(Request $request, int $list, int $game): ListEntryResource|JsonResponse
     {
         $owned = $this->owned($request, $list);
-        Game::query()->where('is_visible', true)->findOrFail($game);
+        Game::visible()->findOrFail($game);
         $entry = $owned->entries()->where('game_id', $game)->first();
         if ($entry) {
             return new ListEntryResource($entry->load('game'));
@@ -102,6 +90,7 @@ class ListController extends Controller
     {
         $owned = $this->owned($request, $list);
         if ($owned->entries()->where('game_id', $game)->delete()) {
+            GamePageCacheService::invalidate($game);
             $this->clearPublic($owned);
         }
 
@@ -123,7 +112,7 @@ class ListController extends Controller
         $source = $this->owned($request, $list);
         $record = $source->entries()->findOrFail($entry);
         $input = $request->validate(['target_list_id' => ['required', 'integer']]);
-        $target = $this->owned($request, $input['target_list_id']);
+        $target = $this->owned($request, (int) $input['target_list_id']);
         if ($target->is($source)) {
             return new ListEntryResource($record->load('game'));
         }

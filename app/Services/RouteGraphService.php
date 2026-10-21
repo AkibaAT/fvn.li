@@ -76,6 +76,7 @@ class RouteGraphService
         $version->route_graph_data = $graph;
         $version->route_graph_unreachable_data = $unreachableGraph;
         $version->saveQuietly();
+        GameStatsService::clearCache($version->game_id);
 
         return $graph;
     }

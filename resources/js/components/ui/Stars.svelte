@@ -10,8 +10,8 @@
     const stars = [1, 2, 3, 4, 5];
 </script>
 
-<div class={`flex items-center gap-0.5 text-accent-icon ${className}`}>
+<div class={`flex items-center gap-0.5 ${className}`}>
     {#each stars as i (i)}
-        <StarIcon class={`h-5 w-5 ${i <= Math.floor(rating) ? 'fill-current' : 'fill-border'}`} />
+        <StarIcon class={`h-5 w-5 ${i <= Math.floor(rating) ? 'accent-glyph' : 'fill-border'}`} />
     {/each}
 </div>

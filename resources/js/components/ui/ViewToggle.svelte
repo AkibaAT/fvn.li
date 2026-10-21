@@ -32,7 +32,7 @@
             aria-pressed={value === option.value}
             onclick={() => onchange(option.value)}
             class={clsx(
-                'inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-ui transition-colors sm:px-2.5',
+                'hit-area-y relative inline-flex cursor-pointer items-center gap-1.5 rounded-md px-3.5 py-1 text-ui transition-colors sm:px-2.5',
                 value === option.value ? 'bg-surface-alt font-medium text-fg' : 'text-fg-muted hover:text-fg',
             )}
         >

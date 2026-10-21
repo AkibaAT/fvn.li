@@ -12,7 +12,7 @@
     import { toast } from '@/utils/toast';
     import { destroyVnList, toggleVnListVisibility } from '@/api/lists';
     import { useAsyncAction } from '@/utils/async-action.svelte';
-    import { Button, Card, EmptyState, TabLinks } from '@/components/ui';
+    import { Button, Card, EmptyState, TabBar } from '@/components/ui';
     import { useUrlSyncedFilters } from '@/hooks/useUrlSyncedFilters.svelte';
     import { buildPageMeta } from '@/utils/pagination';
 
@@ -78,19 +78,19 @@
 
     const tabs = $derived([
         {
-            key: 'all',
+            id: 'all',
             label: 'All Lists',
             href: route('lists.index', { visibility: undefined, per_page: perPage, page: 1 }),
             count: counts.all,
         },
         {
-            key: 'public',
+            id: 'public',
             label: 'Public Lists',
             href: route('lists.index', { visibility: 'public', per_page: perPage, page: 1 }),
             count: counts.public,
         },
         {
-            key: 'private',
+            id: 'private',
             label: 'Private Lists',
             href: route('lists.index', { visibility: 'private', per_page: perPage, page: 1 }),
             count: counts.private,
@@ -115,8 +115,10 @@
     </PageHeader>
 
     <Card variant="flat" padding="lg">
-        <TabLinks
+        <TabBar
             {tabs}
+            ariaLabel="List visibility"
+            class="mb-0"
             active={visibilityFilter}
             onSelect={(tab) => {
                 visibilityFilter = tab;

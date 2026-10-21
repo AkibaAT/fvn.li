@@ -37,7 +37,7 @@
         class="peer sr-only"
     />
     <span
-        class="peer rounded-full border border-border bg-surface-alt after:absolute after:rounded-full after:bg-surface after:transition-transform after:content-[''] peer-checked:after:translate-x-full peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent rtl:peer-checked:after:-translate-x-full {sizeClasses[
+        class="peer rounded-full border border-border bg-surface-alt after:absolute after:rounded-full after:bg-surface after:transition-transform after:content-[''] peer-checked:after:translate-x-full peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent-fg peer-focus-visible:outline-solid rtl:peer-checked:after:-translate-x-full {sizeClasses[
             size
         ]} {toneClasses[tone]}"
     ></span>

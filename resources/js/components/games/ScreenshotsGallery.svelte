@@ -4,7 +4,7 @@
     import TrashIcon from '@/components/icons/Trash.svelte';
     import { deleteMyGameScreenshot, uploadMyGameScreenshots } from '@/api/my-games';
     import LoadingSpinner from '@/components/LoadingSpinner.svelte';
-    import { getErrorMessage, useAsyncAction } from '@/utils/async-action.svelte';
+    import { useAsyncAction } from '@/utils/async-action.svelte';
     import { toast } from '@/utils/toast';
     import { Alert, Button, Card, EmptyState } from '@/components/ui';
     import type { Screenshot } from '@/types/game-show';
@@ -27,6 +27,7 @@
 
     const shouldBlur = $derived(blur && !canEdit);
     const uploadAction = useAsyncAction();
+    const deleteAction = useAsyncAction();
     let deletingScreenshotIndex = $state<number | null>(null);
     let displayedScreenshots = $derived(screenshots ?? []);
     let screenshotInput = $state<HTMLInputElement | null>(null);
@@ -74,16 +75,16 @@
         if (!confirm('Delete this screenshot?')) return;
 
         deletingScreenshotIndex = index;
-        try {
-            await deleteMyGameScreenshot(gameSlug, index, displayedScreenshots[index]?.id);
-            if (!(await refreshPage(['game', 'metaTags']))) return;
-            toast.success('Screenshot deleted successfully');
-        } catch (error) {
-            console.error('Failed to delete screenshot', error);
-            toast.error(getErrorMessage(error, 'Failed to delete screenshot'));
-        } finally {
-            deletingScreenshotIndex = null;
-        }
+        const deleted = await deleteAction.run(
+            async () => {
+                await deleteMyGameScreenshot(gameSlug, index, displayedScreenshots[index]?.id);
+                return refreshPage(['game', 'metaTags']);
+            },
+            { fallbackError: 'Failed to delete screenshot' },
+        );
+        deletingScreenshotIndex = null;
+        if (!deleted) return;
+        toast.success('Screenshot deleted successfully');
     }
 </script>
 

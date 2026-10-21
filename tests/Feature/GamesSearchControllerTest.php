@@ -196,6 +196,24 @@ it('resets an out of range meilisearch page back to page one', function () {
         ->and($props['games']['data'][0]['id'])->toBe($game->id);
 });
 
+it('snaps an unsupported per-page value to the default page size', function (int|string $requested, int $expected) {
+    $this->mock(MeilisearchService::class, function (MockInterface $mock) use ($expected) {
+        $mock->shouldReceive('searchGames')
+            ->once()
+            ->with('*', Mockery::type('array'), $expected, 1, 'first_visible_at', 'desc', [])
+            ->andReturn(paginatorForGames([], 0, $expected, 1));
+    });
+
+    $props = $this->get(route('games.index', ['perPage' => $requested]))->assertOk()->viewData('page')['props'];
+
+    expect($props['currentFilters']['perPage'])->toBe($expected);
+})->with([
+    'supported' => [24, 24],
+    'below the options' => [8, 12],
+    'above the options' => [96, 12],
+    'not a number' => ['many', 12],
+]);
+
 it('falls back to database search when meilisearch fails', function () {
     $matchingGame = makeSearchGame([
         'name' => 'Fallback Match',
@@ -300,6 +318,23 @@ it('returns simple autocomplete results without selecting a missing cover image 
         ->assertJsonPath('0.id', $game->id)
         ->assertJsonPath('0.name', 'Autocomplete Match')
         ->assertJsonPath('0.thumb_url', 'https://example.com/thumb.png');
+});
+
+it('matches autocomplete queries against authors and custom tags case-insensitively', function () {
+    $byAuthor = makeSearchGame(['name' => 'First', 'authors' => 'Lantern Studio']);
+    $byCustomTag = makeSearchGame(['name' => 'Second', 'custom_tags' => 'lantern festival']);
+    makeSearchGame(['name' => 'Unrelated']);
+
+    $ids = collect($this->getJson(route('api.games.search', ['q' => 'LANTERN']))->assertOk()->json())->pluck('id');
+
+    expect($ids->sort()->values()->all())->toBe(collect([$byAuthor->id, $byCustomTag->id])->sort()->values()->all());
+});
+
+it('matches autocomplete queries against author names but not their link markup', function () {
+    $game = makeSearchGame(['name' => 'Linked', 'authors' => '<a href="https://lantern.itch.io" target="_blank">Lantern Studio</a>']);
+
+    $this->getJson(route('api.games.search', ['q' => 'href']))->assertOk()->assertJsonCount(0);
+    $this->getJson(route('api.games.search', ['q' => 'Lantern Studio']))->assertOk()->assertJsonPath('0.id', $game->id);
 });
 
 it('returns enhanced search results with converted tag and jam names', function () {

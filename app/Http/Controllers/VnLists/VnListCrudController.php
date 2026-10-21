@@ -10,66 +10,40 @@ use App\Http\Requests\ToggleAllUpdatesRequest;
 use App\Http\Requests\UpdateVnListRequest;
 use App\Models\UserGameProgress;
 use App\Models\VnList;
-use App\Models\VnListEntry;
 use App\Services\VnListCacheService;
+use App\Services\VnListService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 
 class VnListCrudController extends Controller
 {
-    public function storeVnList(StoreVnListRequest $request): JsonResponse
+    public function storeVnList(StoreVnListRequest $request, VnListService $lists): JsonResponse
     {
-
-        $isPublic = $request->boolean('is_public', false);
-        $vnList = VnList::create([
-            'user_id' => Auth::id(),
+        $gameId = $request->filled('game_id') ? (int) $request->game_id : null;
+        $vnList = $lists->create($request->user(), [
             'name' => $request->name,
             'description' => $request->description,
-            'type' => 'custom', // All user-created lists are custom type
-            'is_public' => $isPublic,
-            'is_default' => false, // User-created lists are never default
-        ]);
-
-        // If a game_id is provided, add the game to the new list
-        if ($request->has('game_id')) {
-            VnListEntry::create([
-                'vn_list_id' => $vnList->id,
-                'game_id' => $request->game_id,
-                'sort_order' => 10,
-            ]);
-        }
-
-        if ($isPublic) {
-            app(VnListCacheService::class)->clearPublicListsCache();
-        }
+            'is_public' => $request->boolean('is_public'),
+        ], $gameId);
 
         return response()->json([
             'success' => true,
-            'message' => $request->has('game_id')
+            'message' => $gameId !== null
                 ? 'List created and game added successfully.'
                 : 'List created successfully.',
             'list' => $vnList,
         ]);
     }
 
-    public function updateVnList(UpdateVnListRequest $request, VnList $vnList): JsonResponse
+    public function updateVnList(UpdateVnListRequest $request, VnList $vnList, VnListService $lists): JsonResponse
     {
         $this->authorize('update', $vnList);
 
-        // Note: List type cannot be changed after creation
-        // System lists (is_default=true) have fixed types
-        // User lists are always 'custom' type
-
-        $wasPublic = $vnList->is_public;
-        $vnList->update([
+        $lists->update($vnList, [
             'name' => $request->name,
             'description' => $request->description,
             'is_public' => $request->boolean('is_public', $vnList->is_public),
         ]);
-
-        if ($wasPublic || $vnList->is_public) {
-            app(VnListCacheService::class)->clearPublicListsCache();
-        }
 
         return response()->json([
             'success' => true,
@@ -89,12 +63,7 @@ class VnListCrudController extends Controller
             ], 422);
         }
 
-        $isPublic = $vnList->is_public;
         $vnList->delete();
-
-        if ($isPublic) {
-            app(VnListCacheService::class)->clearPublicListsCache();
-        }
 
         return response()->json([
             'success' => true,
@@ -108,8 +77,6 @@ class VnListCrudController extends Controller
 
         $vnList->update(['is_public' => ! $vnList->is_public]);
         $status = $vnList->is_public ? 'public' : 'private';
-
-        app(VnListCacheService::class)->clearPublicListsCache();
 
         return response()->json([
             'success' => true,

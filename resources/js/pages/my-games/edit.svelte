@@ -6,7 +6,8 @@
     import XMarkIcon from '@/components/icons/XMark.svelte';
     import GameStats from '@/components/GameStats.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
-    import { notify } from '@/components/Toast.svelte';
+    import { toast } from '@/utils/toast';
+    import { getErrorMessage } from '@/utils/async-action.svelte';
     import { Alert, Button, Card, Select, TextInput } from '@/components/ui';
     import { updateMyGameLinks } from '@/api/my-games';
     import { httpValidationErrors } from '@/utils/http';
@@ -103,19 +104,14 @@
         try {
             await updateMyGameLinks(game.slug, sortedLinks);
             if (!(await refreshPage(['game']))) return;
-            notify('Changes saved successfully', 'success');
-        } catch (e: unknown) {
-            const validationErrors = httpValidationErrors(e);
-            if (validationErrors) {
-                Object.entries(validationErrors).forEach(([key, val]) => {
-                    formErrors[key] = Array.isArray(val) ? String(val[0]) : String(val);
-                });
-                notify(e instanceof Error ? e.message : 'Failed to save changes', 'error');
-            } else {
-                const errorMessage = e instanceof Error ? e.message : 'Request failed';
-                formErrors['links'] = errorMessage;
-                notify(errorMessage, 'error');
-            }
+            toast.success('Changes saved successfully');
+        } catch (error) {
+            const message = getErrorMessage(error, 'Failed to save changes');
+            const validationErrors = httpValidationErrors(error);
+            formErrors = validationErrors
+                ? Object.fromEntries(Object.entries(validationErrors).map(([key, val]) => [key, Array.isArray(val) ? String(val[0]) : String(val)]))
+                : { links: message };
+            toast.error(message);
         } finally {
             saving = false;
         }

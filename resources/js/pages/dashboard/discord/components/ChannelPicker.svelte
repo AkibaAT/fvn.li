@@ -47,15 +47,15 @@
         onclick={() => (open = !open)}
         class="flex w-full items-center justify-between rounded-md border border-border-input bg-surface-alt px-3 py-2 text-left text-sm text-fg focus:border-fg-muted focus:outline-none"
         aria-expanded={open}
-        aria-haspopup="listbox"
+        aria-haspopup="dialog"
     >
         <span class="truncate">{selected ? `${prefix}${selected.name}` : placeholder}</span>
         <ChevronDownIcon class="h-4 w-4 text-fg-faint" />
     </button>
     {#if open}
-        <div class="popover-elevated absolute z-30 mt-1 w-full rounded-lg border border-border-strong p-2">
-            <TextInput type="search" bind:value={search} placeholder={searchPlaceholder} fieldClass="mb-2" />
-            <div class="max-h-52 overflow-y-auto" role="listbox">
+        <div class="popover-elevated absolute z-30 mt-1 w-full rounded-lg border border-border-strong p-2" role="dialog" aria-label={placeholder}>
+            <TextInput type="search" bind:value={search} placeholder={searchPlaceholder} aria-label={searchPlaceholder} fieldClass="mb-2" />
+            <div class="max-h-52 overflow-y-auto">
                 {#if allowNone}
                     <Button type="button" variant="ghost" size="sm" class="w-full justify-start px-2 text-left" onclick={() => choose(null)}>
                         {noneLabel}
@@ -67,6 +67,7 @@
                         variant="ghost"
                         size="sm"
                         class="w-full justify-between px-2 text-left {item.id === value ? 'bg-surface-alt font-medium' : ''}"
+                        aria-current={item.id === value ? 'true' : undefined}
                         onclick={() => choose(item.id)}
                     >
                         <span class="truncate">{prefix}{item.name}</span>

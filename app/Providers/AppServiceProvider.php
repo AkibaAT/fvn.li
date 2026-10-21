@@ -34,7 +34,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -102,11 +101,6 @@ class AppServiceProvider extends ServiceProvider
 
         // Register universal audit observer for all Eloquent models
         $this->registerUniversalAuditObserver();
-
-        $keystoreDir = (string) config('services.android.keystore_path', storage_path('app/keystores'));
-        if (! File::exists($keystoreDir)) {
-            File::makeDirectory($keystoreDir, 0755, true, true);
-        }
 
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('discord', Provider::class);

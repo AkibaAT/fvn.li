@@ -215,7 +215,7 @@ test('list filter Ctrl-click opens a new tab with the same filter context', asyn
     await page.goto('/lists?per_page=8');
     const personalUrl = page.url();
     const personalTabPromise = context.waitForEvent('page');
-    await page.getByRole('link', { name: /^Public Lists \(/ }).click({ modifiers: ['Control'] });
+    await page.getByRole('tab', { name: /^Public Lists \(/ }).click({ modifiers: ['Control'] });
     const personalTab = await personalTabPromise;
     await expect(personalTab).toHaveURL((url) => url.searchParams.get('visibility') === 'public' && url.searchParams.get('per_page') === '8');
     await expect(page).toHaveURL(personalUrl);
@@ -223,7 +223,7 @@ test('list filter Ctrl-click opens a new tab with the same filter context', asyn
     await page.goto(`/lists/public?search=Public&sort=newest&per_page=8&game=${fixture.extraGameId}`);
     const publicUrl = new URL(page.url());
     const publicTabPromise = context.waitForEvent('page');
-    await page.getByRole('link', { name: /^Custom \(/ }).click({ modifiers: ['Control'] });
+    await page.getByRole('tab', { name: /^Custom \(/ }).click({ modifiers: ['Control'] });
     const publicTab = await publicTabPromise;
     await expect(publicTab).toHaveURL(
         (url) =>

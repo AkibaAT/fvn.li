@@ -39,23 +39,29 @@ class GamesDisplayController extends Controller
     {
         $viewer = $request->user();
 
+        $reviewsPage = max(1, (int) $request->query('page', 1));
+        $versionsPage = max(1, (int) $request->query('versionsPage', 1));
+
         if ($viewer && ($viewer->is_admin || $viewer->ownsGame($game))) {
-            return Inertia::render('games/show', $this->pageProps($game, $viewer));
+            return Inertia::render('games/show', $this->pageProps($game, $viewer, $reviewsPage, $versionsPage));
         }
 
         $props = GamePageCacheService::remember(
             $game,
-            (int) $request->query('page', 1),
-            (int) $request->query('versionsPage', 1),
-            fn (): array => json_decode(json_encode($this->pageProps($game, null), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR),
+            $reviewsPage,
+            $versionsPage,
+            fn (int $reviewsPage, int $versionsPage): array => json_decode(
+                json_encode($this->pageProps(clone $game, null, $reviewsPage, $versionsPage), JSON_THROW_ON_ERROR),
+                true,
+                flags: JSON_THROW_ON_ERROR,
+            ),
         );
 
         if ($viewer) {
-            $viewerState = (object) ['id' => $game->id];
-            app(GamesSearchResultHydrator::class)->attachUserData(collect([$viewerState]), $viewer->id);
-            $props['game']['user_progress'] = $viewerState->user_progress;
-            $props['game']['user_list_memberships'] = $viewerState->user_list_memberships;
-            $props['game']['user_private_tags'] = $viewerState->user_private_tags;
+            $props['game'] = [
+                ...$props['game'],
+                ...app(GamesSearchResultHydrator::class)->userData([$game->id], $viewer->id)[$game->id],
+            ];
             $props['userReview'] = $this->viewerReview($game, $viewer);
         }
 
@@ -132,7 +138,7 @@ class GamesDisplayController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function pageProps(Game $game, ?User $viewer): array
+    private function pageProps(Game $game, ?User $viewer, int $reviewsPage, int $versionsPage): array
     {
         $game->load([
             'tags' => Tag::constrainToPopular(),
@@ -147,7 +153,7 @@ class GamesDisplayController extends Controller
             ->where('is_reviewed', true)
             ->with(['rater.user:id,name,avatar', 'user:id,name,avatar'])
             ->orderBy('published_at', 'desc')
-            ->paginate(5);
+            ->paginate(5, ['*'], 'page', $reviewsPage);
 
         $sanitizer = app(HtmlSanitizerService::class);
         $previousCounts = Rating::previousRatingCountsForGame($game->id, $reviews->getCollection()->pluck('rater_id'));
@@ -176,7 +182,7 @@ class GamesDisplayController extends Controller
                 'languageStats.language',
             ])
             ->orderBy('published_at', 'desc')
-            ->paginate(5, ['*'], 'versionsPage');
+            ->paginate(5, ['*'], 'versionsPage', $versionsPage);
 
         $latestVersion = $gameVersions->getCollection()->firstWhere('is_latest', true);
         if ($latestVersion) {
@@ -192,20 +198,6 @@ class GamesDisplayController extends Controller
         $englishStats = null;
         $primaryStats = null;
 
-        // Compute primary language label from the language stats (already loaded)
-        // to avoid loading sourceLanguage relation onto the game (it would get serialized)
-        $sourceLanguageId = $game->source_language_id ?? 'eng';
-        $primaryLanguageLabel = 'EN';
-        if ($sourceLanguageId !== 'eng' && $game->latestVersion) {
-            $primaryLangStats = $game->latestVersion->languageStats
-                ->where('iso_code', $sourceLanguageId)
-                ->first();
-            if ($primaryLangStats?->language) {
-                $primaryLanguageLabel = strtoupper($primaryLangStats->language->part1 ?? substr($sourceLanguageId, 0, 2));
-            } else {
-                $primaryLanguageLabel = strtoupper(substr($sourceLanguageId, 0, 2));
-            }
-        }
         if ($game->latestVersion) {
             $englishLanguageStats = $game->latestVersion->languageStats
                 ->where('iso_code', 'eng')
@@ -476,7 +468,6 @@ class GamesDisplayController extends Controller
             'supportedLanguages' => $supportedLanguages,
             'englishStats' => $englishStats,
             'primaryStats' => $primaryStats,
-            'primaryLanguageLabel' => $primaryLanguageLabel,
             'versionCharacterCounts' => $versionCharacterCounts,
             'versionHasFileStats' => $versionHasFileStats,
             'versionHasDialogueLines' => $versionHasDialogueLines,

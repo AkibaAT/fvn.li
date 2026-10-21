@@ -9,7 +9,7 @@
     import ListRow from '@/components/lists/ListRow.svelte';
     import { Rating } from '@/components/ui';
     import { useGameCard, type GameCardProps } from '@/hooks/useGameCard.svelte';
-    import { formatReleasedDate, formatReleaseDates, formatUpdatedDate, formatWordCount, formatWordCountBreakdown } from '@/utils/game-card-display';
+    import { GAME_TAG_LIMIT, formatReleasedDate, formatUpdatedDate, formatWordCount, formatWordCountBreakdown } from '@/utils/game-card-display';
 
     let props: GameCardProps = $props();
 
@@ -40,7 +40,6 @@
     const wordCount = $derived(formatWordCount(game));
     const wordCountBreakdown = $derived(formatWordCountBreakdown(game) ?? undefined);
     const hasRating = $derived(typeof game.rating_score === 'number' && game.rating_score > 0);
-    const datesLabel = $derived(formatReleaseDates(game));
     const releasedDate = $derived(formatReleasedDate(game));
     const updatedDate = $derived(formatUpdatedDate(game));
 </script>
@@ -78,33 +77,44 @@
             </div>
         {/if}
 
-        <div class="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-ui leading-snug xl:hidden">
+        <div class="meta-list mt-1 text-ui leading-snug xl:hidden">
             {#if wordCount}
                 <span class="text-fg-muted" title={wordCountBreakdown}>{wordCount}</span>
             {/if}
-            {#if datesLabel}
-                <span class="text-fg-faint">{wordCount ? '· ' : ''}{datesLabel}</span>
+            {#if releasedDate}
+                <span class="text-fg-faint">Released {releasedDate}</span>
             {/if}
-            <span class="ml-auto shrink-0 md:hidden">
-                <Rating score={game.rating_score} count={game.rating_count} />
-            </span>
+            {#if updatedDate}
+                <span class="text-fg-faint">Updated {updatedDate}</span>
+            {/if}
         </div>
 
-        <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <GameTagList tags={orderedTags} {selectedTags} onTagClick={handleTag} limit={8} class="min-w-0 flex-1 flex-nowrap overflow-hidden" />
-
-            <GlyphStrip
-                {storePlatform}
-                isStoreActive={selectedStorePlatforms?.includes(storePlatform)}
-                onStoreClick={handleStorePlatform}
-                platforms={supportedPlatforms}
-                {selectedPlatforms}
-                onPlatformClick={handlePlatform}
-                languages={game.supported_languages ?? []}
-                {selectedLanguages}
-                onLanguageClick={handleLanguage}
-                class="shrink-0 justify-between md:w-60 lg:w-72"
+        <div class="mt-1.5 flex flex-col gap-y-1 sm:flex-row sm:items-center sm:gap-x-4">
+            <GameTagList
+                tags={orderedTags}
+                {selectedTags}
+                onTagClick={handleTag}
+                limit={GAME_TAG_LIMIT}
+                class="min-w-0 flex-nowrap overflow-hidden max-sm:block max-sm:truncate sm:flex-1"
             />
+
+            <div class="flex min-w-0 items-center gap-3 sm:shrink-0">
+                <GlyphStrip
+                    {storePlatform}
+                    isStoreActive={selectedStorePlatforms?.includes(storePlatform)}
+                    onStoreClick={handleStorePlatform}
+                    platforms={supportedPlatforms}
+                    {selectedPlatforms}
+                    onPlatformClick={handlePlatform}
+                    languages={game.supported_languages ?? []}
+                    {selectedLanguages}
+                    onLanguageClick={handleLanguage}
+                    class="min-w-0 justify-between md:w-60 lg:w-72"
+                />
+                <span class="ml-auto shrink-0 md:hidden">
+                    <Rating score={game.rating_score} count={game.rating_count} />
+                </span>
+            </div>
         </div>
 
         <GameCardUserSection

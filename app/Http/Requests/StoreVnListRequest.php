@@ -24,7 +24,7 @@ class StoreVnListRequest extends FormRequest
             ],
             'description' => ['nullable', 'string', 'max:1000'],
             'is_public' => ['boolean'],
-            'game_id' => ['nullable', 'exists:games,id'],
+            'game_id' => ['nullable', 'integer', 'exists:games,id'],
         ];
     }
 

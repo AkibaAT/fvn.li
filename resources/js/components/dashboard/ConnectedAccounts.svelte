@@ -120,6 +120,7 @@
                                 onclick={() => handleDisconnect(provider)}
                                 disabled={disconnectAction.isLoading}
                                 class="ml-2"
+                                ariaLabel="Unlink {config.name} account"
                                 title="Unlink {config.name} account"
                             >
                                 <LinkIcon class="h-5 w-5" />

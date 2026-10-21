@@ -81,10 +81,7 @@ class UserAccountController extends Controller
                 $user->notificationPreferences()->delete();
             }
             $user->pushSubscriptions()->delete();
-            $user->vnLists()->each(function ($list) {
-                $list->entries()->delete();
-                $list->delete();
-            });
+            $user->vnLists()->each(fn ($list) => $list->delete());
             $user->gameProgress()->delete();
             $user->notificationHistory()->delete();
             $user->ignoredGames()->detach(); // Remove all ignored games relationships

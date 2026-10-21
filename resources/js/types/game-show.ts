@@ -222,7 +222,6 @@ export interface GameShowProps {
     supportedLanguages?: SupportedLanguage[];
     englishStats?: LanguageStats;
     primaryStats?: LanguageStats;
-    primaryLanguageLabel?: string;
     versionCharacterCounts?: Record<number, number>;
     versionHasFileStats?: Record<number, boolean>;
     versionHasDialogueLines?: Record<number, boolean>;

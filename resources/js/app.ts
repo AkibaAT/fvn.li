@@ -3,6 +3,7 @@ import { createInertiaApp } from '@inertiajs/svelte';
 import { hydrate, mount } from 'svelte';
 import { initializeAppearance } from '@/hooks/use-appearance.svelte';
 import AppFrame from '@/layouts/AppFrame.svelte';
+import { trackPreviousUrl } from '@/utils/page-view';
 import { revealInlineSpoiler } from '@/utils/review-spoilers';
 import { installZiggyGlobals } from '@/utils/ziggy';
 import type { SharedZiggyConfig } from '@/utils/ziggy';
@@ -43,6 +44,7 @@ createInertiaApp({
 });
 
 initializeAppearance();
+trackPreviousUrl();
 
 document.addEventListener('click', (event) => {
     if (revealInlineSpoiler(event.target)) event.preventDefault();

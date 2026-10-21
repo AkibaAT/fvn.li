@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Models\AdditionRequest;
-use App\Models\AndroidBuild;
 use App\Models\BugReport;
 use App\Models\DiscordServer;
 use App\Models\DiscordServerMember;
@@ -337,9 +336,8 @@ test('preserves user owned records and resolves duplicate histories without abor
         'user_id' => $source->id, 'page_url' => '/games', 'description' => 'Keep report', 'resolved_by' => $source->id,
     ]);
     $comment = $bug->comments()->create(['user_id' => $source->id, 'message' => 'Keep comment']);
-    $build = AndroidBuild::factory()->create(['user_id' => $source->id]);
     $push = $source->pushSubscriptions()->create(['endpoint' => 'https://push.example/merge', 'p256dh' => 'test', 'auth' => 'test']);
-    $preferences = $source->preferences()->create(['preferred_languages' => ['eng'], 'excluded_tags' => ['test']]);
+    $preferences = $source->preferences()->create(['preferred_languages' => ['eng'], 'excluded_tags' => [7]]);
     $notifications = $source->notificationPreferences()->create(['browser_notifications_enabled' => true, 'notification_digest' => 'weekly']);
     $server = DiscordServer::factory()->create(['owner_user_id' => $source->id]);
     $member = DiscordServerMember::create([
@@ -369,7 +367,7 @@ test('preserves user owned records and resolves duplicate histories without abor
 
     $this->service->mergeAccounts($target, $source);
 
-    foreach ([$rating, $rater, $bug, $comment, $build, $push, $preferences, $notifications, $member, $uniqueHistory, $queue] as $record) {
+    foreach ([$rating, $rater, $bug, $comment, $push, $preferences, $notifications, $member, $uniqueHistory, $queue] as $record) {
         expect($record->fresh()->user_id)->toBe($target->id);
     }
     expect($server->fresh()->owner_user_id)->toBe($target->id)
@@ -394,7 +392,7 @@ test('keeps target preferences and current review while retaining duplicate revi
     $target = $this->mergingUser;
     $source = $this->otherUser;
     $target->preferences()->create(['preferred_languages' => ['eng'], 'excluded_tags' => []]);
-    $source->preferences()->create(['preferred_languages' => ['fra'], 'excluded_tags' => ['blocked']]);
+    $source->preferences()->create(['preferred_languages' => ['fra'], 'excluded_tags' => [42]]);
     $target->notificationPreferences()->create(['browser_notifications_enabled' => false]);
     $source->notificationPreferences()->create(['browser_notifications_enabled' => true]);
     $targetList = VnList::factory()->for($target)->create(['name' => 'Favorites', 'is_default' => false]);
@@ -405,7 +403,7 @@ test('keeps target preferences and current review while retaining duplicate revi
     $sourceReview = $source->ratings()->create($attributes + ['review' => 'Previous account review']);
     $this->service->mergeAccounts($target, $source);
     expect($target->fresh()->preferences->preferred_languages)->toBe(['eng'])
-        ->and($target->fresh()->preferences->excluded_tags)->toBe(['blocked'])
+        ->and($target->fresh()->preferences->excluded_tags)->toBe([42])
         ->and($target->fresh()->notificationPreferences->browser_notifications_enabled)->toBeFalse()
         ->and($targetReview->fresh()->review)->toBe('Current review')
         ->and($targetReview->fresh()->external_metadata['merged_reviews'][0]['review'])->toBe('Previous account review')

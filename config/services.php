@@ -27,6 +27,11 @@ return [
         'token' => env('POSTMARK_TOKEN'),
     ],
 
+    'cloudflare' => [
+        'zone_id' => env('CLOUDFLARE_ZONE_ID'),
+        'api_token' => env('CLOUDFLARE_API_TOKEN'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
@@ -117,12 +122,6 @@ return [
         'pids_limit' => (int) env('ARCHIVE_OPTIMIZER_PIDS_LIMIT', 128),
         'tmp_size' => env('ARCHIVE_OPTIMIZER_TMP_SIZE', '512m'),
         'stale_cleanup_seconds' => (int) env('ARCHIVE_OPTIMIZER_STALE_CLEANUP_SECONDS', 7200),
-    ],
-
-    'android' => [
-        'keystore_password' => env('ANDROID_KEYSTORE_PASSWORD', 'fvnli'),
-        'key_password' => env('ANDROID_KEY_PASSWORD', 'fvnli'),
-        'keystore_path' => env('ANDROID_KEYSTORE_PATH', storage_path('app/keystores')),
     ],
 
     'flaresolverr' => [

@@ -57,9 +57,9 @@ export interface FilterOptions {
     languages: Record<string, { ref_name: string; flag_code: string }>;
     gameJams: Record<string, string>;
     tags: Record<string, string>;
-    privateTags?: Record<string, string>;
+    privateTags: Record<string, string>;
     sortOptions?: Record<string, string>;
-    readingTimeOptions?: Record<string, string>;
+    readingTimeOptions: Record<string, string>;
 }
 
 export interface CurrentFilters {

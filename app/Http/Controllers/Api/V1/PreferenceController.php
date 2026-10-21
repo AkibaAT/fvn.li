@@ -46,12 +46,12 @@ class PreferenceController extends Controller
     public function ignored(Request $request): AnonymousResourceCollection
     {
         return GameResource::collection($request->user()->ignoredGames()
-            ->where('is_visible', true)->orderBy('games.id')->paginate(20)->withQueryString());
+            ->visible()->orderBy('games.id')->paginate(20)->withQueryString());
     }
 
     public function ignore(Request $request, int $game): JsonResponse
     {
-        Game::query()->where('is_visible', true)->findOrFail($game);
+        Game::visible()->findOrFail($game);
         $request->user()->ignoredGames()->syncWithoutDetaching([$game]);
 
         return response()->json(status: 204);

@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\PushSubscriptionController;
-use App\Http\Controllers\Api\V1\PrivateTagController;
 use App\Http\Controllers\BugReportController;
 use App\Http\Controllers\ClickTrackingController;
 use App\Http\Controllers\Dashboard\ApiTokenController;
@@ -22,6 +21,7 @@ use App\Http\Controllers\Games\GamesSearchController;
 use App\Http\Controllers\Games\GamesVersionController;
 use App\Http\Controllers\Games\RouteMapController;
 use App\Http\Controllers\MyGamesController;
+use App\Http\Controllers\PrivateTagController;
 use App\Http\Controllers\ReviewReportController;
 use App\Http\Controllers\UserReviewController;
 use App\Http\Controllers\VnLists\VnListCrudController;
@@ -82,12 +82,11 @@ Route::middleware(['web'])->group(function () {
         ->middleware('throttle:save-parser')
         ->name('browser-api.games.version.parse-save');
 
-    // Click tracking (session-based)
     Route::post('track/custom-link',
         [ClickTrackingController::class, 'trackCustomLink'])->name('browser-api.track.custom-link');
     Route::middleware('auth')->group(function () {
         Route::get('dashboard/api-tokens', [ApiTokenController::class, 'index'])->name('browser-api.api-tokens.index');
-        Route::post('dashboard/api-tokens', [ApiTokenController::class, 'store'])->name('browser-api.api-tokens.store');
+        Route::post('dashboard/api-tokens', [ApiTokenController::class, 'store'])->middleware('throttle:10,1')->name('browser-api.api-tokens.store');
         Route::post('dashboard/api-tokens/{token}/extend', [ApiTokenController::class, 'extend'])->whereNumber('token')->name('browser-api.api-tokens.extend');
         Route::delete('dashboard/api-tokens/{token}', [ApiTokenController::class, 'destroy'])->whereNumber('token')->name('browser-api.api-tokens.destroy');
 

@@ -147,26 +147,26 @@ Route::get('by-url/{url}', function (Request $request, $url) {
 
 // Home route
 Route::get('/', [HomeController::class, 'home'])
-    ->middleware('cache.public')
+    ->middleware('cache.public:games')
     ->name('home');
 
 // Games routes
 Route::get('games', [GamesSearchController::class, 'index'])
-    ->middleware('cache.public')
+    ->middleware('cache.public:games')
     ->name('games.index');
 Route::get('games/random', [GamesSearchController::class, 'randomGame'])
     ->name('games.random');
 Route::get('games/{game:slug}', [GamesDisplayController::class, 'show'])
     ->name('games.show')
-    ->middleware('track.page.views');
+    ->middleware('cache.public:game');
 Route::get('games/{game:slug}/route-map', [RouteMapController::class, 'show'])
     ->name('games.route-map');
 
 Route::get('tags', [GameTagsController::class, 'index'])
-    ->middleware('cache.public')
+    ->middleware('cache.public:games')
     ->name('tags.index');
 Route::get('tags/{tag:slug}', [GameTagsController::class, 'show'])
-    ->middleware('cache.public')
+    ->middleware('cache.public:games')
     ->name('tags.show');
 
 // Auth routes
@@ -230,7 +230,7 @@ Route::get('lists/create', [VnListPageController::class, 'listCreate'])
 
 // Public VN Lists routes (no auth required) - place before dynamic {vnList} routes
 Route::get('lists/public', [PublicVnListController::class, 'publicLists'])
-    ->middleware(['throttle:30,1', 'cache.public'])
+    ->middleware(['throttle:30,1', 'cache.public:lists'])
     ->name('lists.public');
 Route::get('users/{user}/lists', [PublicVnListController::class, 'userPublicLists'])
     ->whereNumber('user')
@@ -276,13 +276,13 @@ Route::get('auth/{provider}/callback', [SocialAuthController::class, 'handleProv
 // game slug is required so public dialogue browsing does not expose an ID-to-slug lookup.
 Route::get('dialogue/browser/{game:slug}/{versionId?}', [DialogueController::class, 'dialogueBrowser'])
     ->where(['versionId' => '[0-9]+'])
-    ->middleware('cache.public')
+    ->middleware('cache.public:game')
     ->name('dialogue.browser');
 // JSON endpoints moved to routes/browser-api.php
 
 // Ratings domain (Svelte/Inertia) scaffolds
 Route::get('ratings', [RatingsController::class, 'ratingsIndex'])
-    ->middleware('cache.public')
+    ->middleware('cache.public:ratings')
     ->name('ratings.index');
 Route::get('reviews/{rating}', [RatingsController::class, 'reviewShow'])
     ->whereNumber('rating')
@@ -292,7 +292,7 @@ Route::get('users/{user}/reviews', [RatingsController::class, 'userReviews'])
     ->name('users.reviews');
 Route::get('raters/{rater}', [RatingsController::class, 'raterShow'])
     ->whereNumber('rater')
-    ->middleware('cache.public')
+    ->middleware('cache.public:ratings')
     ->name('raters.show');
 
 // Rating history JSON for browser modal
@@ -327,8 +327,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
 // JSON list APIs moved to browser-api.php
 
 // RSS Feeds
-Route::get('feed/new', [FeedController::class, 'newGames'])->middleware('cache.public')->name('feed.new');
-Route::get('feed/updates', [FeedController::class, 'updatedGames'])->middleware('cache.public')->name('feed.updates');
+Route::get('feed/new', [FeedController::class, 'newGames'])->middleware('cache.public:games')->name('feed.new');
+Route::get('feed/updates', [FeedController::class, 'updatedGames'])->middleware('cache.public:games')->name('feed.updates');
 
 // Click tracking routes (public)
 Route::get('track/link', [ClickTrackingController::class, 'redirectCustomLink'])

@@ -36,13 +36,13 @@
                 <SearchBar />
             </div>
 
-            <div class="ml-auto flex items-center gap-2">
+            <div class="ml-auto flex items-center gap-3">
                 <button
                     onclick={toggleMobileSearch}
                     aria-expanded={showMobileSearch}
                     aria-controls="mobile-search-bar"
                     aria-label={showMobileSearch ? 'Hide search' : 'Show search'}
-                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-border bg-surface text-fg-muted transition-colors hover:text-fg lg:hidden"
+                    class="hit-area relative inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-border bg-surface text-fg-muted transition-colors hover:text-fg lg:hidden"
                 >
                     {#if showMobileSearch}
                         <XMarkIcon class="h-4 w-4" />

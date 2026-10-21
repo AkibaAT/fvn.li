@@ -36,7 +36,7 @@
         <h3 class="text-sm font-semibold text-fg">
             Path to <span class="font-mono text-xs">{navigationTarget}</span>
         </h3>
-        <Button type="button" variant="ghost" tone="neutral" size="icon-sm" onclick={onClearPath} title="Clear path">
+        <Button type="button" variant="ghost" tone="neutral" size="icon-sm" onclick={onClearPath} ariaLabel="Clear path" title="Clear path">
             <XMarkIcon class="h-4 w-4" />
         </Button>
     </div>

@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -45,6 +46,19 @@ class ClickStat extends Model
     protected $casts = [
         'clicked_at' => 'datetime',
     ];
+
+    public static function visitorKey(Request $request): string
+    {
+        if ($request->hasSession() && ($request->user() !== null || $request->cookies->has($request->session()->getName()))) {
+            return $request->session()->getId();
+        }
+
+        return 'v_' . hash('xxh128', implode('|', [
+            IpAnonymizationService::anonymize($request->ip(), 'subnet'),
+            $request->userAgent(),
+            now()->toDateString(),
+        ]));
+    }
 
     /**
      * Record a click with time-based deduplication (24-hour window)

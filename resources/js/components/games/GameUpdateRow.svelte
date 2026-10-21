@@ -142,8 +142,14 @@
             </div>
         {/if}
 
-        <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <GameTagList tags={orderedTags} {selectedTags} onTagClick={handleTag} limit={8} class="min-w-0 flex-1 flex-nowrap overflow-hidden" />
+        <div class="mt-1.5 flex flex-col gap-y-1 sm:flex-row sm:items-center sm:gap-x-4">
+            <GameTagList
+                tags={orderedTags}
+                {selectedTags}
+                onTagClick={handleTag}
+                limit={8}
+                class="min-w-0 flex-nowrap overflow-hidden max-sm:block max-sm:truncate sm:flex-1"
+            />
 
             <GlyphStrip
                 {storePlatform}
@@ -155,7 +161,7 @@
                 languages={game.supported_languages ?? []}
                 {selectedLanguages}
                 onLanguageClick={handleLanguage}
-                class="shrink-0"
+                class="min-w-0 sm:shrink-0"
             />
         </div>
     {/snippet}

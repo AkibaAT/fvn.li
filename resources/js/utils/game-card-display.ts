@@ -13,6 +13,8 @@ export function formatAuthorsInline(authors?: string | null): string {
         .trim();
 }
 
+export const GAME_TAG_LIMIT = 8;
+
 const hasCount = (value: number | null | undefined): value is number => typeof value === 'number' && value > 0;
 
 const compactNumber = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
@@ -31,7 +33,7 @@ export function formatWordCount(game: WordCountFields, { compact = false, withLa
     const language = game.primary_language_name;
     const label = words(primary, compact);
 
-    return withLanguage && language && language !== 'English' ? `${label} in ${language}` : label;
+    return withLanguage && language && language !== 'English' ? `${label} (${language})` : label;
 }
 
 export function formatWordCountBreakdown(game: WordCountFields): string | null {

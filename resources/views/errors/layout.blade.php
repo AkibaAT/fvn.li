@@ -11,9 +11,10 @@
                 --error-background: #edf0f4;
                 --error-surface: #ffffff;
                 --error-text: #161c26;
-                --error-muted: #5a6578;
+                --error-muted: #4b5567;
                 --error-border: #d5dbe3;
-                --error-accent: #b07a14;
+                --error-accent: #f2bb4a;
+                --error-accent-fg: #161c26;
             }
 
             .dark {
@@ -21,9 +22,10 @@
                 --error-background: #171b24;
                 --error-surface: #222836;
                 --error-text: #eef1f6;
-                --error-muted: #a6b0c2;
+                --error-muted: #b4bdcd;
                 --error-border: #3a4356;
                 --error-accent: #f2bb4a;
+                --error-accent-fg: #f2bb4a;
             }
 
             * {
@@ -58,6 +60,8 @@
             .code {
                 margin: 0 0 0.75rem;
                 color: var(--error-accent);
+                -webkit-text-stroke: 2px var(--error-accent-fg);
+                paint-order: stroke fill;
                 font-size: clamp(3rem, 14vw, 5rem);
                 font-weight: 800;
                 line-height: 1;
@@ -79,8 +83,10 @@
             a {
                 display: inline-flex;
                 margin-top: 1.75rem;
-                color: var(--error-accent);
+                color: var(--error-accent-fg);
                 font-weight: 700;
+                text-decoration-color: var(--error-accent);
+                text-decoration-thickness: 2px;
                 text-underline-offset: 0.2em;
             }
 
@@ -90,7 +96,7 @@
 
             a:focus-visible {
                 border-radius: 0.25rem;
-                outline: 2px solid var(--error-accent);
+                outline: 2px solid var(--error-accent-fg);
                 outline-offset: 2px;
             }
         </style>

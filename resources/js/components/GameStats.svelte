@@ -310,8 +310,8 @@
                         variant="link"
                         tone="neutral"
                         onclick={() => (activeTab = tab.id)}
-                        class="border-b-2 px-1 py-4 text-sm font-medium whitespace-nowrap {activeTab === tab.id
-                            ? 'border-accent-icon text-fg'
+                        class="relative border-b-2 px-1 py-4 text-sm font-medium whitespace-nowrap {activeTab === tab.id
+                            ? 'accent-underline border-transparent text-fg'
                             : 'border-transparent text-fg-muted hover:border-border-strong hover:text-fg'}"
                     >
                         {tab.label}

@@ -34,7 +34,11 @@ class RatingObserver
             $this->clearRaterCache($rating);
         }
 
-        GamePageCacheService::invalidate($rating->game_id);
+        GamePageCacheService::invalidateMany([$rating->game_id, $rating->getOriginal('game_id')]);
+
+        if ($rating->wasChanged('game_id') && $rating->getOriginal('game_id')) {
+            UpdateGameRating::dispatch($rating->getOriginal('game_id'));
+        }
 
         if ($rating->wasChanged(['published_at', 'game_id', 'rating', 'is_reviewed', 'is_visible', 'review', 'has_spoilers', 'user_id', 'rater_id', 'source_platform'])) {
             RatingStatsCacheService::clear();
