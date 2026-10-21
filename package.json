@@ -1,6 +1,7 @@
 {
     "private": true,
     "type": "module",
+    "packageManager": "bun@1.4.3",
     "scripts": {
         "assets:tinymce": "node scripts/sync-tinymce-assets.mjs",
         "build": "bun run manifest && bun run assets:tinymce && vite build",
@@ -23,7 +24,7 @@
     },
     "devDependencies": {
         "@eslint/js": "10.0.1",
-        "@playwright/test": "1.63.0",
+        "@playwright/test": "1.64.1",
         "@testing-library/jest-dom": "7.0.1",
         "@testing-library/svelte": "5.4.2",
         "@types/node": "26.6.2",
@@ -39,7 +40,7 @@
         "svelte-check": "4.7.6",
         "typescript": "6.0.3",
         "typescript-eslint": "8.70.1",
-        "vite": "8.3.1",
+        "vite": "8.3.3",
         "vitest": "5.0.2"
     },
     "dependencies": {
@@ -72,13 +73,17 @@
         "brace-expansion": "5.0.12",
         "devalue": "5.9.4",
         "flatted": "3.4.2",
+        "follow-redirects": "1.16.1",
         "form-data": "4.0.6",
         "lodash-es": "4.18.1",
         "nanoid": "3.3.18",
         "picomatch": "4.0.4",
         "postcss": "8.5.25",
+        "postcss-selector-parser": "7.1.7",
         "qs": "6.15.2",
         "shell-quote": "1.8.4",
+        "smol-toml": "1.9.1",
+        "source-map-js": "1.2.2",
         "yaml": "2.9.0"
     }
 }
