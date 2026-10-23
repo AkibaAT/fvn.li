@@ -1,7 +1,7 @@
 services:
   discord-bot:
     container_name: ddev-${DDEV_SITENAME}-discord-bot
-    image: ddev-${DDEV_SITENAME}-discord-bot:1.4.3
+    image: ddev-${DDEV_SITENAME}-discord-bot:1.4.4
     build:
       context: ./web-build
       dockerfile: discord-bot.Dockerfile

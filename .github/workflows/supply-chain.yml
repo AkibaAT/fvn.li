@@ -85,7 +85,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --only-upgrade ca-certificates
-          python3 .ddev/web-build/patch-bun-ca.py "$(command -v bun)"
           python3 -m unittest discover -s tests/security
           bun install --frozen-lockfile
 
@@ -126,7 +125,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --only-upgrade ca-certificates
-          python3 .ddev/web-build/patch-bun-ca.py "$(command -v bun)"
           python3 -m unittest discover -s tests/security
           bun install --frozen-lockfile
 

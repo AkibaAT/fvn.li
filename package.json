@@ -1,7 +1,7 @@
 {
     "private": true,
     "type": "module",
-    "packageManager": "bun@1.4.3",
+    "packageManager": "bun@1.4.4",
     "scripts": {
         "assets:tinymce": "node scripts/sync-tinymce-assets.mjs",
         "build": "bun run manifest && bun run assets:tinymce && vite build",
@@ -28,7 +28,7 @@
         "@testing-library/jest-dom": "7.0.1",
         "@testing-library/svelte": "5.4.2",
         "@types/node": "26.6.2",
-        "@vitest/coverage-v8": "5.0.2",
+        "@vitest/coverage-v8": "5.0.3",
         "eslint": "10.11.0",
         "eslint-config-prettier": "10.1.8",
         "eslint-plugin-svelte": "3.23.0",
@@ -41,7 +41,7 @@
         "typescript": "6.0.3",
         "typescript-eslint": "8.70.1",
         "vite": "8.3.3",
-        "vitest": "5.0.2"
+        "vitest": "5.0.3"
     },
     "dependencies": {
         "@dnd-kit-svelte/svelte": "0.1.6",
