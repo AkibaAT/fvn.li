@@ -82,7 +82,7 @@ jobs:
             git diff --check
           fi
 
-      - name: Test Bun CA build patch
+      - name: Test Bun certificate trust
         run: ddev exec python3 -B -m unittest discover -s tests/security -v
 
       - name: Type check frontend
@@ -158,7 +158,7 @@ jobs:
 
           # Check if Dockerfile or related files have changed
           DOCKERFILE_CHANGED=false
-          grep -q -E '^(docker/(app/.*|production/docker-compose\.yml)|\.ddev/web-build/patch-bun-ca\.py)$' "$CHANGED_FILES" && DOCKERFILE_CHANGED=true
+          grep -q -E '^(docker/(app/.*|production/docker-compose\.yml))$' "$CHANGED_FILES" && DOCKERFILE_CHANGED=true
           [[ "$FORCE_APP_IMAGE" == "true" ]] && DOCKERFILE_CHANGED=true
           echo "dockerfile_changed=$DOCKERFILE_CHANGED" >> $GITHUB_OUTPUT
 
@@ -273,7 +273,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --only-upgrade ca-certificates
-          python3 .ddev/web-build/patch-bun-ca.py "$(command -v bun)"
           python3 -m unittest discover -s tests/security
           bun install --frozen-lockfile
 

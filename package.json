@@ -1,7 +1,7 @@
 {
     "private": true,
     "type": "module",
-    "packageManager": "bun@1.4.3",
+    "packageManager": "bun@1.4.4",
     "scripts": {
         "assets:tinymce": "node scripts/sync-tinymce-assets.mjs",
         "build": "bun run manifest && bun run assets:tinymce && vite build",
