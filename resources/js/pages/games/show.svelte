@@ -55,7 +55,7 @@
 
     let recordedGameId: number | null = null;
     $effect(() => {
-        if (game.id === recordedGameId) return;
+        if (!game.is_visible || game.id === recordedGameId) return;
         recordedGameId = game.id;
         recordGamePageView(game.id);
     });
@@ -167,6 +167,7 @@
 
     let versionsInitial = true;
     $effect(() => {
+        if (!game.is_visible) return;
         const gameId = game.id;
         const page = versionsPage;
         const perPage = versionsPerPage;

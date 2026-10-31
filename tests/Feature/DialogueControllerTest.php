@@ -109,7 +109,7 @@ it('renders the dialogue browser with selected game and version context', functi
         ->and($page['props']['initial']['versionId'])->toBe($version->id);
 });
 
-it('does not expose a hidden game slug through a numeric dialogue browser id', function () {
+it('does not serve the dialogue browser for hidden games', function () {
     $hiddenGame = Game::factory()->create([
         'name' => 'Unlisted Dialogue Game',
         'slug' => 'unlisted-dialogue-game',
@@ -121,19 +121,8 @@ it('does not expose a hidden game slug through a numeric dialogue browser id', f
         'published_at' => now(),
     ]);
 
-    $this->get("/dialogue/browser/{$hiddenGame->id}/{$version->id}")
-        ->assertNotFound();
-
-    $response = $this->get(route('dialogue.browser', [
-        'game' => $hiddenGame->slug,
-        'versionId' => $version->id,
-    ]));
-
-    $response->assertOk();
-    $page = $response->viewData('page');
-
-    expect($page['props']['initial']['gameId'])->toBe($hiddenGame->id)
-        ->and($page['props']['initial']['gameSlug'])->toBe($hiddenGame->slug);
+    $this->get("/dialogue/browser/{$hiddenGame->id}/{$version->id}")->assertNotFound();
+    $this->get(route('dialogue.browser', ['game' => $hiddenGame->slug, 'versionId' => $version->id]))->assertNotFound();
 });
 
 it('does not open the dialogue browser with a version from another game', function () {

@@ -15,7 +15,6 @@ use App\Http\Controllers\DialogueController;
 use App\Http\Controllers\DiscordConfigController;
 use App\Http\Controllers\EditorUploadController;
 use App\Http\Controllers\GameContentController;
-use App\Http\Controllers\Games\GamesDisplayController;
 use App\Http\Controllers\Games\GamesReviewController;
 use App\Http\Controllers\Games\GamesSearchController;
 use App\Http\Controllers\Games\GamesVersionController;
@@ -28,6 +27,7 @@ use App\Http\Controllers\VnLists\VnListCrudController;
 use App\Http\Controllers\VnLists\VnListEntryController;
 use App\Http\Controllers\VnLists\VnListGameController;
 use App\Http\Middleware\CanEditGame;
+use App\Http\Middleware\EnsureGameIsVisible;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -62,25 +62,25 @@ Route::middleware(['web'])->group(function () {
     Route::get('games/search', [GamesSearchController::class, 'searchGames'])->name('api.games.search');
     Route::get('games/search-enhanced', [GamesSearchController::class, 'searchGamesWithFilters'])->name('api.games.search-enhanced');
     Route::get('search/global', [GamesSearchController::class, 'globalSearch'])->name('api.search.global');
-    Route::get('games/{game:slug}/details', [GamesDisplayController::class, 'details'])->name('api.games.details');
-    Route::get('games/{game:id}/compare-versions',
-        [GamesVersionController::class, 'compareVersions'])
-        ->whereNumber('game')
-        ->name('api.games.compare-versions');
-
-    // Reviews and version stats
     Route::get('games/{game}/reviews', [GamesReviewController::class, 'getGameReviews'])->name('browser-api.games.reviews');
-    Route::get('games/{game}/versions', [GamesVersionController::class, 'getGameVersions'])->name('browser-api.games.versions');
-    Route::get('games/{game:slug}/versions/{version}/character-stats',
-        [GamesVersionController::class, 'getVersionCharacterStats'])->name('browser-api.games.version.character-stats');
-    Route::get('games/{game:slug}/versions/{version}/file-stats',
-        [GamesVersionController::class, 'getVersionFileStats'])->name('browser-api.games.version.file-stats');
-    Route::get('games/{game:slug}/versions/{version}/route-graph',
-        [RouteMapController::class, 'getRouteGraph'])->name('browser-api.games.version.route-graph');
-    Route::post('games/{game:slug}/versions/{version}/parse-save',
-        [RouteMapController::class, 'parseSaveFile'])
-        ->middleware('throttle:save-parser')
-        ->name('browser-api.games.version.parse-save');
+
+    Route::middleware(EnsureGameIsVisible::class)->group(function () {
+        Route::get('games/{game:id}/compare-versions',
+            [GamesVersionController::class, 'compareVersions'])
+            ->whereNumber('game')
+            ->name('api.games.compare-versions');
+        Route::get('games/{game}/versions', [GamesVersionController::class, 'getGameVersions'])->name('browser-api.games.versions');
+        Route::get('games/{game:slug}/versions/{version}/character-stats',
+            [GamesVersionController::class, 'getVersionCharacterStats'])->name('browser-api.games.version.character-stats');
+        Route::get('games/{game:slug}/versions/{version}/file-stats',
+            [GamesVersionController::class, 'getVersionFileStats'])->name('browser-api.games.version.file-stats');
+        Route::get('games/{game:slug}/versions/{version}/route-graph',
+            [RouteMapController::class, 'getRouteGraph'])->name('browser-api.games.version.route-graph');
+        Route::post('games/{game:slug}/versions/{version}/parse-save',
+            [RouteMapController::class, 'parseSaveFile'])
+            ->middleware('throttle:save-parser')
+            ->name('browser-api.games.version.parse-save');
+    });
 
     Route::post('track/custom-link',
         [ClickTrackingController::class, 'trackCustomLink'])->name('browser-api.track.custom-link');

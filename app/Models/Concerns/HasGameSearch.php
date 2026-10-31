@@ -71,6 +71,7 @@ trait HasGameSearch
             // Status and visibility
             'status' => $this->status,
             'is_visible' => $this->is_visible,
+            'is_delisted' => $this->delisted_at !== null,
             'is_stats_extraction_disabled' => $this->is_stats_extraction_disabled,
 
             // Content flags

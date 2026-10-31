@@ -96,6 +96,10 @@ class SteamDataSyncService
      */
     public function syncGameVersion(Game $game): void
     {
+        if ($game->is_moderation_hidden) {
+            return;
+        }
+
         if (! $game->steam_app_id) {
             throw new Exception('Game does not have a Steam App ID');
         }

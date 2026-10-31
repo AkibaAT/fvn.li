@@ -1,4 +1,5 @@
 import type { GameCardGame } from '@/hooks/useGameCard.svelte';
+import type { DelistedReason } from '@/types/game';
 import { formatLocalDate } from './date-formatting';
 
 type WordCountFields = Pick<GameCardGame, 'primary_word_count' | 'primary_language_name' | 'english_word_count'>;
@@ -83,4 +84,21 @@ export function formatLatestDate(game: DateFields): string | null {
     const released = formatReleasedDate(game);
 
     return released ? `Released ${released}` : null;
+}
+
+const DELISTED_LABELS: Record<DelistedReason, string> = {
+    page_removed: 'Removed from',
+    password_protected: 'Password-protected on',
+    no_downloads: 'No downloads on',
+    blocked: 'Blocked on',
+};
+
+export function canReceiveUpdates(game: { is_paid?: boolean; delisted_at?: string | null }): boolean {
+    return !game.is_paid && !game.delisted_at;
+}
+
+export function formatDelisted(reason: DelistedReason, delistedAt?: string | null): string {
+    const since = formatLocalDate(delistedAt ?? null, { day: undefined });
+
+    return `${DELISTED_LABELS[reason]} itch.io${since ? ` since ${since}` : ''}`;
 }

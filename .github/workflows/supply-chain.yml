@@ -84,7 +84,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Audit Bun lockfile
-        run: bun audit
+        run: bun run audit:js
 
       - name: Audit social image generator dependencies
         working-directory: docker/social-images

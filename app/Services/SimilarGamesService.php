@@ -28,7 +28,7 @@ class SimilarGamesService
 
         $query = new SimilarDocumentsQuery($game->id, 'default');
         $query->setLimit($limit)
-            ->setFilter(['is_visible = true']);
+            ->setFilter(['is_visible = true', 'is_delisted = false']);
 
         $results = $this->client->index('games')->searchSimilarDocuments($query);
 
@@ -65,7 +65,7 @@ class SimilarGamesService
 
         // Match games that share the same authors field (stripped of HTML)
         // We compare the raw authors field since developers may use HTML links
-        return Game::where('is_visible', true)
+        return Game::listed()
             ->where('id', '!=', $game->id)
             ->where(function ($query) use ($game, $plainAuthors) {
                 // Exact match on authors field

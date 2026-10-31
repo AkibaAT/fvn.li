@@ -13,7 +13,7 @@
     {#each Object.entries(distribution).sort(([left], [right]) => Number(right) - Number(left)) as [ratingKey, count] (ratingKey)}
         {@const percentage = total > 0 ? (Number(count) / total) * 100 : 0}
         <div class="flex items-center">
-            <span class="w-20 text-sm font-medium text-fg-muted">{Number(ratingKey)} Stars</span>
+            <span class="w-20 text-sm font-medium text-fg-muted">{Number(ratingKey)} {Number(ratingKey) === 1 ? 'Star' : 'Stars'}</span>
             <div class="mx-2 flex-1">
                 <div class="h-4 overflow-hidden rounded-full bg-border">
                     <div class="h-full rounded-full accent-fill" style="width: {percentage}%"></div>

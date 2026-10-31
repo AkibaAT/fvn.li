@@ -1,5 +1,6 @@
 import { page, router } from '@inertiajs/svelte';
 import { SvelteURLSearchParams } from 'svelte/reactivity';
+import type { DelistedReason } from '@/types/game';
 import { formatAuthorsInline, getGameThumbnail } from '@/utils/game-card-display';
 import { usePlatformIcons, type GameCardPlatform } from './usePlatformIcons';
 import { useStorePlatformIcons } from './useStorePlatformIcons';
@@ -31,6 +32,8 @@ export interface GameCardGame {
     is_paid?: boolean;
     has_demo?: boolean;
     is_on_sale?: boolean;
+    delisted_at?: string | null;
+    delisted_reason?: DelistedReason | null;
     platform?: 'itch_io' | 'steam' | 'other';
     is_windows?: boolean;
     is_linux?: boolean;
@@ -71,6 +74,7 @@ export interface GameCardProps {
     showPaid?: boolean;
     showDemo?: boolean;
     showSale?: boolean;
+    showLost?: boolean;
     ignoredGameIds?: number[];
     onTagClick?: (tagId: string) => void;
     onPlatformClick?: (platform: GameCardPlatform) => void;
@@ -81,6 +85,7 @@ export interface GameCardProps {
     onPaidToggle?: () => void;
     onDemoToggle?: () => void;
     onSaleToggle?: () => void;
+    onLostToggle?: () => void;
 }
 
 export function useGameCard(props: GameCardProps) {
@@ -96,6 +101,7 @@ export function useGameCard(props: GameCardProps) {
         onPaidToggle,
         onDemoToggle,
         onSaleToggle,
+        onLostToggle,
     } = props;
     const { getSupportedPlatforms } = usePlatformIcons();
     const { getStorePlatformFromString } = useStorePlatformIcons();
@@ -169,6 +175,11 @@ export function useGameCard(props: GameCardProps) {
         navigateWith({ showSale: true });
     };
 
+    const handleLostToggle = () => {
+        if (onLostToggle) return onLostToggle();
+        navigateWith({ showLost: true });
+    };
+
     // Tag ordering and state
     const orderedTags =
         game.tags && game.tags.length > 0
@@ -211,6 +222,7 @@ export function useGameCard(props: GameCardProps) {
         handlePaidToggle,
         handleDemoToggle,
         handleSaleToggle,
+        handleLostToggle,
 
         // Tags
         orderedTags,

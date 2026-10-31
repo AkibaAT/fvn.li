@@ -10,13 +10,11 @@ use App\Models\Tag;
 use App\Services\GamesSearchResultHydrator;
 use App\Services\MeilisearchService;
 use App\Support\Seo\MetaTags;
-use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -146,6 +144,7 @@ class GameTagsController extends Controller
             ->select('game_tag.tag_id', DB::raw('COUNT(*) as games_count'))
             ->join('games', 'games.id', '=', 'game_tag.game_id')
             ->where('games.is_visible', true)
+            ->whereNull('games.delisted_at')
             ->whereIn('game_tag.tag_id', Tag::popularIds())
             ->groupBy('game_tag.tag_id')
             ->pluck('games_count', 'tag_id')
@@ -157,16 +156,7 @@ class GameTagsController extends Controller
     {
         $filters = ['is_visible' => true, 'tags' => [$tag->name]];
 
-        try {
-            return $service->searchGames('*', $filters, self::PER_PAGE, $page, 'trending_score', 'desc');
-        } catch (Exception $e) {
-            Log::warning('Meilisearch tag page lookup failed; using database fallback', [
-                'tag_id' => $tag->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            return $service->searchGamesFromDatabase('*', $filters, self::PER_PAGE, $page, 'trending_score', 'desc', []);
-        }
+        return $service->searchGames('*', $filters, self::PER_PAGE, $page, 'trending_score', 'desc');
     }
 
     /**
@@ -182,6 +172,7 @@ class GameTagsController extends Controller
             ->where('related.tag_id', '!=', $tag->id)
             ->whereIn('related.tag_id', array_keys(array_filter($counts)))
             ->where('games.is_visible', true)
+            ->whereNull('games.delisted_at')
             ->groupBy('related.tag_id')
             ->orderByRaw('COUNT(*) DESC')
             ->limit(self::RELATED_TAG_LIMIT)

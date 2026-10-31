@@ -91,7 +91,7 @@ class VnListCrudController extends Controller
 
         $freeGameIds = $vnList->entries()
             ->whereHas('game', function ($query) {
-                $query->where('is_paid', false);
+                $query->where('is_paid', false)->whereNull('delisted_at');
             })
             ->pluck('game_id')
             ->toArray();

@@ -23,6 +23,8 @@ class GameResource extends JsonResource
             'is_nsfw' => $this->is_nsfw,
             'is_paid' => $this->is_paid,
             'has_demo' => $this->has_demo,
+            'delisted_at' => $this->delisted_at?->toIso8601String(),
+            'delisted_reason' => $this->delisted_reason?->value,
             'fvn_url' => route('games.show', $this->slug),
         ];
     }

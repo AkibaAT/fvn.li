@@ -24,6 +24,7 @@ class AdditionRequestService
             'duplicate_count' => 0,
             'invalid_count' => 0,
             'already_exists_count' => 0,
+            'rejected_count' => 0,
             'errors' => [],
             'requests' => [],
         ];
@@ -65,7 +66,9 @@ class AdditionRequestService
                 [$request, $isNew] = $result;
                 $wasUserAdded = $request->addUser($user);
 
-                if ($wasUserAdded) {
+                if ($wasUserAdded && $request->isRejected()) {
+                    $results['rejected_count']++;
+                } elseif ($wasUserAdded) {
                     $results['success_count']++;
                     $results['requests'][] = $request;
 

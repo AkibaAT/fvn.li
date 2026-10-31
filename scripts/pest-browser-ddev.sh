@@ -70,7 +70,7 @@ fi
 php artisan migrate:fresh --env=testing
 
 mkdir -p storage/logs
-php artisan serve --env=testing --host=0.0.0.0 --port="${PORT}" > storage/logs/pest-browser-server.log 2>&1 &
+php artisan serve --env=testing --host=0.0.0.0 --port="${PORT}" --no-reload > storage/logs/pest-browser-server.log 2>&1 &
 SERVER_PID="$!"
 
 for _ in $(seq 1 60); do

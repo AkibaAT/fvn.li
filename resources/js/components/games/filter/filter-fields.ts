@@ -11,7 +11,7 @@ export type ArrayFilterKey =
     | 'excludedTags'
     | 'selectedPrivateTags';
 
-type FlagFilterKey = 'sfw' | 'nsfw' | 'showFree' | 'showPaid' | 'showDemo' | 'showSale' | 'showIgnored';
+type FlagFilterKey = 'sfw' | 'nsfw' | 'showFree' | 'showPaid' | 'showDemo' | 'showSale' | 'showLost' | 'showIgnored';
 
 interface LanguageOption {
     ref_name?: string;
@@ -146,6 +146,7 @@ export const FILTER_FIELDS: readonly FilterField[] = [
             { key: 'showPaid', label: 'Paid Games', chipLabel: 'Paid' },
             { key: 'showDemo', label: 'Has Demo', chipLabel: 'Has Demo' },
             { key: 'showSale', label: 'On Sale', chipLabel: 'On Sale' },
+            { key: 'showLost', label: 'Lost media', chipLabel: 'Lost media' },
         ],
     },
     { id: 'engine', label: 'Engine', group: 'Details', kind: 'multi', property: 'selectedEngines', options: (filters) => filters.gameEngines },

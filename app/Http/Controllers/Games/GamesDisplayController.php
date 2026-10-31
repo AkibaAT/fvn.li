@@ -20,7 +20,6 @@ use App\Services\HtmlSanitizerService;
 use App\Services\RouteGraphService;
 use App\Services\SimilarGamesService;
 use Exception;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -68,52 +67,6 @@ class GamesDisplayController extends Controller
         return Inertia::render('games/show', $props);
     }
 
-    public function details(Game $game): JsonResponse
-    {
-        $game->load([
-            'latestVersion.supportedLanguages.language',
-            'tags' => Tag::constrainToPopular(),
-            'gameJams',
-        ]);
-
-        $sanitizer = app(HtmlSanitizerService::class);
-
-        return response()->json([
-            'id' => $game->id,
-            'name' => $game->name,
-            'slug' => $game->slug,
-            'description' => $sanitizer->sanitizeDescription($game->description),
-            'full_description' => $sanitizer->sanitizeDescription($game->full_description),
-            'authors' => $sanitizer->sanitizeAuthors($game->authors),
-            'status' => $game->status,
-            'game_engine' => $game->game_engine,
-            'is_nsfw' => $game->is_nsfw,
-            'is_paid' => $game->is_paid,
-            'has_demo' => $game->has_demo,
-            'min_price' => $game->min_price,
-            'current_price' => $game->current_price,
-            'url' => $game->url,
-            'thumb_url' => $game->optimized_thumbnail_url,
-            'screenshots' => $game->getScreenshots(),
-            'additional_links' => $game->additional_links,
-            'platforms' => $game->platforms,
-            'supported_languages' => $game->getSupportedLanguages(),
-            'tags' => $game->tags->pluck('name'),
-            'game_jams' => $game->gameJams->map(fn ($jam) => [
-                'id' => $jam->id,
-                'name' => $jam->name,
-                'slug' => $jam->slug,
-            ]),
-            'rating' => [
-                'score' => $game->rating_score,
-                'count' => $game->rating_count,
-            ],
-            'created_at' => $game->created_at,
-            'initially_published_at' => $game->initially_published_at,
-            'first_visible_at' => $game->first_visible_at,
-        ]);
-    }
-
     /**
      * @return array<string, mixed>|null
      */
@@ -140,10 +93,16 @@ class GamesDisplayController extends Controller
      */
     private function pageProps(Game $game, ?User $viewer, int $reviewsPage, int $versionsPage): array
     {
-        $game->load([
-            'tags' => Tag::constrainToPopular(),
-            'gameJams',
-        ]);
+        if ($game->is_visible) {
+            $game->load([
+                'tags' => Tag::constrainToPopular(),
+                'gameJams',
+            ]);
+        } else {
+            $game->forceFill(Game::CONTENT_ATTRIBUTES)
+                ->setRelation('tags', $game->tags()->getRelated()->newCollection())
+                ->setRelation('gameJams', $game->gameJams()->getRelated()->newCollection());
+        }
 
         $game->append(['tags_list', 'effective_description']);
         $game->makeHidden(['full_description', 'screenshots', 'uploads', 'error']);
@@ -181,11 +140,12 @@ class GamesDisplayController extends Controller
                 'supportedLanguages.language',
                 'languageStats.language',
             ])
+            ->when(! $game->is_visible, fn ($query) => $query->whereRaw('false'))
             ->orderBy('published_at', 'desc')
             ->paginate(5, ['*'], 'versionsPage', $versionsPage);
 
         $latestVersion = $gameVersions->getCollection()->firstWhere('is_latest', true);
-        if ($latestVersion) {
+        if ($latestVersion || ! $game->is_visible) {
             $game->setRelation('latestVersion', $latestVersion);
         } else {
             $game->load([
@@ -369,7 +329,7 @@ class GamesDisplayController extends Controller
 
         $recommendationCacheVersion = (int) Cache::get('games.recommendations.version', 1);
         $similarCacheKey = "game.{$game->id}.similar-cards.v{$recommendationCacheVersion}";
-        $similarGames = Cache::get($similarCacheKey);
+        $similarGames = $game->is_visible ? Cache::get($similarCacheKey) : collect();
 
         if ($similarGames === null) {
             try {
@@ -387,7 +347,9 @@ class GamesDisplayController extends Controller
         }
 
         $developerCacheKey = "game.{$game->id}.developer-cards." . md5((string) $game->authors) . ".v{$recommendationCacheVersion}";
-        $developerGames = Cache::remember($developerCacheKey, 3600, fn () => $this->recommendationCards(app(SimilarGamesService::class)->findDeveloperGames($game, 12)));
+        $developerGames = $game->is_visible
+            ? Cache::remember($developerCacheKey, 3600, fn () => $this->recommendationCards(app(SimilarGamesService::class)->findDeveloperGames($game, 12)))
+            : collect();
 
         $estimatedReadingTime = null;
         $primaryWordCount = $primaryStats['words'] ?? null;

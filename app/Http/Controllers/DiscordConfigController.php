@@ -525,7 +525,7 @@ class DiscordConfigController extends Controller
         $renderer = app(DiscordEmbedRendererService::class);
 
         $game = Game::with(['tags', 'sourceLanguage', 'latestVersion'])
-            ->where('is_visible', true)
+            ->listed()
             ->where('is_nsfw', false)
             ->whereHas('latestVersion')
             ->where(function ($query) {
@@ -759,7 +759,7 @@ class DiscordConfigController extends Controller
     private function getSampleGame(): ?Game
     {
         return Game::with(['tags', 'sourceLanguage', 'latestVersion'])
-            ->where('is_visible', true)
+            ->listed()
             ->inRandomOrder()
             ->first();
     }

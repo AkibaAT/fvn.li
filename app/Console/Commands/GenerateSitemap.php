@@ -24,7 +24,7 @@ class GenerateSitemap extends Command
     {
         $sitemap = Sitemap::create();
 
-        $games = Game::where('is_visible', true)
+        $games = Game::listed()
             ->whereNotNull('slug')
             ->select(['id', 'slug', 'name', 'custom_name', 'view_mode', 'has_custom_page', 'optimized_thumbnails', 'first_visible_at', 'initially_published_at', 'custom_page_updated_at', 'created_at'])
             ->addSelect(['latest_version_published_at' => GameVersion::query()
@@ -58,6 +58,7 @@ class GenerateSitemap extends Command
             ->join('games', 'games.id', '=', 'game_tag.game_id')
             ->leftJoin('game_versions', fn ($join) => $join->on('game_versions.game_id', '=', 'games.id')->where('game_versions.is_latest', true))
             ->where('games.is_visible', true)
+            ->whereNull('games.delisted_at')
             ->whereIn('game_tag.tag_id', Tag::popularIds())
             ->groupBy('game_tag.tag_id')
             ->select('game_tag.tag_id', DB::raw('MAX(COALESCE(game_versions.published_at, games.first_visible_at, games.created_at)) as modified_at'))

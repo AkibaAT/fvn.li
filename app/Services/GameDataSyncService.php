@@ -38,6 +38,10 @@ class GameDataSyncService
      */
     public function loadFullDetails(Game $game): void
     {
+        if ($game->is_moderation_hidden) {
+            return;
+        }
+
         // Delegate to platform-specific service
         if ($game->isSteamGame()) {
             $steamService = App::make(SteamDataSyncService::class);
@@ -66,6 +70,10 @@ class GameDataSyncService
      */
     public function refreshBaseInfo(Game $game): void
     {
+        if ($game->is_moderation_hidden) {
+            return;
+        }
+
         // Only itch.io games can be refreshed from itch.io API
         if (! $game->isItchioGame()) {
             throw new Exception("Cannot refresh base info for non-itch.io game: {$game->name} (platform: {$game->getPlatformName()})");
@@ -86,6 +94,10 @@ class GameDataSyncService
 
     public function refreshVersion(Game $game, bool $force = false): void
     {
+        if ($game->is_moderation_hidden) {
+            return;
+        }
+
         $this->progress("  [Version] Starting version refresh for game: {$game->name}\n");
 
         // Track if game had no versions at start
@@ -99,15 +111,14 @@ class GameDataSyncService
         $url = "https://api.itch.io/games/{$game->itch_id}/uploads";
 
         $response = $itchClient->get($url);
+        $uploadsData = json_decode($response->getBody()->getContents(), true);
 
-        if ($response->getStatusCode() === 404 || $response->getStatusCode() === 400) {
-            $game->is_visible = false;
-            $game->save();
+        if (App::make(GameDelistingService::class)->recordUploadsResponse($game, $response->getStatusCode(), $uploadsData)) {
+            $this->progress("    [Version] No uploads available\n");
 
             return;
         }
 
-        $uploadsData = json_decode($response->getBody()->getContents(), true);
         if (! isset($uploadsData['uploads'])) {
             // No uploads data - if game has no versions, we need to create a fallback in the transaction
             if ($hadNoVersions) {
@@ -484,7 +495,19 @@ class GameDataSyncService
      */
     public function refreshMetadata(Game $game, ?string $originalThumbUrl = null, ?array $originalScreenshots = null): void
     {
+        if ($game->is_moderation_hidden) {
+            return;
+        }
+
         $response = $this->getCachedResponse($game, $game->getPrimaryUrl(), [], true);
+
+        $delisting = App::make(GameDelistingService::class);
+        if ($reason = $delisting->classifyStorePage($response['status_code'], $response['body'])) {
+            $delisting->delist($game, $reason);
+
+            return;
+        }
+
         app(ItchGameMetadataRefresher::class)->refresh($game, $response['body'], $originalThumbUrl, $originalScreenshots);
     }
 

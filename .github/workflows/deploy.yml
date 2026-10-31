@@ -72,7 +72,7 @@ jobs:
         run: ddev composer audit --locked --no-interaction
 
       - name: Audit Bun dependencies
-        run: ddev bun audit
+        run: ddev bun run audit:js
 
       - name: Check patch whitespace
         run: |

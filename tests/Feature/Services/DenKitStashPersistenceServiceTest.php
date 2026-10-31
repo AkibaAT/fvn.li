@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Exceptions\DenKitStashUnavailableException;
 use App\Models\Game;
 use App\Models\GameVersion;
 use App\Services\DenKitStashPersistenceService;
@@ -591,3 +592,36 @@ it('returns null when DenKit Stash inlines archive bytes instead of a URL', func
 
     expect($service->archiveDownloadUrl($game, $version))->toBeNull();
 });
+
+it('deletes a game target from DenKit Stash and treats a missing target as deleted', function () {
+    Config::set('services.denkit_stash.url', 'https://stash.example');
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+    $game = Game::factory()->create(['url' => ['itch_io' => 'https://studio.itch.io/dawn-chorus']]);
+
+    $history = [];
+    $handlerStack = HandlerStack::create(new MockHandler([new Response(204), new Response(404)]));
+    $handlerStack->push(Middleware::history($history));
+    $service = new DenKitStashPersistenceService(Mockery::mock(GameArchiveService::class), new Client(['handler' => $handlerStack]));
+
+    $service->deleteTarget($game);
+    $service->deleteTarget($game);
+
+    $request = $history[0]['request'];
+    parse_str($request->getUri()->getQuery(), $query);
+    expect($request->getMethod())->toBe('DELETE')
+        ->and((string) $request->getUri())->toContain('https://stash.example/wharf/targets')
+        ->and($request->getHeaderLine('Authorization'))->toBe('Bearer secret-key')
+        ->and($query)->toBe(['target' => 'fvn-li/dawn-chorus']);
+});
+
+it('fails when DenKit Stash cannot delete a game target', function () {
+    Config::set('services.denkit_stash.url', 'https://stash.example');
+    Config::set('services.denkit_stash.api_key', 'secret-key');
+
+    $service = new DenKitStashPersistenceService(
+        Mockery::mock(GameArchiveService::class),
+        new Client(['handler' => HandlerStack::create(new MockHandler([new Response(500)]))])
+    );
+
+    $service->deleteTarget(Game::factory()->create());
+})->throws(DenKitStashUnavailableException::class);

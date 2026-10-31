@@ -230,6 +230,7 @@ return [
                     // Status and visibility
                     'status',
                     'is_visible',
+                    'is_delisted',
 
                     // Content flags
                     'is_nsfw',
@@ -309,6 +310,7 @@ return [
                     'custom_tags',
                     'status',
                     'is_visible',
+                    'is_delisted',
                     'is_nsfw',
                     'is_paid',
                     'has_demo',

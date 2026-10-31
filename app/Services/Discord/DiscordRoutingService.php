@@ -59,7 +59,7 @@ class DiscordRoutingService
     ): RoutingResult {
         $result = new RoutingResult;
 
-        if (! $game->is_visible) {
+        if (! $game->is_visible || $game->isDelisted()) {
             $result->shouldSkip = true;
 
             return $result;

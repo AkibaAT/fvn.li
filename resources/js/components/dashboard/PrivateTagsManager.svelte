@@ -18,6 +18,7 @@
     let selected = $state<number | null>(null);
     let games = $state<PrivateTagGame[]>([]);
     let nextPage = $state<string | null>(null);
+    let hasLoaded = $state(false);
 
     const loadAction = useAsyncAction();
     const tagAction = useAsyncAction();
@@ -26,7 +27,9 @@
     const byName = (a: PrivateTag, b: PrivateTag) => a.name.localeCompare(b.name);
 
     onMount(async () => {
-        tags = (await loadAction.run(listPrivateTags, { fallbackError: 'Could not load private tags' })) ?? [];
+        const loaded = await loadAction.run(listPrivateTags, { fallbackError: 'Could not load private tags' });
+        tags = loaded ?? [];
+        hasLoaded = loaded !== undefined;
     });
 
     async function create() {
@@ -115,6 +118,10 @@
                     onclick={() => remove(tag)}>Delete</button
                 >
             </li>
+        {:else}
+            {#if hasLoaded}
+                <li class="text-sm text-fg-muted">No private tags yet. Create one above, or tag a game from its page.</li>
+            {/if}
         {/each}
     </ul>
     {#if selected !== null}

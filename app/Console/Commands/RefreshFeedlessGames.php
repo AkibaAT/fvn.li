@@ -58,6 +58,7 @@ class RefreshFeedlessGames extends Command
                 ->orderBy('id');
 
             $this->applyGameSelectionFilters($query);
+            $query->when($this->option('all'), fn ($query) => $query->whereNull('delisted_at'));
 
             $games = $query->get();
 

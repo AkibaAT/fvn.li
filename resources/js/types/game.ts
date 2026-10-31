@@ -60,6 +60,8 @@ interface LanguageRef {
     flag_code: string;
 }
 
+export type DelistedReason = 'page_removed' | 'password_protected' | 'no_downloads' | 'blocked';
+
 export interface PrivateTagRef {
     id: number;
     name: string;
@@ -83,6 +85,8 @@ export interface Game {
     is_paid?: boolean;
     has_demo?: boolean;
     is_on_sale?: boolean;
+    delisted_at?: string | null;
+    delisted_reason?: DelistedReason | null;
     min_price?: number;
     english_word_count?: number | null;
     primary_word_count?: number | null;

@@ -43,7 +43,7 @@ class VnListPageController extends Controller
                             'game' => function ($q) {
                                 $q->select('id', 'name', 'custom_name', 'has_custom_page', 'view_mode', 'thumb_url',
                                     'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale',
-                                    'min_price');
+                                    'min_price', 'delisted_at', 'delisted_reason');
                                 // Explicitly prevent tags from being loaded
                                 $q->without(['tags']);
                                 // Only load latestVersion if we actually need it for display
@@ -143,7 +143,7 @@ class VnListPageController extends Controller
                     'game' => function ($q) use ($listOwnerId, $listOwnerRaterIds, $isOwner) {
                         $q->select([
                             'id', 'name', 'custom_name', 'has_custom_page', 'view_mode', 'thumb_url', 'is_nsfw', 'slug',
-                            'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price',
+                            'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price', 'delisted_at', 'delisted_reason',
                             'authors', 'platform', 'rating_score', 'rating_count', 'source_language_id',
                         ]);
                         $q->with([

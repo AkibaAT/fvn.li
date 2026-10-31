@@ -19,12 +19,20 @@ describe('GameFlags', () => {
     test('keeps the fixed flag order and skips default states', () => {
         render(GameFlags, {
             props: {
-                game: { ...baseGame, status: 'In Development', is_nsfw: true, is_paid: true, has_demo: true, is_on_sale: true },
+                game: {
+                    ...baseGame,
+                    status: 'In Development',
+                    is_nsfw: true,
+                    is_paid: true,
+                    has_demo: true,
+                    is_on_sale: true,
+                    delisted_reason: 'page_removed',
+                },
             },
         });
 
         const labels = screen.getAllByRole('button').map((button) => button.textContent?.trim());
-        expect(labels).toEqual(['In dev', '18+', 'Paid', 'Demo', 'Sale']);
+        expect(labels).toEqual(['Lost', 'In dev', '18+', 'Paid', 'Demo', 'Sale']);
     });
 
     test('renders no flags for a released or published, SFW, free game', () => {

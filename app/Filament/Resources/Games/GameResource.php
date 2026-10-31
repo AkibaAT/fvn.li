@@ -85,7 +85,14 @@ class GameResource extends Resource
                             ->default('In development')
                             ->maxLength(50),
                         Toggle::make('is_visible')
-                            ->required(),
+                            ->required()
+                            ->disabled(fn (callable $get) => $get('is_moderation_hidden')),
+                        Toggle::make('is_moderation_hidden')
+                            ->label('Hidden by moderation')
+                            ->live(),
+                        Textarea::make('moderation_note')
+                            ->visible(fn (callable $get) => $get('is_moderation_hidden'))
+                            ->columnSpanFull(),
                         Toggle::make('is_nsfw')
                             ->required(),
                         Textarea::make('description')
@@ -270,6 +277,8 @@ class GameResource extends Resource
                         'On hold' => 'On hold',
                     ]),
                 TernaryFilter::make('is_visible'),
+                TernaryFilter::make('is_moderation_hidden')
+                    ->label('Hidden by moderation'),
                 TernaryFilter::make('is_nsfw'),
                 TernaryFilter::make('is_paid')
                     ->label('Paid Games'),

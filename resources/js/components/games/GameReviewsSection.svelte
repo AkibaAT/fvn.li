@@ -160,8 +160,8 @@
         <div class="space-y-6">
             {#each reviews as review (review.id)}
                 <div id="review-{review.id}" class="border-b border-border pb-6 last:border-0">
-                    <div class="mb-2 flex items-center justify-between">
-                        <div class="flex items-center gap-2">
+                    <div class="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                        <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                             <span class="font-medium text-fg">
                                 <Link href={getReviewAuthorHref(review)} class="flex items-center gap-1 hover:underline">
                                     {#if review.user?.avatar}

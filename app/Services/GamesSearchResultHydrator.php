@@ -27,6 +27,8 @@ class GamesSearchResultHydrator
         'is_paid',
         'has_demo',
         'is_on_sale',
+        'delisted_at',
+        'delisted_reason',
         'is_windows',
         'is_linux',
         'is_mac',

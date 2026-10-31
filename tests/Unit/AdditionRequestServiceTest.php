@@ -213,3 +213,15 @@ test('cancel user request fails for non-associated user', function () {
     expect($result['message'])->toContain('cannot be cancelled');
     expect($request->users()->where('user_id', $user1->id)->exists())->toBeTrue();
 });
+
+test('submit requests counts moderation-hidden games as rejected', function () {
+    $user = User::factory()->create();
+    $url = 'https://moderated-dev.itch.io/moderated-game';
+    Game::factory()->create(['url' => ['itch_io' => $url], 'is_moderation_hidden' => true]);
+
+    $results = (new AdditionRequestService)->submitRequests($user, [$url]);
+
+    expect($results['success_count'])->toBe(0)
+        ->and($results['rejected_count'])->toBe(1)
+        ->and($user->additionRequests()->first()->status)->toBe(AdditionRequest::STATUS_REJECTED);
+});

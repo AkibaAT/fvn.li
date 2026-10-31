@@ -17,7 +17,7 @@ async function awayBack(page) {
     await page.goBack();
 }
 async function lists(page) {
-    await page.getByRole('button', { name: /^(Add to|Manage in) Lists$/ }).click();
+    await page.getByRole('button', { name: /^(Add to|Edit) Lists$/ }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('button', { name: 'Reading Remove', exact: true })).toBeVisible();
     return dialog;
@@ -88,10 +88,10 @@ test('saved custom description survives Back and resave', async ({ page }, info)
 
 test('game detail initializes notification and membership controls from saved data', async ({ page }, info) => {
     await page.goto(`/games?noDefaults=1&search=${encodeURIComponent(f.originalName)}`);
-    await expect(page.getByRole('button', { name: 'Manage in Lists', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Edit Lists', exact: true })).toBeVisible();
     await expect(page.getByRole('checkbox', { name: 'Notifications on', exact: true })).toBeChecked();
     await page.goto(`/games/${f.slug}`);
-    await expect(page.getByRole('button', { name: 'Manage in Lists', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Edit Lists', exact: true })).toBeVisible();
     await expect(page.getByRole('checkbox', { name: 'Notifications on', exact: true })).toBeChecked();
     await shot(page, info, 'incorrect-detail-progress');
     const state = await (await page.request.get(`/browser-api/user-progress/${f.gameId}/status`)).json();

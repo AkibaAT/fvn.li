@@ -5,11 +5,9 @@ declare(strict_types=1);
 use App\Models\Game;
 use App\Models\Language;
 use App\Models\LanguageMapping;
-use App\Services\GameSearchFilterService;
 use App\Services\LanguageMappingService;
 use App\Services\PlatformDetectionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Request;
 
 uses(RefreshDatabase::class);
 
@@ -28,75 +26,6 @@ it('detects platforms and extracts platform identifiers from URLs', function () 
         ->and($service->isValidPlatform('other'))->toBeTrue()
         ->and($service->isValidPlatform('bad'))->toBeFalse()
         ->and($service->getSupportedPlatforms())->toBe(['itch_io', 'steam', 'other']);
-});
-
-it('builds game search filters and normalized search params from requests', function () {
-    $service = new GameSearchFilterService;
-    $request = Request::create('/games', 'GET', [
-        'selectedStatuses' => 'Released,In Development',
-        'selectedEngines' => ['Ren\'Py', ''],
-        'selectedPlatforms' => ['windows', 'linux'],
-        'selectedLanguages' => 'eng,jpn',
-        'selectedTags' => ['romance'],
-        'sfw' => '1',
-        'showFree' => '1',
-        'showDemo' => '1',
-        'showSale' => '1',
-        'search' => ' visual novel ',
-        'perPage' => '100',
-        'page' => '3',
-    ]);
-
-    expect($service->buildFiltersFromRequest($request))->toMatchArray([
-        'is_visible' => true,
-        'status' => ['Released', 'In Development'],
-        'game_engine' => ['Ren\'Py'],
-        'is_windows' => true,
-        'is_linux' => true,
-        'supported_languages' => ['eng', 'jpn'],
-        'tags' => ['romance'],
-        'is_nsfw' => false,
-        'is_paid' => false,
-        'has_demo' => true,
-        'is_on_sale' => true,
-    ]);
-
-    expect($service->getSearchParams($request))->toMatchArray([
-        'search' => ' visual novel ',
-        'isSearching' => true,
-        'sortField' => 'relevance',
-        'sortDirection' => 'desc',
-        'perPage' => 32,
-        'page' => 3,
-    ]);
-
-    expect($service->getSearchParams(Request::create('/games'))['sortField'])->toBe('first_visible_at')
-        ->and($service->getReviewSortParams(Request::create('/reviews', 'GET', ['sort' => 'rating_low'])))->toBe(['rating', 'asc'])
-        ->and($service->getReviewSortParams(Request::create('/reviews', 'GET', ['sort' => 'bad'])))->toBe(['published_at', 'desc']);
-});
-
-it('builds enhanced API filters while preserving explicit false booleans', function () {
-    $service = new GameSearchFilterService;
-    $request = Request::create('/api/games', 'GET', [
-        'status' => 'Released',
-        'is_nsfw' => '0',
-        'is_paid' => '1',
-        'has_demo' => '0',
-        'game_engine' => 'Ren\'Py',
-        'tags' => ['drama'],
-        'supported_languages' => ['eng'],
-    ]);
-
-    expect($service->buildApiFilters($request))->toBe([
-        'status' => 'Released',
-        'is_nsfw' => false,
-        'is_paid' => true,
-        'has_demo' => false,
-        'game_engine' => 'Ren\'Py',
-        'tags' => ['drama'],
-        'supported_languages' => ['eng'],
-        'is_visible' => true,
-    ]);
 });
 
 it('resolves language keys from game mappings global mappings languages and placeholders', function () {

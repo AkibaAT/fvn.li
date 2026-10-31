@@ -8,9 +8,10 @@
     import PlatformLink from '@/components/game-card/PlatformLink.svelte';
     import GameFlags from '@/components/games/GameFlags.svelte';
     import GlyphStrip from '@/components/games/GlyphStrip.svelte';
-    import { Button, Card } from '@/components/ui';
+    import { Alert, Button, Card } from '@/components/ui';
     import { gameCoverAltText } from '@/utils/imageAltText';
     import { gamesFilterUrl } from '@/utils/game-show';
+    import { canReceiveUpdates, formatDelisted } from '@/utils/game-card-display';
     import type { GameCardPlatform } from '@/hooks/usePlatformIcons';
     import type { GameFact, SupportedLanguage } from '@/types/game-show';
 
@@ -128,10 +129,16 @@
                         <div class="mt-1 text-sm text-fg-muted">{@html game.authors}</div>
                     {/if}
                 </div>
-                {#if game.primary_url}
+                {#if game.primary_url && game.delisted_reason !== 'page_removed'}
                     <PlatformLink url={game.primary_url} platform={game.platform} gameId={game.id} />
                 {/if}
             </div>
+
+            {#if game.delisted_reason}
+                <Alert tone="note" layout="inline" role="status" class="mt-3">
+                    {formatDelisted(game.delisted_reason, game.delisted_at)}
+                </Alert>
+            {/if}
 
             <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
                 <GameFlags
@@ -141,6 +148,7 @@
                     onPaidToggle={() => visitFilter({ showPaid: true })}
                     onDemoToggle={() => visitFilter({ showDemo: true })}
                     onSaleToggle={() => visitFilter({ showSale: true })}
+                    onLostToggle={() => visitFilter({ showLost: true })}
                 />
                 {#if platformList.length > 0 || languageList.length > 0}
                     <GlyphStrip
@@ -220,7 +228,7 @@
             <GameCardUserSection
                 gameId={game.id}
                 gameName={game.effective_name}
-                isPaid={game.is_paid}
+                canReceiveUpdates={canReceiveUpdates(game)}
                 userProgress={game.user_progress?.[0] ?? null}
                 listMemberships={game.user_list_memberships ?? []}
                 privateTags={game.user_private_tags ?? []}

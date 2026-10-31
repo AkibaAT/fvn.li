@@ -120,7 +120,7 @@ class PublicVnListController extends Controller
                                 // Only select essential fields for the game
                                 $q->select([
                                     'id', 'name', 'custom_name', 'has_custom_page', 'view_mode', 'thumb_url', 'is_nsfw',
-                                    'slug', 'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price',
+                                    'slug', 'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale', 'min_price', 'delisted_at', 'delisted_reason',
                                 ]);
                                 // Explicitly prevent tags from being loaded
                                 $q->without(['tags']);
@@ -268,7 +268,7 @@ class PublicVnListController extends Controller
                             'game' => function ($q) {
                                 $q->select('id', 'name', 'custom_name', 'has_custom_page', 'view_mode', 'thumb_url',
                                     'is_nsfw', 'slug', 'optimized_thumbnails', 'is_paid', 'has_demo', 'is_on_sale',
-                                    'min_price');
+                                    'min_price', 'delisted_at', 'delisted_reason');
                                 // Explicitly prevent tags from being loaded
                                 $q->without(['tags']);
                                 $q->with([

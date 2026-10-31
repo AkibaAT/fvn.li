@@ -15,7 +15,7 @@ class FeedController extends Controller
      */
     public function newGames(): Response
     {
-        $games = Game::where('is_visible', true)
+        $games = Game::listed()
             ->publicContent()
             ->whereNotNull('slug')
             ->orderBy('first_visible_at', 'desc')
@@ -38,7 +38,7 @@ class FeedController extends Controller
      */
     public function updatedGames(): Response
     {
-        $games = Game::where('is_visible', true)
+        $games = Game::listed()
             ->publicContent()
             ->whereNotNull('slug')
             ->whereHas('latestVersion')

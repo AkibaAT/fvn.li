@@ -5,6 +5,7 @@
 <script lang="ts">
     import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
     import { Button, Select } from '@/components/ui';
+    import { formatNumber } from '@/utils/number-formatting';
     import { shouldIntercept } from '@inertiajs/core';
 
     interface Props {
@@ -147,9 +148,9 @@
 {#snippet info()}
     <div class="flex items-center text-ui text-fg-muted">
         {#if typeof meta.from === 'number' && typeof meta.to === 'number'}
-            <span>Showing {meta.from} to {meta.to} of {meta.total} {label}</span>
+            <span>Showing {formatNumber(meta.from)} to {formatNumber(meta.to)} of {formatNumber(meta.total)} {label}</span>
         {:else}
-            <span>Page {meta.current_page} of {meta.last_page}</span>
+            <span>Page {formatNumber(meta.current_page)} of {formatNumber(meta.last_page)}</span>
         {/if}
     </div>
 {/snippet}
@@ -197,7 +198,7 @@
                     {#each pageOptions as option (option.value)}<option value={option.value}>{option.label}</option>{/each}
                 </Select>
             </span>
-            <span class="text-ui text-fg-muted">of {meta.last_page}</span>
+            <span class="text-ui text-fg-muted">of {formatNumber(meta.last_page)}</span>
         </div>
 
         {#if buildPageUrl && canNext}

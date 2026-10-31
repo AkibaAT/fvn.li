@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+    canReceiveUpdates,
     formatAuthorsInline,
+    formatDelisted,
     formatLatestDate,
     formatReleasedDate,
     formatReleaseDates,
@@ -85,5 +87,16 @@ describe('game card display helpers', () => {
         expect(formatUpdatedDate(game)).toMatch(/^\w+ \d+, \d{4}$/);
         expect(formatUpdatedDate({ initially_published_at: '2026-09-14T00:00:00Z', latest_version_published_at: '2026-09-14T00:00:00Z' })).toBeNull();
         expect(formatReleasedDate({ initially_published_at: null })).toBeNull();
+    });
+
+    test('withholds updates from paid and delisted games', () => {
+        expect(canReceiveUpdates({ is_paid: false, delisted_at: null })).toBe(true);
+        expect(canReceiveUpdates({ is_paid: true })).toBe(false);
+        expect(canReceiveUpdates({ is_paid: false, delisted_at: '2026-03-15T00:00:00Z' })).toBe(false);
+    });
+
+    test('describes why and since when a game is delisted', () => {
+        expect(formatDelisted('page_removed', '2026-03-15T00:00:00Z')).toMatch(/^Removed from itch\.io since \w+ 2026$/);
+        expect(formatDelisted('password_protected', null)).toBe('Password-protected on itch.io');
     });
 });

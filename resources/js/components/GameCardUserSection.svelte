@@ -22,14 +22,14 @@
     let {
         gameId,
         gameName,
-        isPaid = false,
+        canReceiveUpdates = true,
         userProgress = null,
         listMemberships = [],
         privateTags = [],
     }: {
         gameId: number;
         gameName: string;
-        isPaid?: boolean;
+        canReceiveUpdates?: boolean;
         listMemberships?: Array<{ list_id: number; name: string; type: string; is_default: boolean }>;
         userProgress?: { id: number; game_id: number; user_id: number; is_receiving_updates: boolean } | null;
         privateTags?: PrivateTagRef[];
@@ -173,7 +173,7 @@
 
     const handleToggleNotifications = async (event: Event) => {
         (event.currentTarget as HTMLInputElement).checked = notificationStatus;
-        if (toggleNotificationsAction.isLoading || isPaid) return;
+        if (toggleNotificationsAction.isLoading || !canReceiveUpdates) return;
 
         const data = await toggleNotificationsAction.run(
             async () => {
@@ -211,7 +211,7 @@
                 }}
                 class="cursor-pointer text-fg-muted transition-colors hover:text-fg"
             >
-                {userListsInGame.length > 0 ? 'Manage in Lists' : 'Add to Lists'}
+                {userListsInGame.length > 0 ? 'Edit Lists' : 'Add to Lists'}
             </button>
 
             {#if userListsInGame.length > 0}
@@ -221,13 +221,12 @@
                     aria-expanded={showUserLists}
                     class="inline-flex cursor-pointer items-center gap-1 text-fg-muted transition-colors hover:text-fg"
                 >
-                    <span>My Lists</span>
-                    <span>{userListsInGame.length}</span>
+                    <span>In {userListsInGame.length} {userListsInGame.length === 1 ? 'list' : 'lists'}</span>
                     <ChevronDownIcon class="h-3 w-3 transition-transform {showUserLists ? 'rotate-180' : ''}" />
                 </button>
             {/if}
 
-            {#if !isPaid}
+            {#if canReceiveUpdates}
                 <label class="flex cursor-pointer items-center gap-1.5 text-fg-muted transition-colors hover:text-fg">
                     <input
                         type="checkbox"

@@ -81,6 +81,8 @@ paths:
                                       is_nsfw: false
                                       is_paid: true
                                       has_demo: true
+                                      delisted_at: null
+                                      delisted_reason: null
                                       fvn_url: 'https://fvn.li/games/trainee-detective-en'
                                     - id: 402963
                                       name: 'Dragon Detective: A Friend from the Shadows'
@@ -94,6 +96,8 @@ paths:
                                       is_nsfw: false
                                       is_paid: true
                                       has_demo: true
+                                      delisted_at: null
+                                      delisted_reason: null
                                       fvn_url: 'https://fvn.li/games/dragon-detective-a-friend-from-the-shadows'
                                 links:
                                     first: 'https://fvn.li/api/v1/games?q=detective&per_page=2&page=1'
@@ -180,6 +184,8 @@ paths:
                                     is_nsfw: false
                                     is_paid: true
                                     has_demo: false
+                                    delisted_at: null
+                                    delisted_reason: null
                                     fvn_url: 'https://fvn.li/games/komobrebi'
                 '401':
                     $ref: '#/components/responses/Unauthorized'
@@ -247,6 +253,8 @@ paths:
                                           is_nsfw: false
                                           is_paid: false
                                           has_demo: false
+                                          delisted_at: null
+                                          delisted_reason: null
                                           fvn_url: 'https://fvn.li/games/dawn-chorus'
                                     - input:
                                           url: 'https://store.steampowered.com/app/1805130/Komorebi/?curator_clanid=1'
@@ -264,6 +272,8 @@ paths:
                                           is_nsfw: false
                                           is_paid: true
                                           has_demo: false
+                                          delisted_at: null
+                                          delisted_reason: null
                                           fvn_url: 'https://fvn.li/games/komobrebi'
                                     - input:
                                           url: 'https://example.itch.io/not-in-the-catalog'
@@ -314,6 +324,8 @@ paths:
                                     is_nsfw: false
                                     is_paid: true
                                     has_demo: true
+                                    delisted_at: null
+                                    delisted_reason: null
                                     fvn_url: 'https://fvn.li/games/chicken-police-paint-it-red'
                 '401':
                     $ref: '#/components/responses/Unauthorized'
@@ -480,6 +492,8 @@ paths:
                                       is_nsfw: false
                                       is_paid: false
                                       has_demo: false
+                                      delisted_at: null
+                                      delisted_reason: null
                                       fvn_url: 'https://fvn.li/games/dawn-chorus'
                                     - id: 256
                                       name: Starville
@@ -493,6 +507,8 @@ paths:
                                       is_nsfw: false
                                       is_paid: false
                                       has_demo: false
+                                      delisted_at: null
+                                      delisted_reason: null
                                       fvn_url: 'https://fvn.li/games/starville'
                                 links:
                                     first: 'https://fvn.li/api/v1/private-tags/3/games?page=1'
@@ -857,6 +873,8 @@ paths:
                                           is_nsfw: false
                                           is_paid: true
                                           has_demo: true
+                                          delisted_at: null
+                                          delisted_reason: null
                                           fvn_url: 'https://fvn.li/games/chicken-police-paint-it-red'
                                     - id: 27380
                                       list_id: 9185
@@ -876,6 +894,8 @@ paths:
                                           is_nsfw: false
                                           is_paid: true
                                           has_demo: false
+                                          delisted_at: null
+                                          delisted_reason: null
                                           fvn_url: 'https://fvn.li/games/komobrebi'
                                     - id: 27382
                                       list_id: 9185
@@ -895,6 +915,8 @@ paths:
                                           is_nsfw: false
                                           is_paid: true
                                           has_demo: true
+                                          delisted_at: null
+                                          delisted_reason: null
                                           fvn_url: 'https://fvn.li/games/dragon-detective-a-friend-from-the-shadows'
                                 links:
                                     first: 'https://fvn.li/api/v1/lists/9185/entries?page=1'
@@ -974,6 +996,8 @@ paths:
                                         is_nsfw: false
                                         is_paid: true
                                         has_demo: false
+                                        delisted_at: null
+                                        delisted_reason: null
                                         fvn_url: 'https://fvn.li/games/komobrebi'
                 '401':
                     $ref: '#/components/responses/Unauthorized'
@@ -1057,6 +1081,8 @@ paths:
                                         is_nsfw: false
                                         is_paid: true
                                         has_demo: true
+                                        delisted_at: null
+                                        delisted_reason: null
                                         fvn_url: 'https://fvn.li/games/chicken-police-paint-it-red'
                 '401':
                     $ref: '#/components/responses/Unauthorized'
@@ -1118,6 +1144,8 @@ paths:
                                         is_nsfw: false
                                         is_paid: true
                                         has_demo: true
+                                        delisted_at: null
+                                        delisted_reason: null
                                         fvn_url: 'https://fvn.li/games/dragon-detective-a-friend-from-the-shadows'
                 '401':
                     $ref: '#/components/responses/Unauthorized'
@@ -1189,6 +1217,8 @@ paths:
                                           is_nsfw: false
                                           is_paid: true
                                           has_demo: true
+                                          delisted_at: null
+                                          delisted_reason: null
                                           fvn_url: 'https://fvn.li/games/chicken-police-paint-it-red'
                                     - id: 27380
                                       list_id: 9185
@@ -1208,6 +1238,8 @@ paths:
                                           is_nsfw: false
                                           is_paid: true
                                           has_demo: false
+                                          delisted_at: null
+                                          delisted_reason: null
                                           fvn_url: 'https://fvn.li/games/komobrebi'
                                     - id: 27382
                                       list_id: 9185
@@ -1227,6 +1259,8 @@ paths:
                                           is_nsfw: false
                                           is_paid: true
                                           has_demo: true
+                                          delisted_at: null
+                                          delisted_reason: null
                                           fvn_url: 'https://fvn.li/games/dragon-detective-a-friend-from-the-shadows'
                 '401':
                     $ref: '#/components/responses/Unauthorized'
@@ -1279,6 +1313,8 @@ paths:
                                           is_nsfw: false
                                           is_paid: false
                                           has_demo: false
+                                          delisted_at: null
+                                          delisted_reason: null
                                           fvn_url: 'https://fvn.li/games/dawn-chorus'
                                       game_version_id: 4156
                                       status: reading
@@ -1350,6 +1386,8 @@ paths:
                                         is_nsfw: false
                                         is_paid: false
                                         has_demo: false
+                                        delisted_at: null
+                                        delisted_reason: null
                                         fvn_url: 'https://fvn.li/games/dawn-chorus'
                                     game_version_id: 4156
                                     status: reading
@@ -1446,6 +1484,8 @@ paths:
                                         is_nsfw: false
                                         is_paid: false
                                         has_demo: false
+                                        delisted_at: null
+                                        delisted_reason: null
                                         fvn_url: 'https://fvn.li/games/dawn-chorus'
                                     game_version_id: 4156
                                     status: reading
@@ -1595,6 +1635,8 @@ paths:
                                       is_nsfw: false
                                       is_paid: false
                                       has_demo: false
+                                      delisted_at: null
+                                      delisted_reason: null
                                       fvn_url: 'https://fvn.li/games/under-the-bridge'
                                 links:
                                     first: 'https://fvn.li/api/v1/me/ignored-games?page=1'
@@ -1938,6 +1980,8 @@ components:
                 - is_nsfw
                 - is_paid
                 - has_demo
+                - delisted_at
+                - delisted_reason
                 - fvn_url
             properties:
                 id:
@@ -1979,6 +2023,22 @@ components:
                     type: boolean
                 has_demo:
                     type: boolean
+                delisted_at:
+                    description: 'When the game stopped being available on its source'
+                    type:
+                        - string
+                        - 'null'
+                    format: date-time
+                delisted_reason:
+                    type:
+                        - string
+                        - 'null'
+                    enum:
+                        - page_removed
+                        - password_protected
+                        - no_downloads
+                        - blocked
+                        - null
                 fvn_url:
                     type: string
                     format: uri

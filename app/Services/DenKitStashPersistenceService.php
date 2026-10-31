@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\DenKitStashUnavailableException;
 use App\Models\Game;
 use App\Models\GameVersion;
 use GuzzleHttp\Client;
@@ -86,6 +87,32 @@ class DenKitStashPersistenceService
         return (bool) Config::get('services.denkit_stash.enabled', true)
             && is_string(Config::get('services.denkit_stash.api_key'))
             && Config::get('services.denkit_stash.api_key') !== '';
+    }
+
+    public function deleteTarget(Game $game): void
+    {
+        if (! $this->isEnabled()) {
+            return;
+        }
+
+        $response = $this->httpClient([
+            'timeout' => 120,
+            'connect_timeout' => 5,
+        ])->delete($this->serverUrl() . '/wharf/targets', [
+            'http_errors' => false,
+            'headers' => [
+                'Authorization' => 'Bearer ' . $this->apiKey(),
+                'Accept' => 'application/json',
+            ],
+            'query' => [
+                'target' => "{$this->username()}/{$this->targetName($game)}",
+            ],
+        ]);
+
+        $status = $response->getStatusCode();
+        if ($status !== 204 && $status !== 404) {
+            throw new DenKitStashUnavailableException("Failed to delete DenKit Stash target: HTTP {$status}");
+        }
     }
 
     /**

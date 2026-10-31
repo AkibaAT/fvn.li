@@ -38,13 +38,13 @@ for (const settings of [
             await expect(page.getByRole('heading', { name: fixture.customName, exact: true })).toBeVisible();
             await expect(page.getByText('Initial Release', { exact: true }).locator('..')).toContainText(expectedDate);
             await page.goto(`/games?noDefaults=1&search=${encodeURIComponent(fixture.originalName)}`);
-            await page.getByRole('button', { name: /^(Add to|Manage in) Lists$/ }).click();
+            await page.getByRole('button', { name: /^(Add to|Edit) Lists$/ }).click();
             const listName = `Calendar dates ${Date.now()}`;
             await page.getByPlaceholder('New list name').fill(listName);
             await page.getByRole('button', { name: 'Create & Add' }).click();
             await expect(page.getByRole('button', { name: `${listName} Remove` })).toBeVisible();
             await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
-            await page.getByRole('button', { name: /My Lists/ }).click();
+            await page.getByRole('button', { name: /^In \d+ lists?$/ }).click();
             await page.getByRole('link', { name: listName, exact: true }).click();
             await expect(page.getByRole('heading', { name: listName, exact: true })).toBeVisible();
             await page.getByRole('button', { name: 'Edit', exact: true }).filter({ visible: true }).click();

@@ -15,6 +15,7 @@ use App\Models\Concerns\HasGameSearch;
 use App\Models\Concerns\HasGameTags;
 use App\Services\GameDataSyncService;
 use App\Services\GameVersionParser;
+use App\Support\DelistedReason;
 use DateMalformedStringException;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
@@ -49,6 +50,52 @@ class Game extends Model
     use HasGameTags;
 
     /**
+     * Values that reduce a game to a blank listing.
+     */
+    public const CONTENT_ATTRIBUTES = [
+        'status' => 'In development',
+        'is_nsfw' => false,
+        'description' => null,
+        'full_description' => null,
+        'authors' => null,
+        'developer' => null,
+        'initially_published_at' => null,
+        'first_visible_at' => null,
+        'thumb_url' => null,
+        'optimized_thumbnails' => null,
+        'screenshots' => null,
+        'game_engine' => 'unknown',
+        'error' => null,
+        'custom_tags' => '',
+        'uploads' => [],
+        'is_feedless' => false,
+        'source_language_id' => null,
+        'min_price' => null,
+        'is_on_sale' => false,
+        'is_paid' => false,
+        'has_demo' => false,
+        'sale_discount_percent' => null,
+        'currency' => 'USD',
+        'additional_links' => null,
+        'custom_css' => null,
+        'has_custom_page' => false,
+        'custom_name' => null,
+        'custom_description' => null,
+        'custom_screenshots' => null,
+        'custom_assets' => null,
+        'custom_page_updated_at' => null,
+        'custom_page_updated_by' => null,
+        'view_mode' => 'original',
+        'content_type' => 'visual_novel',
+        'steam_genres' => null,
+        'steam_languages' => null,
+        'steam_user_tags' => null,
+        'is_stats_extraction_disabled' => false,
+        'delisted_at' => null,
+        'delisted_reason' => null,
+    ];
+
+    /**
      * Temporary flags that should not be persisted to the database.
      * These are stored as class properties, not in the $attributes array.
      */
@@ -60,6 +107,10 @@ class Game extends Model
         'name',
         'status',
         'is_visible',
+        'is_moderation_hidden',
+        'moderation_note',
+        'delisted_at',
+        'delisted_reason',
         'is_nsfw',
         'description',
         'full_description',
@@ -119,6 +170,8 @@ class Game extends Model
         'initially_published_at' => 'datetime',
         'latest_version_published_at' => 'datetime',
         'first_visible_at' => 'datetime',
+        'delisted_at' => 'datetime',
+        'delisted_reason' => DelistedReason::class,
         'min_price' => 'float',
         'is_windows' => 'boolean',
         'is_linux' => 'boolean',
@@ -132,6 +185,7 @@ class Game extends Model
         'is_paid' => 'boolean',
         'has_demo' => 'boolean',
         'is_stats_extraction_disabled' => 'boolean',
+        'is_moderation_hidden' => 'boolean',
         'optimized_thumbnails' => 'array',
         'supported_languages' => 'collection',
         'uploads' => 'array',
@@ -170,6 +224,10 @@ class Game extends Model
         parent::boot();
 
         static::saving(function (self $game) {
+            if ($game->is_moderation_hidden) {
+                $game->is_visible = false;
+            }
+
             if (! $game->slug || $game->isDirty(['url', 'name'])) {
                 $primaryUrl = $game->getPrimaryUrl();
                 $baseSlug = null;
@@ -275,6 +333,21 @@ class Game extends Model
     public function scopeVisible(Builder $query): void
     {
         $query->where($query->qualifyColumn('is_visible'), true);
+    }
+
+    public function scopeListed(Builder $query): void
+    {
+        $query->where($query->qualifyColumn('is_visible'), true)->whereNull($query->qualifyColumn('delisted_at'));
+    }
+
+    public function isDelisted(): bool
+    {
+        return $this->delisted_at !== null;
+    }
+
+    public function canReceiveUpdates(): bool
+    {
+        return ! $this->is_paid && ! $this->isDelisted();
     }
 
     public function resolveRouteBinding($value, $field = null): Game

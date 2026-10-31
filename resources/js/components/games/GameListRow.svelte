@@ -9,7 +9,14 @@
     import ListRow from '@/components/lists/ListRow.svelte';
     import { Rating } from '@/components/ui';
     import { useGameCard, type GameCardProps } from '@/hooks/useGameCard.svelte';
-    import { GAME_TAG_LIMIT, formatReleasedDate, formatUpdatedDate, formatWordCount, formatWordCountBreakdown } from '@/utils/game-card-display';
+    import {
+        GAME_TAG_LIMIT,
+        canReceiveUpdates,
+        formatReleasedDate,
+        formatUpdatedDate,
+        formatWordCount,
+        formatWordCountBreakdown,
+    } from '@/utils/game-card-display';
 
     let props: GameCardProps = $props();
 
@@ -28,14 +35,26 @@
         handlePaidToggle,
         handleDemoToggle,
         handleSaleToggle,
+        handleLostToggle,
         orderedTags,
     } = card;
 
     const auth = $derived(card.auth);
     const isIgnored = $derived(card.isIgnored);
 
-    const { game, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, selectedStorePlatforms, nsfw, showPaid, showDemo, showSale } =
-        $derived(props);
+    const {
+        game,
+        selectedTags,
+        selectedPlatforms,
+        selectedLanguages,
+        selectedStatuses,
+        selectedStorePlatforms,
+        nsfw,
+        showPaid,
+        showDemo,
+        showSale,
+        showLost,
+    } = $derived(props);
 
     const wordCount = $derived(formatWordCount(game));
     const wordCountBreakdown = $derived(formatWordCountBreakdown(game) ?? undefined);
@@ -61,11 +80,13 @@
                 {showPaid}
                 {showDemo}
                 {showSale}
+                {showLost}
                 onStatusClick={handleStatus}
                 onNsfwToggle={handleNsfwToggle}
                 onPaidToggle={handlePaidToggle}
                 onDemoToggle={handleDemoToggle}
                 onSaleToggle={handleSaleToggle}
+                onLostToggle={handleLostToggle}
             />
         </h2>
 
@@ -120,7 +141,7 @@
         <GameCardUserSection
             gameId={game.id}
             gameName={game.name}
-            isPaid={game.is_paid}
+            canReceiveUpdates={canReceiveUpdates(game)}
             userProgress={game.user_progress?.[0] ?? null}
             listMemberships={game.user_list_memberships ?? []}
             privateTags={game.user_private_tags ?? []}

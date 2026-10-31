@@ -80,6 +80,7 @@ export interface CurrentFilters {
     showFree?: boolean;
     showDemo?: boolean;
     showSale?: boolean;
+    showLost?: boolean;
     showIgnored?: boolean;
     sort?: string;
     direction?: string;

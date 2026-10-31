@@ -1,6 +1,7 @@
 <script lang="ts">
     import { createApiToken, extendApiToken, listApiTokens, revokeApiToken, type ApiToken } from '@/api/api-tokens';
     import { useAsyncAction } from '@/utils/async-action.svelte';
+    import { formatLocalDate } from '@/utils/date-formatting';
     import { Button, Card, Checkbox, TextInput } from '@/components/ui';
     import { Link } from '@inertiajs/svelte';
     import { onMount } from 'svelte';
@@ -125,11 +126,11 @@
                     </div>
                 </div>
                 <p class="mt-1 text-xs text-fg-muted">
-                    Expires {new Date(token.expires_at).toLocaleDateString()}
+                    Expires {formatLocalDate(token.expires_at)}
                     {#if daysLeft(token) <= 14}
                         <span class="text-red-600 dark:text-red-400">· {daysLeft(token) <= 0 ? 'Expired' : 'Expiring soon'}</span>
                     {/if}
-                    · Last used {token.last_used_at ? new Date(token.last_used_at).toLocaleDateString() : 'never'}
+                    · Last used {token.last_used_at ? formatLocalDate(token.last_used_at) : 'never'}
                 </p>
                 <p class="mt-1 text-xs break-words text-fg-faint">{token.abilities.join(', ')}</p>
             </li>

@@ -148,10 +148,10 @@ class VnListGameController extends Controller
 
     public function toggleUserProgressUpdates(ToggleUserProgressUpdatesRequest $request, Game $game, UserGameProgressService $progressService): JsonResponse
     {
-        if ($game->is_paid) {
+        if (! $game->canReceiveUpdates()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Notifications are not available for paid games.',
+                'message' => $game->is_paid ? 'Notifications are not available for paid games.' : 'Notifications are not available for delisted games.',
             ], 400);
         }
 

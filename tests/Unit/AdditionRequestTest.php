@@ -211,3 +211,32 @@ test('can be cancelled by user checks correctly', function () {
     // User not associated with request cannot cancel
     expect($pendingRequest->canBeCancelledByUser($user2))->toBeFalse();
 });
+
+test('find or create for url rejects requests for moderation-hidden games', function () {
+    $url = 'https://moderated-dev.itch.io/moderated-game';
+
+    Game::factory()->create([
+        'url' => ['itch_io' => $url],
+        'is_moderation_hidden' => true,
+    ]);
+
+    [$request] = AdditionRequest::findOrCreateForUrl($url);
+
+    expect($request)
+        ->status->toBe(AdditionRequest::STATUS_REJECTED)
+        ->reviewed_by->toBeNull()
+        ->rejection_reason->toBe(AdditionRequest::MODERATION_REJECTION_REASON);
+});
+
+test('hiding a game by moderation rejects its pending requests', function () {
+    $url = 'https://moderated-dev.itch.io/later-moderated';
+    $game = Game::factory()->create(['url' => ['itch_io' => $url], 'is_visible' => false]);
+    [$request] = AdditionRequest::findOrCreateForUrl($url);
+    $other = AdditionRequest::factory()->create(['status' => AdditionRequest::STATUS_PENDING]);
+
+    $game->update(['is_moderation_hidden' => true]);
+
+    expect($request->refresh()->status)->toBe(AdditionRequest::STATUS_REJECTED)
+        ->and($request->rejection_reason)->toBe(AdditionRequest::MODERATION_REJECTION_REASON)
+        ->and($other->refresh()->status)->toBe(AdditionRequest::STATUS_PENDING);
+});

@@ -2,6 +2,7 @@
     import { toast } from '@/utils/toast';
     import { refreshPage } from '@/utils/refreshPage';
     import { useAsyncAction } from '@/utils/async-action.svelte';
+    import { canReceiveUpdates } from '@/utils/game-card-display';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import type { Attachment } from 'svelte/attachments';
     import { Link } from '@inertiajs/svelte';
@@ -95,7 +96,7 @@
         selectedTagIds = activeTagIds.includes(id) ? activeTagIds.filter((tagId) => tagId !== id) : [...activeTagIds, id];
     };
 
-    const freeGames = $derived(entries.filter((e) => !e.game.is_paid));
+    const freeGames = $derived(entries.filter((e) => canReceiveUpdates(e.game)));
     const allFreeGamesReceiveUpdates = $derived(
         freeGames.length > 0 && freeGames.every((e) => e.game.user_progress?.[0]?.is_receiving_updates ?? false),
     );

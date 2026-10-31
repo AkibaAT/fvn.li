@@ -10,11 +10,13 @@
         showPaid?: boolean;
         showDemo?: boolean;
         showSale?: boolean;
+        showLost?: boolean;
         onStatusClick?: (status: string) => void;
         onNsfwToggle?: () => void;
         onPaidToggle?: () => void;
         onDemoToggle?: () => void;
         onSaleToggle?: () => void;
+        onLostToggle?: () => void;
         limit?: number;
         class?: string;
     }
@@ -26,11 +28,13 @@
         showPaid = false,
         showDemo = false,
         showSale = false,
+        showLost = false,
         onStatusClick,
         onNsfwToggle,
         onPaidToggle,
         onDemoToggle,
         onSaleToggle,
+        onLostToggle,
         limit = Infinity,
         class: className = '',
     }: Props = $props();
@@ -45,9 +49,15 @@
         return normalized === 'in development' ? 'In dev' : status;
     });
 
-    // Order is fixed: status, 18+, Paid, Demo, Sale.
     const flags = $derived(
         [
+            {
+                key: 'lost',
+                label: game.delisted_reason ? 'Lost' : null,
+                active: showLost,
+                ariaLabel: 'Filter by lost media',
+                onclick: () => onLostToggle?.(),
+            },
             {
                 key: 'status',
                 label: statusLabel,

@@ -7,6 +7,7 @@
         Chart as ChartJS,
         type ChartData,
         type ChartOptions,
+        Filler,
         Legend,
         LineController,
         LinearScale,
@@ -17,7 +18,19 @@
         Tooltip,
     } from 'chart.js';
 
-    ChartJS.register(BarController, BarElement, CategoryScale, Legend, LineController, LinearScale, LineElement, PointElement, Title, Tooltip);
+    ChartJS.register(
+        BarController,
+        BarElement,
+        CategoryScale,
+        Filler,
+        Legend,
+        LineController,
+        LinearScale,
+        LineElement,
+        PointElement,
+        Title,
+        Tooltip,
+    );
 
     let {
         type = 'line',

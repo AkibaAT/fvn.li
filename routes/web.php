@@ -25,6 +25,7 @@ use App\Http\Controllers\UserGameProgressController;
 use App\Http\Controllers\UserPreferencesController;
 use App\Http\Controllers\VnLists\PublicVnListController;
 use App\Http\Controllers\VnLists\VnListPageController;
+use App\Http\Middleware\EnsureGameIsVisible;
 use App\Models\Game;
 use App\Support\Seo\MetaTags;
 use Carbon\CarbonImmutable;
@@ -160,6 +161,7 @@ Route::get('games/{game:slug}', [GamesDisplayController::class, 'show'])
     ->name('games.show')
     ->middleware('cache.public:game');
 Route::get('games/{game:slug}/route-map', [RouteMapController::class, 'show'])
+    ->middleware(EnsureGameIsVisible::class)
     ->name('games.route-map');
 
 Route::get('tags', [GameTagsController::class, 'index'])
@@ -276,7 +278,7 @@ Route::get('auth/{provider}/callback', [SocialAuthController::class, 'handleProv
 // game slug is required so public dialogue browsing does not expose an ID-to-slug lookup.
 Route::get('dialogue/browser/{game:slug}/{versionId?}', [DialogueController::class, 'dialogueBrowser'])
     ->where(['versionId' => '[0-9]+'])
-    ->middleware('cache.public:game')
+    ->middleware([EnsureGameIsVisible::class, 'cache.public:game'])
     ->name('dialogue.browser');
 // JSON endpoints moved to routes/browser-api.php
 

@@ -97,6 +97,7 @@ class RefreshGames extends Command
             ->where('is_visible', true);
 
         $this->applyGameSelectionFilters($query);
+        $query->when($this->option('all'), fn ($query) => $query->whereNull('delisted_at'));
 
         // Unless forced, exclude abandoned/canceled games
         if (! $force) {

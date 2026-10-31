@@ -226,27 +226,6 @@ it('retries screenshot processing when optimized variants are missing or incompl
         ->and($service->needsScreenshotProcessing($completeScreenshots, [['url' => 'https://img.example/old.png']]))->toBeTrue();
 });
 
-it('marks itch games invisible when version refresh receives a not found response', function () {
-    $game = Game::factory()->create([
-        'platform' => 'itch_io',
-        'itch_id' => 987,
-        'is_visible' => true,
-    ]);
-
-    $client = Mockery::mock(ItchHttpClientService::class);
-    $client->shouldReceive('get')
-        ->once()
-        ->with('https://api.itch.io/games/987/uploads')
-        ->andReturn(new Response(404, [], '{}'));
-    app()->instance(ItchHttpClientService::class, $client);
-
-    app(GameDataSyncService::class)->refreshVersion($game);
-    $game->save();
-
-    expect($game->refresh()->is_visible)->toBeFalse()
-        ->and($game->gameVersions()->exists())->toBeFalse();
-});
-
 it('creates a fallback unknown version when a new itch game has no uploads', function () {
     ensureSyncLanguage('eng', 'English');
 

@@ -189,6 +189,7 @@
         onPaidToggle={() => updateFilters({ showPaid: !currentFilters.showPaid })}
         onDemoToggle={() => updateFilters({ showDemo: !currentFilters.showDemo })}
         onSaleToggle={() => updateFilters({ showSale: !currentFilters.showSale })}
+        onLostToggle={() => updateFilters({ showLost: !currentFilters.showLost })}
     />
 
     <Pagination

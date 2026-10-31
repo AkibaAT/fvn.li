@@ -98,34 +98,11 @@ class GamesSearchController extends Controller
 
         $requestedPage = (int) $request->get('page', 1);
 
-        try {
-            $searchQuery = trim($search ?? '') ?: '*';
-            $games = $service->searchGames($searchQuery, $filters, $perPage, $requestedPage, $sortField, $sortDirection, $ignoredGameIds);
-
-            Log::info('Meilisearch success', [
-                'query' => $searchQuery,
-                'total' => $games->total(),
-                'items' => count($games->items()),
-            ]);
-        } catch (Exception $e) {
-            Log::error('Meilisearch failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            $games = $service->searchGamesFromDatabase($searchQuery, $filters, $perPage, $requestedPage, $sortField, $sortDirection, $ignoredGameIds);
-        }
+        $searchQuery = trim($search ?? '') ?: '*';
+        $games = $service->searchGames($searchQuery, $filters, $perPage, $requestedPage, $sortField, $sortDirection, $ignoredGameIds);
 
         if ($requestedPage > 1 && $games->lastPage() > 0 && $requestedPage > $games->lastPage()) {
-            try {
-                $searchQuery = trim($search ?? '') ?: '*';
-                $games = $service->searchGames($searchQuery, $filters, $perPage, 1, $sortField, $sortDirection, $ignoredGameIds);
-            } catch (Exception $e) {
-                Log::warning('Meilisearch game lookup failed; using database fallback', [
-                    'error' => $e->getMessage(),
-                ]);
-                $games = $service->searchGamesFromDatabase($searchQuery, $filters, $perPage, 1, $sortField, $sortDirection, $ignoredGameIds);
-            }
+            $games = $service->searchGames($searchQuery, $filters, $perPage, 1, $sortField, $sortDirection, $ignoredGameIds);
         }
 
         $hydrator = app(GamesSearchResultHydrator::class);
@@ -169,6 +146,7 @@ class GamesSearchController extends Controller
                 'showFree' => $request->boolean('showFree'),
                 'showDemo' => $request->boolean('showDemo'),
                 'showSale' => $request->boolean('showSale'),
+                'showLost' => $request->boolean('showLost'),
                 'showIgnored' => $request->boolean('showIgnored'),
                 'sort' => $sortField,
                 'direction' => $sortDirection,
@@ -194,7 +172,7 @@ class GamesSearchController extends Controller
         $query = Game::query()
             ->select(['games.*'])
             ->fromItchio()
-            ->where('is_visible', true);
+            ->listed();
 
         if ($search = $request->get('q')) {
             $searchTerm = "%{$search}%";
@@ -300,7 +278,7 @@ class GamesSearchController extends Controller
     public function randomGame(): JsonResponse
     {
         $game = Game::query()
-            ->where('is_visible', true)
+            ->listed()
             ->whereNotNull('slug')
             ->inRandomOrder()
             ->first(['slug']);
@@ -428,6 +406,10 @@ class GamesSearchController extends Controller
         // Sale filter
         if ($request->boolean('showSale')) {
             $filters['is_on_sale'] = true;
+        }
+
+        if ($request->boolean('showLost')) {
+            $filters['is_delisted'] = true;
         }
 
         return $filters;

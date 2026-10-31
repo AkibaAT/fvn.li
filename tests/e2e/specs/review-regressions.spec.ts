@@ -30,15 +30,15 @@ for (const viewport of [
             `/games?noDefaults=1&search=${encodeURIComponent(fixture.originalName)}&selectedPlatforms[]=windows&selectedPlatforms[]=linux`,
         );
         await expect(page.getByText('Matching ignored games are excluded from results.', { exact: false })).toBeVisible();
-        await page.getByRole('button', { name: /^(Add to|Manage in) Lists$/ }).click();
+        await page.getByRole('button', { name: /^(Add to|Edit) Lists$/ }).click();
         const listName = `Review ${viewport.width} ${Date.now()}`;
         await page.getByPlaceholder('New list name').fill(listName);
         await page.getByRole('button', { name: 'Create & Add' }).click();
         await expect(page.getByRole('button', { name: `${listName} Remove` })).toBeVisible();
         await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
         await page.reload();
-        await expect(page.getByRole('button', { name: 'Manage in Lists' })).toBeVisible();
-        await page.getByRole('button', { name: /My Lists/ }).click();
+        await expect(page.getByRole('button', { name: 'Edit Lists' })).toBeVisible();
+        await page.getByRole('button', { name: /^In \d+ lists?$/ }).click();
         await page.getByRole('link', { name: listName, exact: true }).click();
         await expect(page.getByRole('heading', { name: listName, exact: true })).toBeVisible();
         await page.getByRole('button', { name: 'Edit', exact: true }).filter({ visible: true }).click();

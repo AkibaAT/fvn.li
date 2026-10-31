@@ -26,11 +26,23 @@
         handlePaidToggle,
         handleDemoToggle,
         handleSaleToggle,
+        handleLostToggle,
         orderedTags,
     } = untrack(() => useGameCard(props));
 
-    const { game, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, selectedStorePlatforms, nsfw, showPaid, showDemo, showSale } =
-        $derived(props);
+    const {
+        game,
+        selectedTags,
+        selectedPlatforms,
+        selectedLanguages,
+        selectedStatuses,
+        selectedStorePlatforms,
+        nsfw,
+        showPaid,
+        showDemo,
+        showSale,
+        showLost,
+    } = $derived(props);
 
     const wordCount = $derived(formatWordCount(game));
     const wordCountBreakdown = $derived(formatWordCountBreakdown(game) ?? undefined);
@@ -83,11 +95,13 @@
                 {showPaid}
                 {showDemo}
                 {showSale}
+                {showLost}
                 onStatusClick={handleStatus}
                 onNsfwToggle={handleNsfwToggle}
                 onPaidToggle={handlePaidToggle}
                 onDemoToggle={handleDemoToggle}
                 onSaleToggle={handleSaleToggle}
+                onLostToggle={handleLostToggle}
                 class="hidden shrink-0 md:inline-flex"
             />
 
@@ -131,11 +145,13 @@
                     {showPaid}
                     {showDemo}
                     {showSale}
+                    {showLost}
                     onStatusClick={handleStatus}
                     onNsfwToggle={handleNsfwToggle}
                     onPaidToggle={handlePaidToggle}
                     onDemoToggle={handleDemoToggle}
                     onSaleToggle={handleSaleToggle}
+                    onLostToggle={handleLostToggle}
                     class="shrink-0"
                 />
                 <Rating score={game.rating_score} count={game.rating_count} />

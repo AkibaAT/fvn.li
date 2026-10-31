@@ -35,7 +35,7 @@ class HomeController extends Controller
     {
         $stats = Cache::remember('home.stats', now()->addDay(), function () {
             return [
-                'totalGames' => Game::where('is_visible', true)->count(),
+                'totalGames' => Game::listed()->count(),
                 'totalRatings' => DB::table('ratings')
                     ->join('games', 'ratings.game_id', '=', 'games.id')
                     ->where('games.is_visible', true)

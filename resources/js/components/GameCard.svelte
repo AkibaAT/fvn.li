@@ -12,6 +12,7 @@
     import { useGameCard, type GameCardProps } from '@/hooks/useGameCard.svelte';
     import {
         GAME_TAG_LIMIT,
+        canReceiveUpdates,
         formatReleasedDate,
         formatReleaseDates,
         formatUpdatedDate,
@@ -40,13 +41,14 @@
         handlePaidToggle,
         handleDemoToggle,
         handleSaleToggle,
+        handleLostToggle,
         orderedTags,
     } = card;
 
     const auth = $derived(card.auth);
     const isIgnored = $derived(card.isIgnored);
 
-    const { game, compact, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, nsfw, showPaid, showDemo, showSale } =
+    const { game, compact, selectedTags, selectedPlatforms, selectedLanguages, selectedStatuses, nsfw, showPaid, showDemo, showSale, showLost } =
         $derived(props);
 
     const wordCountLabel = $derived(formatWordCount(game, { compact: true }));
@@ -80,11 +82,13 @@
                     {showPaid}
                     {showDemo}
                     {showSale}
+                    {showLost}
                     onStatusClick={handleStatus}
                     onNsfwToggle={handleNsfwToggle}
                     onPaidToggle={handlePaidToggle}
                     onDemoToggle={handleDemoToggle}
                     onSaleToggle={handleSaleToggle}
+                    onLostToggle={handleLostToggle}
                     {limit}
                     class="bg-surface shadow-sm"
                 />
@@ -121,8 +125,11 @@
     {#if compact}
         <Rating score={game.rating_score} count={game.rating_count} class="pt-1" />
     {:else}
-        <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 pt-1.5">
-            <span class="min-w-0 text-ui leading-snug {wordCountLabel ? 'text-fg-muted' : 'text-fg-faint'}" title={wordCountTitle}>
+        <div class="flex items-center justify-between gap-x-2 pt-1.5">
+            <span
+                class="min-w-0 truncate text-ui leading-snug {wordCountLabel ? 'text-fg-muted' : 'text-fg-faint'}"
+                title={wordCountTitle ?? wordCountLabel ?? undefined}
+            >
                 {wordCountLabel ?? '—'}
             </span>
             <Rating score={game.rating_score} count={game.rating_count} class="shrink-0" />
@@ -147,7 +154,7 @@
             <GameCardUserSection
                 gameId={game.id}
                 gameName={game.name}
-                isPaid={game.is_paid}
+                canReceiveUpdates={canReceiveUpdates(game)}
                 userProgress={game.user_progress?.[0] ?? null}
                 listMemberships={game.user_list_memberships ?? []}
                 privateTags={game.user_private_tags ?? []}

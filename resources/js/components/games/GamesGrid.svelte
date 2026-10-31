@@ -17,6 +17,7 @@
         | 'onPaidToggle'
         | 'onDemoToggle'
         | 'onSaleToggle'
+        | 'onLostToggle'
     >;
 
     interface Props extends FilterHandlers {
@@ -41,6 +42,7 @@
             showPaid: currentFilters.showPaid || false,
             showDemo: currentFilters.showDemo || false,
             showSale: currentFilters.showSale || false,
+            showLost: currentFilters.showLost || false,
             ignoredGameIds,
             ...handlers,
         };

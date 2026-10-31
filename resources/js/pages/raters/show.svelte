@@ -93,7 +93,7 @@
         getParams: () => ({ page, perPage, showOnlyReviews, showOnlyVisibleGames, sortField, sortDirection }),
     });
 
-    const ratingMeta = $derived(ratings ? buildPageMeta(ratings) : { current_page: 1, last_page: 0, per_page: perPage, total: 0 });
+    const ratingMeta = $derived(ratings ? buildPageMeta(ratings, ratings.data) : { current_page: 1, last_page: 0, per_page: perPage, total: 0 });
 
     const openHistory = (gameId: number, gameName: string) => {
         historyModal = { gameId, gameName, open: true };

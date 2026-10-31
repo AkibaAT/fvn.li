@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Jobs\PurgeModeratedGame;
+use App\Models\AdditionRequest;
 use App\Models\Game;
 use App\Services\Discord\DiscordCatalogMessageSyncService;
 use App\Services\EdgeCache;
@@ -35,6 +37,10 @@ class GameObserver
                 'game_name' => $game->name,
                 'first_visible_at' => $game->first_visible_at,
             ]);
+        }
+
+        if ($game->is_moderation_hidden) {
+            $this->hideByModeration($game);
         }
 
         $game->processPendingGameJams();
@@ -125,6 +131,24 @@ class GameObserver
             $this->bumpRecommendationCacheVersion();
         }
 
+        if ($game->wasChanged('is_moderation_hidden') && $game->is_moderation_hidden) {
+            $this->hideByModeration($game);
+        }
+
+        if ($game->wasChanged('delisted_at') && ! $game->wasChanged('is_visible') && $game->is_visible) {
+            $gameId = $game->id;
+
+            dispatch(function () use ($gameId) {
+                $game = Game::with(['tags', 'gameJams', 'gameVersions'])->find($gameId);
+                if ($game && $game->is_visible) {
+                    $game->searchable();
+                }
+            })->afterCommit();
+
+            HomePageCacheService::clearAll();
+            $this->bumpRecommendationCacheVersion();
+        }
+
         if ($game->isDirty(['status', 'game_engine', 'is_visible', 'content_type'])) {
             Log::debug('Clearing filter cache after game update', ['game_id' => $game->id]);
             GameFilterService::clearCache();
@@ -212,6 +236,12 @@ class GameObserver
         if ($game->optimized_thumbnails) {
             $game->clearOptimizedThumbnails();
         }
+    }
+
+    private function hideByModeration(Game $game): void
+    {
+        AdditionRequest::rejectPendingForGame($game);
+        PurgeModeratedGame::dispatch($game->id)->afterCommit();
     }
 
     private function bumpRecommendationCacheVersion(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,6 +23,8 @@ class AdditionRequest extends Model
     public const STATUS_APPROVED = 'approved';
 
     public const STATUS_REJECTED = 'rejected';
+
+    public const MODERATION_REJECTION_REASON = 'Hidden by moderation';
 
     /**
      * The attributes that are mass assignable.
@@ -74,50 +77,35 @@ class AdditionRequest extends Model
         $normalizedUrl = self::normalizeUrl($url);
 
         $request = self::where('normalized_url', $normalizedUrl)->first();
+        $isNew = $request === null;
 
-        if ($request) {
-            return [$request, false];
-        }
-
-        $request = self::create([
+        $request ??= self::create([
             'game_url' => $url,
             'normalized_url' => $normalizedUrl,
             'platform' => $platform,
             'status' => self::STATUS_PENDING,
         ]);
 
-        return [$request, true];
+        if ($request->isPending() && self::matchingGames($url)?->where('is_moderation_hidden', true)->exists()) {
+            $request->reject(null, self::MODERATION_REJECTION_REASON);
+        }
+
+        return [$request, $isNew];
     }
 
     public static function gameAlreadyExists(string $url): bool
     {
-        $normalizedUrl = self::normalizeUrl($url);
-        $possibleUrls = self::buildUrlVariants($url, $normalizedUrl);
+        return (bool) self::matchingGames($url)?->where('is_visible', true)->exists();
+    }
 
-        if (empty($possibleUrls)) {
-            return false;
-        }
+    public static function rejectPendingForGame(Game $game): void
+    {
+        $normalizedUrls = array_map(self::normalizeUrl(...), array_values(array_filter((array) $game->url)));
 
-        $platformKeys = ['itch_io', 'steam', 'other'];
-
-        return Game::where('is_visible', true)
-            ->where(function ($query) use ($platformKeys, $possibleUrls) {
-                $isFirstCondition = true;
-
-                foreach ($platformKeys as $platformKey) {
-                    $column = DB::raw("url->>'{$platformKey}'");
-
-                    if ($isFirstCondition) {
-                        $query->whereIn($column, $possibleUrls);
-                        $isFirstCondition = false;
-
-                        continue;
-                    }
-
-                    $query->orWhereIn($column, $possibleUrls);
-                }
-            })
-            ->exists();
+        self::where('status', self::STATUS_PENDING)
+            ->whereIn('normalized_url', $normalizedUrls)
+            ->get()
+            ->each(fn (self $request) => $request->reject(null, self::MODERATION_REJECTION_REASON));
     }
 
     /**
@@ -134,6 +122,37 @@ class AdditionRequest extends Model
         $normalized = strtok($normalized, '#');
 
         return strtolower($normalized);
+    }
+
+    /**
+     * @return Builder<Game>|null
+     */
+    private static function matchingGames(string $url): ?Builder
+    {
+        $possibleUrls = self::buildUrlVariants($url, self::normalizeUrl($url));
+
+        if (empty($possibleUrls)) {
+            return null;
+        }
+
+        $platformKeys = ['itch_io', 'steam', 'other'];
+
+        return Game::where(function ($query) use ($platformKeys, $possibleUrls) {
+            $isFirstCondition = true;
+
+            foreach ($platformKeys as $platformKey) {
+                $column = DB::raw("url->>'{$platformKey}'");
+
+                if ($isFirstCondition) {
+                    $query->whereIn($column, $possibleUrls);
+                    $isFirstCondition = false;
+
+                    continue;
+                }
+
+                $query->orWhereIn($column, $possibleUrls);
+            }
+        });
     }
 
     /**
@@ -239,12 +258,12 @@ class AdditionRequest extends Model
     /**
      * Mark this request as rejected.
      */
-    public function reject(User $reviewer, ?string $adminNotes = null): void
+    public function reject(?User $reviewer, ?string $adminNotes = null): void
     {
         $this->update([
             'status' => self::STATUS_REJECTED,
             'reviewed_at' => now(),
-            'reviewed_by' => $reviewer->id,
+            'reviewed_by' => $reviewer?->id,
             'rejection_reason' => $adminNotes,
             'game_id' => null,
         ]);

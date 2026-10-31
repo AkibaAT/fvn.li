@@ -46,8 +46,8 @@ class TrackingController extends Controller
         if ($input === []) {
             throw ValidationException::withMessages(['body' => 'Provide at least one tracking field.']);
         }
-        if ($visible->is_paid && ($input['is_receiving_updates'] ?? false)) {
-            throw ValidationException::withMessages(['is_receiving_updates' => 'Updates are unavailable for paid games.']);
+        if (! $visible->canReceiveUpdates() && ($input['is_receiving_updates'] ?? false)) {
+            throw ValidationException::withMessages(['is_receiving_updates' => $visible->is_paid ? 'Updates are unavailable for paid games.' : 'Updates are unavailable for delisted games.']);
         }
 
         return new TrackingResource($progress->save($request->user()->id, $visible, $input)->setRelation('game', $visible));

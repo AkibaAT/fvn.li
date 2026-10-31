@@ -146,6 +146,8 @@ class MeilisearchService
             $search->where('is_visible', true);
         }
 
+        $search->where('is_delisted', (bool) ($filters['is_delisted'] ?? false));
+
         $sortableFields = [
             'first_visible_at',
             'latest_version_published_at',
@@ -224,7 +226,7 @@ class MeilisearchService
         ];
     }
 
-    public function searchGamesFromDatabase(
+    private function searchGamesFromDatabase(
         string $query,
         array $filters,
         int $perPage,
@@ -284,6 +286,8 @@ class MeilisearchService
         } elseif (! isset($filters['show_hidden']) || ! $filters['show_hidden']) {
             $games->where('is_visible', true);
         }
+
+        ($filters['is_delisted'] ?? false) ? $games->whereNotNull('delisted_at') : $games->whereNull('delisted_at');
 
         foreach (['is_windows', 'is_linux', 'is_mac', 'is_android', 'is_web'] as $field) {
             if (isset($filters[$field])) {

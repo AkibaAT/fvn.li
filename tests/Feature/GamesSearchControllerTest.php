@@ -214,40 +214,12 @@ it('snaps an unsupported per-page value to the default page size', function (int
     'not a number' => ['many', 12],
 ]);
 
-it('falls back to database search when meilisearch fails', function () {
-    $matchingGame = makeSearchGame([
-        'name' => 'Fallback Match',
-        'authors' => 'Fallback Author',
-        'first_visible_at' => now(),
-    ]);
-    makeSearchGame([
-        'name' => 'Fallback Ignored',
-        'authors' => 'Fallback Author',
-        'first_visible_at' => now()->subDay(),
-    ]);
-    makeSearchGame([
-        'name' => 'Hidden Fallback Match',
-        'authors' => 'Fallback Author',
-        'is_visible' => false,
-    ]);
-
+it('fails the games index when meilisearch fails', function () {
     $this->mock(MeilisearchService::class, function (MockInterface $mock) {
-        $mock->makePartial()->shouldReceive('searchGames')
-            ->andThrow(new RuntimeException('search unavailable'));
+        $mock->shouldReceive('searchGames')->andThrow(new RuntimeException('search unavailable'));
     });
 
-    $response = $this->get(route('games.index', [
-        'search' => 'Fallback Match',
-        'perPage' => 8,
-    ]));
-
-    $response->assertOk();
-    $props = $response->viewData('page')['props'];
-
-    expect($props['games']['total'])->toBe(1)
-        ->and($props['games']['data'][0]['id'])->toBe($matchingGame->id)
-        ->and($props['games']['data'][0]['is_windows'])->toBeTrue()
-        ->and($props['games']['data'][0]['english_word_count'])->toBe(25000);
+    $this->get(route('games.index'))->assertServerError();
 });
 
 it('restricts search to games carrying every selected private tag of the signed-in user', function () {
@@ -432,9 +404,9 @@ it('returns 404 for random game when no visible games exist', function () {
         ->assertJsonPath('error', 'No games found');
 });
 
-it('retains safety, language, platform, reading time, and sort filters during an outage', function () {
+it('applies safety, language, platform, reading time, and sort filters in database search', function () {
     $tag = Tag::create(['name' => 'Excluded content']);
-    $base = ['name' => 'Fallback', 'platform' => 'steam', 'is_nsfw' => false, 'is_paid' => false];
+    $base = ['name' => 'Filtered', 'platform' => 'steam', 'is_nsfw' => false, 'is_paid' => false];
     $first = makeSearchGame($base + ['trending_score' => 90]);
     $second = makeSearchGame($base + ['trending_score' => 10]);
     makeSearchGame(array_replace($base, ['is_nsfw' => true]));
@@ -448,7 +420,6 @@ it('retains safety, language, platform, reading time, and sort filters during an
     $tooShort->latestVersion->languageStats()->update(['words' => 5]);
     $wrongPlatform = makeSearchGame($base);
     $wrongPlatform->latestVersion->update(['is_windows' => false]);
-    $this->partialMock(MeilisearchService::class, fn ($mock) => $mock->shouldReceive('searchGames')->andThrow(new RuntimeException('offline')));
     $response = $this->get(route('games.index', [
         'sfw' => true, 'showFree' => true, 'selectedLanguages' => ['eng'],
         'selectedStorePlatforms' => ['steam'], 'selectedPlatforms' => ['windows'],

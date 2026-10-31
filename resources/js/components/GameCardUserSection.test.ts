@@ -37,13 +37,13 @@ test('shows memberships before opening the dialog and accepts lists without owne
         gameName: 'Fixture',
         listMemberships: [{ list_id: 7, name: 'Favorites', type: 'custom', is_default: false }],
     });
-    expect(screen.getByRole('button', { name: 'Manage in Lists' })).toBeVisible();
-    await fireEvent.click(screen.getByRole('button', { name: 'My Lists 1' }));
+    expect(screen.getByRole('button', { name: 'Edit Lists' })).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: 'In 1 list' }));
     expect(screen.getByRole('link', { name: 'Favorites' })).toBeVisible();
-    await fireEvent.click(screen.getByRole('button', { name: 'Manage in Lists' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit Lists' }));
     await waitFor(() => expect(api.fetchUserLists).toHaveBeenCalled());
     expect(await screen.findByRole('button', { name: 'Favorites Remove' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'My Lists 1' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'In 1 list' })).toBeVisible();
 });
 
 test('notification failures are visible and keep the previous subscription state', async () => {

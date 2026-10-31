@@ -185,6 +185,10 @@ class UpdateWatchlist extends Command
             $this->info('  - Price from collection: $' . number_format($priceInDollars, 2) . $saleInfo);
         }
 
+        if (Game::where('itch_id', $gameId)->where('is_moderation_hidden', true)->exists()) {
+            return;
+        }
+
         DB::beginTransaction();
 
         try {

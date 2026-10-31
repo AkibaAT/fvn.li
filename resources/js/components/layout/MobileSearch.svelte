@@ -25,11 +25,7 @@
     });
 
     $effect(() => {
-        if (isOpen && inputEl) {
-            setTimeout(() => {
-                inputEl?.focus();
-            }, 100);
-        }
+        if (isOpen) inputEl?.focus();
     });
 
     function handleSubmit(e: Event) {

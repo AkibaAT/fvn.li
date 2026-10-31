@@ -65,7 +65,7 @@
     });
 
     const reviewStyle = useReviewStyleString();
-    const ratingMeta = $derived(ratings ? buildPageMeta(ratings) : { current_page: page, last_page: 0, per_page: perPage, total: 0 });
+    const ratingMeta = $derived(ratings ? buildPageMeta(ratings, ratings.data) : { current_page: page, last_page: 0, per_page: perPage, total: 0 });
     const rows = $derived(
         (ratings?.data ?? []).map((rating): RatingRowData => ({
             id: rating.id,

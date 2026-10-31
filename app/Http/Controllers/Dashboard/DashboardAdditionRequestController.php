@@ -54,6 +54,10 @@ class DashboardAdditionRequestController extends Controller
             $message .= " {$result['already_exists_count']} game(s) already exist on the site.";
         }
 
+        if ($result['rejected_count'] > 0) {
+            $message .= " {$result['rejected_count']} game(s) can't be added to the site.";
+        }
+
         if (! empty($result['errors'])) {
             $message .= ' Errors: ' . implode(', ', $result['errors']);
         }

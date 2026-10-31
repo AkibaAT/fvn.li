@@ -10,7 +10,7 @@
     import ListRow from '@/components/lists/ListRow.svelte';
     import PrivateGameTags from '@/components/PrivateGameTags.svelte';
     import PrivateTagChips from '@/components/PrivateTagChips.svelte';
-    import { formatAuthorsInline, formatWordCount, getGameThumbnail } from '@/utils/game-card-display';
+    import { canReceiveUpdates, formatAuthorsInline, formatDelisted, formatWordCount, getGameThumbnail } from '@/utils/game-card-display';
     import type { AvailableList, Game, VnListEntry } from '@/types/lists';
     import type { PrivateTagRef } from '@/types/game';
 
@@ -90,6 +90,9 @@
 {#snippet titleRow(titleClass: string)}
     <div class="flex items-center gap-2">
         <Link href={route('games.show', game.slug)} class={titleClass}>{game.effective_name}</Link>
+        {#if game.delisted_reason}
+            <span class="inline-flex" title={formatDelisted(game.delisted_reason, game.delisted_at)}><Badge tone="neutral">Lost</Badge></span>
+        {/if}
         {#if game.ratings && game.ratings.length > 0}
             <Link
                 href={route('reviews.show', game.ratings[0].id)}
@@ -119,7 +122,6 @@
     {#if wordCountLabel || hasCommunityRating}
         <div class={rowClass}>
             {#if wordCountLabel}<span class="text-fg-muted">{wordCountLabel}</span>{/if}
-            {#if wordCountLabel && hasCommunityRating}<span class="text-fg-faint" aria-hidden="true">·</span>{/if}
             {#if hasCommunityRating}
                 <Rating score={game.rating_score} count={game.rating_count} />
             {/if}
@@ -229,7 +231,7 @@
 
             {@render authorsRow('mt-0.5 truncate text-ui leading-snug text-fg-muted')}
 
-            {@render metaRow('mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-ui leading-snug')}
+            {@render metaRow('mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-ui leading-snug')}
 
             {@render privateTagsRow('mt-1')}
 
@@ -272,11 +274,11 @@
                     {@render ownerActionButtons('block w-full cursor-pointer text-left')}
                 </div>
 
-                {#if !game.is_paid}
-                    <div class="w-30 pr-1">
+                <div class="w-30 pr-1">
+                    {#if canReceiveUpdates(game)}
                         {@render notificationsSwitch()}
-                    </div>
-                {/if}
+                    {/if}
+                </div>
             {/if}
         {/snippet}
     </ListRow>
@@ -292,15 +294,20 @@
             </div>
         {/if}
 
-        <div class="{isOwner && canReorder ? 'pl-5' : ''} flex gap-4">
-            <GameImage {game} thumbnailUrl={getGameThumbnail(game)} alt={game.effective_name} class="h-32 w-32 rounded-md border border-border" />
+        <div class="{isOwner && canReorder ? 'pl-5' : ''} flex min-w-0 flex-1 gap-4">
+            <GameImage
+                {game}
+                thumbnailUrl={getGameThumbnail(game)}
+                alt={game.effective_name}
+                class="h-24 w-24 shrink-0 rounded-md border border-border sm:h-32 sm:w-32"
+            />
 
-            <div class="flex-1">
+            <div class="min-w-0 flex-1">
                 {@render titleRow('content-link text-lg')}
 
                 {@render authorsRow('mt-1 line-clamp-2 text-xs leading-snug text-fg-muted')}
 
-                {@render metaRow('mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs leading-snug')}
+                {@render metaRow('mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs leading-snug')}
 
                 {@render privateTagsRow('mt-2')}
 
@@ -346,13 +353,13 @@
 
                 {#if isOwner}
                     <div class="mt-3 flex flex-col gap-3">
-                        <div class="flex space-x-2 text-sm">
-                            {@render ownerActionButtons('cursor-pointer')}
+                        <div class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                            {@render ownerActionButtons('cursor-pointer px-0')}
                         </div>
 
                         <div class="h-px bg-border"></div>
 
-                        {#if !game.is_paid}
+                        {#if canReceiveUpdates(game)}
                             <div class="flex items-center justify-start gap-3">
                                 <span class="text-sm font-medium text-fg">Notifications</span>
                                 {@render notificationsSwitch()}
