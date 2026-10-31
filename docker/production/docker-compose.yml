@@ -1,13 +1,13 @@
 x-fvnli: &fvnli
   image: ${DOCKER_IMAGE}
 x-db: &db
-  image: postgres:18.6@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+  image: postgres:18.6@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6
 x-flaresolverr: &flaresolverr
   image: flaresolverr/flaresolverr:v3.5.2@sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767
 x-meilisearch: &meilisearch
-  image: getmeili/meilisearch:v1.53@sha256:c94e58ca09662dd6e65e8f1b0fd145767be3da7d5422a863a27b8d2b68e090c9
+  image: getmeili/meilisearch:v1.55@sha256:ff546679970126f8822e15d1b6a06bfbff1f2ce2e43f810cfb5258012f92de5c
 x-redis: &redis
-  image: redis:8.10.2@sha256:d5ac52db24d4e70566fe9944f22cf5bdc2bc739b05c0f426335161ea6c23f3b3
+  image: redis:8.10.2@sha256:97ec88159e6d7cfb5ddef9015386087d58a912de80112f06ebdfa78fa5989901
 x-denkit-stash: &denkit-stash
   image: ${DENKIT_STASH_IMAGE}
 x-rustfs: &rustfs
@@ -75,6 +75,12 @@ services:
       - /var/log/fvn/${COMPOSE_PROJECT_NAME}:/app/storage/logs
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/app/
+    deploy:
+      resources:
+        limits:
+          memory: 6GB
+        reservations:
+          memory: 2GB
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=web"
@@ -307,6 +313,10 @@ services:
       - "--save"
       - "60"
       - "1"
+      - "--maxmemory"
+      - "1gb"
+      - "--maxmemory-policy"
+      - "volatile-lru"
     healthcheck:
       test: [ "CMD-SHELL", "redis-cli ping | grep -qx PONG" ]
       interval: 10s
@@ -317,6 +327,12 @@ services:
       - fvnli
     volumes:
       - redis:/data
+    deploy:
+      resources:
+        limits:
+          memory: 2GB
+        reservations:
+          memory: 256MB
   flaresolverr:
     <<: *flaresolverr
     restart: unless-stopped

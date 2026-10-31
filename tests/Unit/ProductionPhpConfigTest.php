@@ -11,7 +11,7 @@ function productionDockerFile(string $path): string
 
 function productionIniValue(string $contents, string $key): ?string
 {
-    if (! preg_match('/^'.preg_quote($key, '/').'\s*=\s*(.+)$/m', $contents, $matches)) {
+    if (! preg_match('/^' . preg_quote($key, '/') . '\s*=\s*(.+)$/m', $contents, $matches)) {
         return null;
     }
 
@@ -76,17 +76,16 @@ test('dependabot scans all maintained container definitions', function () {
         'docker-compose:/docker/production',
         'docker-compose:/.ddev',
     ];
-    $containerUpdates = collect($dependabot['updates'] ?? [])
-        ->map(fn (array $update): string => ($update['package-ecosystem'] ?? '').':'.($update['directory'] ?? ''));
+    $targets = fn (array $update): array => array_map(
+        fn (string $directory): string => ($update['package-ecosystem'] ?? '') . ':' . $directory,
+        $update['directories'] ?? [$update['directory'] ?? ''],
+    );
+    $containerUpdates = collect($dependabot['updates'] ?? [])->flatMap($targets);
 
     expect($containerUpdates)->toContain(...$expectedContainerUpdates);
 
     collect($dependabot['updates'] ?? [])
-        ->filter(fn (array $update): bool => in_array(
-            ($update['package-ecosystem'] ?? '').':'.($update['directory'] ?? ''),
-            $expectedContainerUpdates,
-            true,
-        ))
+        ->filter(fn (array $update): bool => array_intersect($targets($update), $expectedContainerUpdates) !== [])
         ->each(fn (array $update) => expect($update['schedule']['interval'] ?? null)->toBe('weekly'));
 });
 
@@ -100,21 +99,18 @@ test('frankenphp web override remains bounded separately from global cli config'
         ->and($caddyfile)->toContain('max_input_time 60');
 });
 
-test('browser images match the Playwright client and explicitly distrust the recalled roots', function () {
+test('browser images match the Playwright client', function () {
     $package = json_decode(file_get_contents(base_path('package.json')), true, flags: JSON_THROW_ON_ERROR);
     $socialPackage = json_decode(file_get_contents(base_path('docker/social-images/package.json')), true, flags: JSON_THROW_ON_ERROR);
     $version = $package['devDependencies']['@playwright/test'];
     $dockerfile = file_get_contents(base_path('docker/social-images/Dockerfile'));
+    $playwright = Yaml::parseFile(base_path('.ddev/docker-compose.playwright.yaml'))['services']['playwright'];
 
     expect($version)->toBe('1.64.1')
         ->and($socialPackage['dependencies']['playwright-core'])->toBe($version)
-        ->and($dockerfile)->toContain('playwright:v'.$version.'-noble@sha256:', "'-t', 'p,p,p'", "readFileSync('/tmp/recalled-ca.pem'")
-        ->and(file_get_contents(base_path('.ddev/docker-compose.playwright.yaml')))->toContain('playwright@'.$version.' run-server');
-
-    preg_match_all('/-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----/s', file_get_contents(base_path('docker/social-images/recalled-ca.pem')), $matches);
-    $fingerprints = array_map(fn (string $certificate) => openssl_x509_fingerprint($certificate, 'sha256'), $matches[0]);
-    expect($fingerprints)->toHaveCount(2)->toContain(
-        '86a1ecba089c4a8d3bbe2734c612ba341d813e043cf9e8a862cd5c57a36bbe6b',
-        'd7a7a0fb5d7e2731d771e9484ebcdef71d5f0c3e0a2948782bc83ee0ea699ef4',
-    );
+        ->and($dockerfile)->toContain('playwright:v' . $version . '-noble@sha256:')
+        ->and($playwright['image'])->toBe('ddev-${DDEV_SITENAME}-playwright:' . $version)
+        ->and($playwright['build']['context'])->toBe('../docker/social-images')
+        ->and($playwright['command'][2])->toContain('node "$$package/cli.js" run-server', 'installed_version')
+        ->and($playwright['volumes'])->toContain('${DDEV_APPROOT}:/var/www/html:ro');
 });

@@ -1,7 +1,7 @@
 services:
   playwright:
     container_name: ddev-${DDEV_SITENAME}-playwright
-    # Keep the Dockerfile, run-server command, and @playwright/test version in sync.
+    # Keep the Dockerfile and @playwright/test version in sync; the server follows installed dependencies.
     image: ddev-${DDEV_SITENAME}-playwright:1.64.1
     build:
       context: ../docker/social-images
@@ -12,7 +12,30 @@ services:
     command:
       - /bin/sh
       - -c
-      - npx -y playwright@1.64.1 run-server --port 3000 --host 0.0.0.0
+      - |
+        package=/var/www/html/node_modules/playwright-core
+        installed_version() {
+          node -p "require('$$package/package.json').version" 2>/dev/null
+        }
+
+        while true; do
+          until version=$$(installed_version); do
+            sleep 2
+          done
+
+          node "$$package/cli.js" install chromium
+          node "$$package/cli.js" run-server --port 3000 --host 0.0.0.0 &
+          server=$$!
+
+          while kill -0 "$$server" 2>/dev/null && [ "$$(installed_version)" = "$$version" ]; do
+            sleep 5
+          done
+
+          kill "$$server" 2>/dev/null
+          wait "$$server" 2>/dev/null
+        done
+    volumes:
+      - ${DDEV_APPROOT}:/var/www/html:ro
     expose:
       - "3000"
     external_links:

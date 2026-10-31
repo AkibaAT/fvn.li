@@ -1,5 +1,4 @@
 [install]
-cafile = "/etc/ssl/certs/ca-certificates.crt"
 exact = true
 ignoreScripts = true
 minimumReleaseAge = 259200

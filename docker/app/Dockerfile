@@ -24,7 +24,6 @@ RUN apt-get update \
         curl \
         docker-cli \
         ffmpeg \
-        gpg \
         graphviz \
         imagemagick \
         libgl1 \
@@ -81,11 +80,6 @@ RUN apt-get update \
         && rm -rf /tmp/butler-extract /tmp/butler.zip \
         && butler -V \
     ) \
-    && (wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor | tee /etc/apt/trusted.gpg.d/adoptium.gpg > /dev/null) \
-    && (echo "deb https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list) \
-    && apt-get update \
-    && apt-get install -yqq --no-install-recommends --show-progress \
-        temurin-21-jdk \
     && install-php-extensions \
         bcmath \
         bz2 \
@@ -105,14 +99,6 @@ RUN apt-get update \
         sockets \
         zip \
     && cp ${PHP_INI_DIR}/php.ini-production ${PHP_INI_DIR}/php.ini
-
-# Temurin's bundled roots do not receive Debian's CA revocations.
-RUN apt-get update \
-    && apt-get install -yqq --no-install-recommends ca-certificates-java \
-    && ln -sf /etc/ssl/certs/java/cacerts "/usr/lib/jvm/temurin-21-jdk-$(dpkg --print-architecture)/lib/security/cacerts"
-
-ENV JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64
-ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 
 # Copy storage directory

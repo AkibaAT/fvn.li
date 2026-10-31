@@ -14,6 +14,7 @@ const testingEnvPrefix = [
   'SCOUT_DRIVER=collection',
   'MEILISEARCH_HOST=http://localhost:9999',
   'SESSION_DRIVER=database',
+  'PHP_CLI_SERVER_WORKERS=16',
 ].join(' ');
 
 export default defineConfig({
