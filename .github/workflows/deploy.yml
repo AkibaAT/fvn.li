@@ -181,7 +181,7 @@ jobs:
 
       - name: Log in to Docker Hub
         if: steps.vars.outputs.dockerfile_changed == 'true' || steps.vars.outputs.social_images_changed == 'true'
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -279,7 +279,7 @@ jobs:
         run: mv docker/production/docker-compose.yml docker-compose.yml
 
       - name: Deploy to server using rsync
-        uses: burnett01/rsync-deployments@2cbb5ed94b73d111d07a40b071b1c7d3c0272435 # 9
+        uses: burnett01/rsync-deployments@b8733f9f81fe2d9c29b756e57cd373429be7bae2 # 9
         with:
           switches: -rlptvz --delete --dirs --filter='P /public/build/assets/**' --exclude-from=scripts/rsync-exclude.txt --chmod=D2775,F664,F+X
           path: ./
