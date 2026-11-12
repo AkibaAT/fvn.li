@@ -4,6 +4,7 @@
     import { DragDropProvider, DragOverlay, KeyboardSensor, PointerSensor } from '@dnd-kit-svelte/svelte';
     import { useSortable } from '@dnd-kit-svelte/svelte/sortable';
     import { move } from '@dnd-kit/helpers';
+    import { Feedback } from '@dnd-kit/dom';
     import { defaultSortableTransition } from '@dnd-kit/dom/sortable';
 
     interface Props {
@@ -43,7 +44,7 @@
             {@const sortable = useSortable({
                 id: item.id,
                 index: () => index,
-                feedback: 'move',
+                plugins: () => (defaults) => [...defaults, Feedback.configure({ feedback: 'move' })],
                 transition: defaultSortableTransition,
                 disabled,
             })}
