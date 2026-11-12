@@ -1,0 +1,17 @@
+{
+    "_hash": "f29651d153b42f53bb515733e2aab79d4f1c9a1b921ade4f6a1cb0f5d6fc6ea1",
+    "patches": {
+        "socialiteproviders/steam": [
+            {
+                "package": "socialiteproviders/steam",
+                "description": "Call GetPlayerSummaries over HTTPS",
+                "url": "patches/socialiteproviders-steam-https.patch",
+                "sha256": "66e7464db5fc0a4a171d5c7831115133eb6aedf3b85a0681f802d5d741a6b8c1",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            }
+        ]
+    }
+}
