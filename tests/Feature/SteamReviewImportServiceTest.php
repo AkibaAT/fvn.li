@@ -9,6 +9,7 @@ use App\Services\SteamReviewImportService;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response;
 
 function steamImportGame(array $attributes = []): Game
@@ -21,10 +22,12 @@ function steamImportGame(array $attributes = []): Game
     ], $attributes));
 }
 
-function steamReviewServiceWithResponses(array $responses): SteamReviewImportService
+function steamReviewServiceWithResponses(array $responses, array &$history = []): SteamReviewImportService
 {
     $service = new SteamReviewImportService;
-    $client = new Client(['handler' => HandlerStack::create(new MockHandler($responses))]);
+    $stack = HandlerStack::create(new MockHandler($responses));
+    $stack->push(Middleware::history($history));
+    $client = new Client(['handler' => $stack]);
 
     $property = new ReflectionProperty($service, 'client');
     $property->setAccessible(true);
@@ -42,7 +45,7 @@ function steamReviewPayload(array $overrides = []): array
         'voted_up' => true,
         'votes_up' => 4,
         'votes_funny' => 1,
-        'weighted_vote_score' => '0.75',
+        'weighted_vote_score' => 0.75,
         'comment_count' => 2,
         'steam_purchase' => true,
         'received_for_free' => false,
@@ -76,15 +79,35 @@ it('imports Steam reviews, creates raters, converts BBCode, and preserves local 
         'published_at' => now(),
     ]);
 
+    $history = [];
     $service = steamReviewServiceWithResponses([
-        new Response(200, [], json_encode([
-            'success' => 1,
+        new Response(200, [], json_encode(['response' => [
             'reviews' => [steamReviewPayload()],
-        ])),
+            'cursor' => 'next-page',
+        ]])),
         new Response(200, [], '<profile><steamID><![CDATA[Steam Reviewer]]></steamID></profile>'),
-    ]);
+        new Response(200, [], json_encode(['response' => ['cursor' => 'next-page']])),
+    ], $history);
 
     $stats = $service->syncAllReviews($game);
+
+    $reviewRequest = $history[0]['request'];
+    parse_str($reviewRequest->getUri()->getQuery(), $query);
+
+    expect((string) $reviewRequest->getUri()->withQuery(''))->toBe('https://api.steampowered.com/IUserReviewsService/GetAppReviews/v1/')
+        ->and(json_decode($query['input_json'], true))->toBe([
+            'appid' => 123456,
+            'filter' => 1,
+            'languages' => ['english'],
+            'review_type' => 0,
+            'purchase_type' => 1,
+            'num_per_page' => 100,
+            'cursor' => '*',
+        ]);
+
+    parse_str($history[2]['request']->getUri()->getQuery(), $nextQuery);
+
+    expect(json_decode($nextQuery['input_json'], true)['cursor'])->toBe('next-page');
 
     expect($stats)->toBe([
         'fetched' => 1,
@@ -153,8 +176,7 @@ it('updates existing Steam reviews and skips unchanged or invalid records', func
     ]);
 
     $service = steamReviewServiceWithResponses([
-        new Response(200, [], json_encode([
-            'success' => 1,
+        new Response(200, [], json_encode(['response' => [
             'reviews' => [
                 steamReviewPayload([
                     'recommendationid' => 'rec-update',
@@ -178,7 +200,7 @@ it('updates existing Steam reviews and skips unchanged or invalid records', func
                 steamReviewPayload(['recommendationid' => 'no-text', 'review' => '   ']),
                 steamReviewPayload(['recommendationid' => 'non-english', 'language' => 'german']),
             ],
-        ])),
+        ]])),
     ]);
 
     $stats = $service->syncAllReviews($game);
@@ -191,28 +213,23 @@ it('updates existing Steam reviews and skips unchanged or invalid records', func
         ->and(Rating::where('external_id', 'rec-update')->first()?->review)->toBe('Updated review');
 });
 
-it('handles unsuccessful and failing Steam review API responses', function () {
-    $game = steamImportGame();
+it('counts an error when Steam returns a non-JSON, malformed, or failing response', function (Response $response) {
+    $service = steamReviewServiceWithResponses([$response]);
 
-    $unsuccessful = steamReviewServiceWithResponses([
-        new Response(200, [], json_encode(['success' => 0, 'reviews' => []])),
-    ]);
-
-    expect($unsuccessful->syncAllReviews($game))->toBe([
+    expect($service->syncAllReviews(steamImportGame()))->toBe([
         'fetched' => 0,
         'imported' => 0,
         'updated' => 0,
         'deleted' => 0,
         'skipped' => 0,
-        'errors' => 0,
+        'errors' => 1,
     ]);
-
-    $failing = steamReviewServiceWithResponses([
-        new Response(500, [], 'server error'),
-    ]);
-
-    expect($failing->syncAllReviews($game)['errors'])->toBe(1);
-});
+})->with([
+    'html page' => fn () => new Response(200, ['Content-Type' => 'text/html'], '<!DOCTYPE html><html></html>'),
+    'missing response object' => fn () => new Response(200, [], json_encode(['reviews' => []])),
+    'server error' => fn () => new Response(500, [], 'server error'),
+    'rate limited' => fn () => new Response(429, [], ''),
+]);
 
 it('rejects non-Steam games and Steam games without app IDs', function () {
     $service = new SteamReviewImportService;
