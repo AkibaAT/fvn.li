@@ -59,8 +59,7 @@ test('steam review sync preserves local reviews omitted by steam response', func
     ]);
 
     $service = new SteamReviewImportService;
-    setSteamReviewImportClient($service, [
-        'success' => 1,
+    setSteamReviewImportClient($service, ['response' => [
         'reviews' => [
             [
                 'recommendationid' => 'fetched-review',
@@ -75,7 +74,7 @@ test('steam review sync preserves local reviews omitted by steam response', func
                 ],
             ],
         ],
-    ]);
+    ]]);
 
     $stats = $service->syncAllReviews($game);
 

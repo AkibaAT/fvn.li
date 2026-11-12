@@ -12,9 +12,16 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use JsonException;
 
 class SteamReviewImportService
 {
+    private const int FILTER_RECENT = 1;
+
+    private const int REVIEW_TYPE_ALL = 0;
+
+    private const int PURCHASE_TYPE_ALL = 1;
+
     private Client $client;
 
     public function __construct()
@@ -69,14 +76,6 @@ class SteamReviewImportService
         while (true) {
             try {
                 $response = $this->fetchReviews($game->steam_app_id, $cursor);
-
-                if (! $response['success']) {
-                    Log::error('Steam API returned unsuccessful response', [
-                        'game_id' => $game->id,
-                        'response' => $response,
-                    ]);
-                    break;
-                }
 
                 $reviews = $response['reviews'] ?? [];
                 $stats['fetched'] += count($reviews);
@@ -162,27 +161,34 @@ class SteamReviewImportService
     }
 
     /**
-     * Fetch reviews from Steam API
+     * @return array{reviews?: list<array<string, mixed>>, cursor?: string}
      *
      * @throws GuzzleException
+     * @throws JsonException
      */
     private function fetchReviews(int|string $appId, string $cursor): array
     {
-        $url = "https://store.steampowered.com/appreviews/{$appId}";
-
-        $response = $this->client->get($url, [
+        $response = $this->client->get('https://api.steampowered.com/IUserReviewsService/GetAppReviews/v1/', [
             'query' => [
-                'json' => '1',
-                'filter' => 'recent', // Use 'recent' to enable proper pagination (will eventually return empty list)
-                'language' => 'english', // Only English reviews
-                'review_type' => 'all', // Both positive and negative
-                'purchase_type' => 'all', // All purchase types
-                'num_per_page' => '100', // Maximum 100 reviews per page
-                'cursor' => $cursor,
+                'input_json' => json_encode([
+                    'appid' => (int) $appId,
+                    'filter' => self::FILTER_RECENT,
+                    'languages' => ['english'],
+                    'review_type' => self::REVIEW_TYPE_ALL,
+                    'purchase_type' => self::PURCHASE_TYPE_ALL,
+                    'num_per_page' => 100,
+                    'cursor' => $cursor,
+                ], JSON_THROW_ON_ERROR),
             ],
         ]);
 
-        return json_decode($response->getBody()->getContents(), true);
+        $data = json_decode($response->getBody()->getContents(), true, flags: JSON_THROW_ON_ERROR);
+
+        if (! is_array($data['response'] ?? null)) {
+            throw new Exception('Steam review response is missing the response object');
+        }
+
+        return $data['response'];
     }
 
     /**
