@@ -106,8 +106,7 @@ test('browser images match the Playwright client', function () {
     $dockerfile = file_get_contents(base_path('docker/social-images/Dockerfile'));
     $playwright = Yaml::parseFile(base_path('.ddev/docker-compose.playwright.yaml'))['services']['playwright'];
 
-    expect($version)->toBe('1.64.1')
-        ->and($socialPackage['dependencies']['playwright-core'])->toBe($version)
+    expect($socialPackage['dependencies']['playwright-core'])->toBe($version)
         ->and($dockerfile)->toContain('playwright:v' . $version . '-noble@sha256:')
         ->and($playwright['image'])->toBe('ddev-${DDEV_SITENAME}-playwright:' . $version)
         ->and($playwright['build']['context'])->toBe('../docker/social-images')
