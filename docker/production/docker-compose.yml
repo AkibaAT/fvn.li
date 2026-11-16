@@ -1,13 +1,13 @@
 x-fvnli: &fvnli
   image: ${DOCKER_IMAGE}
 x-db: &db
-  image: postgres:18.6@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6
+  image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
 x-flaresolverr: &flaresolverr
   image: flaresolverr/flaresolverr:v3.5.2@sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767
 x-meilisearch: &meilisearch
-  image: getmeili/meilisearch:v1.55@sha256:88f2a08eb9532cc54a60d8fd014a23bf5cfda33d0c01ecbbaca9b4b463e17466
+  image: getmeili/meilisearch:v1.56@sha256:9600db22be3fcbf3d506176d3a73dd70a65c5719d9aa1d2837355b75afb8f4fb
 x-redis: &redis
-  image: redis:8.10.2@sha256:97ec88159e6d7cfb5ddef9015386087d58a912de80112f06ebdfa78fa5989901
+  image: redis:8.10.3@sha256:1f88291b4c57bdf249f02eb085a8669889b2d2954e91d4de5118a5da6b78dd53
 x-denkit-stash: &denkit-stash
   image: ${DENKIT_STASH_IMAGE}
 x-rustfs: &rustfs
