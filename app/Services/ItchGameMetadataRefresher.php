@@ -87,16 +87,15 @@ class ItchGameMetadataRefresher
 
     private function syncAuthors(Game $game, mixed $authorsCell): void
     {
-        $game->authors = '';
+        $links = [];
         foreach ($authorsCell->querySelectorAll('a') as $author) {
-            if ($game->authors !== '') {
-                $game->authors .= ',<br>';
-            }
-            $game->authors .= sprintf(
+            $links[] = sprintf(
                 '<a href="%s" target="_blank">%s</a>',
-                $author->getAttribute('href'),
-                $author->textContent
+                e($author->getAttribute('href')),
+                e($author->textContent)
             );
         }
+
+        $game->authors = implode(',<br>', $links);
     }
 }

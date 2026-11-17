@@ -722,7 +722,7 @@ it('includes the card facts the row renders: authors, store, community score and
     $props = $this->actingAs($owner)->get(route('lists.show', $list))->assertOk()->viewData('page')['props'];
     $row = $props['vnList']['entries'][0]['game'];
 
-    expect($row['authors'])->toBe('Ada Lovelace<br>Grace Hopper')
+    expect($row['authors'])->toBe('Ada Lovelace<br />Grace Hopper')
         ->and($row['platform'])->toBe('steam')
         ->and($row['rating_score'])->toBe(4.5)
         ->and($row['rating_count'])->toBe(12)

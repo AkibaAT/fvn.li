@@ -1,7 +1,7 @@
 <script lang="ts">
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import { untrack } from 'svelte';
-    import { Link } from '@inertiajs/svelte';
+    import { Link, router } from '@inertiajs/svelte';
     import { Card } from '@/components/ui';
     import PageHeader from '@/components/layout/PageHeader.svelte';
 
@@ -17,8 +17,14 @@
 
     const title = untrack(() => metaTags?.title || 'Login with Telegram');
 
+    type TelegramUser = Record<string, string | number>;
+    type TelegramWindow = Window & { onTelegramAuth?: (user: TelegramUser) => void };
+
     $effect(() => {
         if (!widgetContainer) return;
+
+        const telegramWindow = window as TelegramWindow;
+        telegramWindow.onTelegramAuth = (user) => router.post(route('auth.telegram.callback'), user);
 
         const scriptEl = document.createElement('script');
         scriptEl.async = true;
@@ -26,7 +32,7 @@
         scriptEl.setAttribute('data-telegram-login', 'fvnli_bot');
         scriptEl.setAttribute('data-size', 'large');
         scriptEl.setAttribute('data-userpic', 'true');
-        scriptEl.setAttribute('data-auth-url', route('auth.callback', { provider: 'telegram' }));
+        scriptEl.setAttribute('data-onauth', 'onTelegramAuth(user)');
         scriptEl.setAttribute('data-request-access', 'write');
 
         const container = widgetContainer;
@@ -34,6 +40,7 @@
         container.appendChild(scriptEl);
 
         return () => {
+            delete telegramWindow.onTelegramAuth;
             if (container) {
                 container.innerHTML = '';
             }

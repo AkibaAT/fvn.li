@@ -288,9 +288,7 @@ class SteamDataSyncService
             $developerNames = $appData['developers'];
             $game->developer = implode(', ', $developerNames);
 
-            // Also set authors field for consistency with itch.io games
-            // For Steam games, we use plain text instead of HTML links
-            $game->authors = implode(', ', $developerNames);
+            $game->authors = e(implode(', ', $developerNames));
 
             Log::debug('Extracted Steam developers', [
                 'app_id' => $appId,

@@ -324,3 +324,14 @@ test('refresh version tolerates browser uploads without filenames', function () 
         ->and($version->is_web)->toBeTrue()
         ->and($game->gameVersions()->count())->toBe(1);
 });
+
+test('authors markup is sanitized when assigned', function () {
+    $game = new Game;
+    $game->authors = '<a href="https://dev.itch.io" target="_blank">Dev</a><img src=x onerror=alert(1)><script>alert(1)</script>';
+
+    expect($game->authors)
+        ->toContain('<a href="https://dev.itch.io"')
+        ->toContain('Dev</a>')
+        ->not->toContain('onerror')
+        ->not->toContain('<script');
+});

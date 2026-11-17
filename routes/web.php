@@ -254,10 +254,16 @@ Route::get('system/status', [SystemStatusController::class, 'systemStatus'])
 
 // Social Authentication Routes
 Route::get('auth/telegram', function () {
+    session()->put(SocialAuthController::TELEGRAM_LOGIN_SESSION_KEY, true);
+
     return Inertia::render('auth/telegram-login', [
         'metaTags' => new MetaTags(title: 'Login with Telegram')->toArray(),
     ]);
 })->name('auth.telegram');
+
+Route::post('auth/telegram/callback', [SocialAuthController::class, 'handleProviderCallback'])
+    ->defaults('provider', 'telegram')
+    ->name('auth.telegram.callback');
 
 Route::get('auth/{provider}/redirect', [SocialAuthController::class, 'redirectToProvider'])
     ->name('auth.redirect');

@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\SocialAuthController;
 use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Testing\TestResponse;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
 
@@ -379,32 +381,45 @@ test('provider callback links to an existing user by email and updates token dat
         ->and($account->token_expires_at)->not->toBeNull();
 });
 
-test('telegram callback creates account from verified provider data', function () {
-    Socialite::shouldReceive('driver->user')
-        ->once()
-        ->andReturn(fakeSocialiteUser(
-            id: 'telegram-1',
-            name: 'Tele Gram',
-            email: null,
-            nickname: 'telegrammer',
-            avatar: 'https://example.com/telegram.png',
-            raw: [
-                'id' => 'telegram-1',
-                'first_name' => 'Tele',
-                'last_name' => 'Gram',
-                'username' => 'telegrammer',
-                'photo_url' => 'https://example.com/telegram.png',
-            ],
-        ));
+function postTelegramCallback(array $overrides = []): TestResponse
+{
+    config(['services.telegram.client_secret' => 'telegram-bot-token']);
 
-    $this->get(route('auth.callback', [
-        'provider' => 'telegram',
-        'id' => 'telegram-1',
-        'first_name' => 'Tele',
-        'last_name' => 'Gram',
-        'username' => 'telegrammer',
-        'photo_url' => 'https://example.com/telegram.png',
-    ]))->assertRedirect(route('games.index'));
+    return test()
+        ->withSession([SocialAuthController::TELEGRAM_LOGIN_SESSION_KEY => true])
+        ->post(route('auth.telegram.callback'), [
+            'id' => 'telegram-1',
+            'first_name' => 'Tele',
+            'last_name' => 'Gram',
+            'username' => 'telegrammer',
+            'photo_url' => 'https://example.com/telegram.png',
+            'auth_date' => now()->timestamp,
+            ...$overrides,
+        ]);
+}
+
+function fakeTelegramUser(): SocialiteUser
+{
+    return fakeSocialiteUser(
+        id: 'telegram-1',
+        name: 'Tele Gram',
+        email: null,
+        nickname: 'telegrammer',
+        avatar: 'https://example.com/telegram.png',
+        raw: [
+            'id' => 'telegram-1',
+            'first_name' => 'Tele',
+            'last_name' => 'Gram',
+            'username' => 'telegrammer',
+            'photo_url' => 'https://example.com/telegram.png',
+        ],
+    );
+}
+
+test('telegram callback creates account from verified provider data', function () {
+    Socialite::shouldReceive('driver->user')->once()->andReturn(fakeTelegramUser());
+
+    postTelegramCallback()->assertRedirect(route('games.index'));
 
     $account = SocialAccount::where('provider_name', 'telegram')
         ->where('provider_id', 'telegram-1')
@@ -426,20 +441,66 @@ test('telegram callback rejects unsigned request data instead of trusting forged
         ->once()
         ->andThrow(new RuntimeException('Invalid Telegram hash'));
 
-    $this->get(route('auth.callback', [
-        'provider' => 'telegram',
-        'id' => 'victim-telegram-id',
-        'first_name' => 'Forged',
-        'last_name' => 'Attacker',
-        'username' => 'forged_attacker',
-        'photo_url' => 'https://example.com/forged.png',
-    ]))
+    postTelegramCallback(['id' => 'victim-telegram-id'])
         ->assertRedirect(route('games.index'))
         ->assertSessionHas('error', 'Failed to authenticate with telegram');
 
     expect(Auth::check())->toBeFalse()
-        ->and(SocialAccount::where('provider_name', 'telegram')->where('provider_id', 'victim-telegram-id')->count())->toBe(1)
-        ->and(User::where('name', 'Forged Attacker')->exists())->toBeFalse();
+        ->and(SocialAccount::where('provider_name', 'telegram')->where('provider_id', 'victim-telegram-id')->count())->toBe(1);
+});
+
+test('telegram callback link opened by a logged in user links nothing', function () {
+    config(['services.telegram.client_secret' => 'telegram-bot-token']);
+    Socialite::shouldReceive('driver')->never();
+    $victim = User::factory()->create();
+
+    $this->actingAs($victim)
+        ->withSession([SocialAuthController::TELEGRAM_LOGIN_SESSION_KEY => true])
+        ->get(route('auth.callback', [
+            'provider' => 'telegram',
+            'id' => 'telegram-1',
+            'auth_date' => now()->timestamp,
+            'hash' => str_repeat('a', 64),
+        ]))
+        ->assertSessionHas('error', 'Failed to authenticate with telegram');
+
+    expect($victim->socialAccounts()->count())->toBe(0);
+});
+
+test('telegram callback requires a login started on the telegram page', function () {
+    config(['services.telegram.client_secret' => 'telegram-bot-token']);
+    Socialite::shouldReceive('driver')->never();
+
+    $this->post(route('auth.telegram.callback'), ['id' => 'telegram-1', 'auth_date' => now()->timestamp])
+        ->assertSessionHas('error', 'Failed to authenticate with telegram');
+
+    expect(Auth::check())->toBeFalse();
+});
+
+test('telegram callback rejects stale auth data', function () {
+    Socialite::shouldReceive('driver')->never();
+
+    postTelegramCallback(['auth_date' => now()->subMinutes(10)->timestamp])
+        ->assertSessionHas('error', 'Failed to authenticate with telegram');
+
+    expect(Auth::check())->toBeFalse();
+});
+
+test('telegram callback is refused when the bot token is not configured', function () {
+    Socialite::shouldReceive('driver')->never();
+    config(['services.telegram.client_secret' => null]);
+
+    $this->withSession([SocialAuthController::TELEGRAM_LOGIN_SESSION_KEY => true])
+        ->post(route('auth.telegram.callback'), ['id' => 'telegram-1', 'auth_date' => now()->timestamp])
+        ->assertSessionHas('error', 'Failed to authenticate with telegram');
+
+    expect(Auth::check())->toBeFalse();
+});
+
+test('telegram login page marks the session so the callback can be posted', function () {
+    $this->get(route('auth.telegram'))
+        ->assertOk()
+        ->assertSessionHas(SocialAuthController::TELEGRAM_LOGIN_SESSION_KEY, true);
 });
 
 test('callback errors redirect to games index with a flash error', function () {

@@ -12,7 +12,7 @@ class GameSocialMetaBuilder
     public function build(Game $game, $reviews, ?array $englishStats = null): MetaTags
     {
         $title = $game->effective_name;
-        $author = $game->authors ? trim(strip_tags($game->authors)) : null;
+        $author = $this->plainAuthors($game);
         $description = $game->description ?: "Discover {$game->effective_name} on fvn.li - Visual Novel Database and Analytics";
         $image = $game->getThumbnailUrl('default') ?? asset(config('social.images.default'));
         $platforms = $this->platforms($game);
@@ -45,10 +45,22 @@ class GameSocialMetaBuilder
         );
     }
 
+    private function plainAuthors(Game $game): ?string
+    {
+        if (! $game->authors) {
+            return null;
+        }
+
+        $text = trim(html_entity_decode(strip_tags($game->authors), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+        return $text === '' ? null : $text;
+    }
+
     private function description(Game $game, string $description, array $platforms, $reviews, ?array $englishStats): string
     {
-        if ($game->authors) {
-            $description .= ' by ' . strip_tags($game->authors);
+        $authors = $this->plainAuthors($game);
+        if ($authors !== null) {
+            $description .= ' by ' . $authors;
         }
         if ($game->status) {
             $description .= " ({$game->status})";

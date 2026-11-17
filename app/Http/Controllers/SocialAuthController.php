@@ -19,6 +19,10 @@ use Laravel\Socialite\Facades\Socialite;
 
 class SocialAuthController extends Controller
 {
+    public const string TELEGRAM_LOGIN_SESSION_KEY = 'auth.telegram_login_started';
+
+    private const int TELEGRAM_AUTH_MAX_AGE_SECONDS = 300;
+
     /**
      * Redirect the user to the provider authentication page.
      */
@@ -74,6 +78,7 @@ class SocialAuthController extends Controller
     {
         try {
             if ($provider === 'telegram') {
+                $this->assertTelegramLoginIsAcceptable();
                 $socialiteUser = Socialite::driver($provider)->user();
 
                 if (! $socialiteUser->getId()) {
@@ -203,6 +208,22 @@ class SocialAuthController extends Controller
             session()->flash('error', 'Failed to authenticate with ' . $provider);
 
             return redirect(route('games.index'));
+        }
+    }
+
+    private function assertTelegramLoginIsAcceptable(): void
+    {
+        if (! request()->isMethod('post') || ! session()->pull(self::TELEGRAM_LOGIN_SESSION_KEY)) {
+            throw new Exception('Telegram login was not started from the login page');
+        }
+
+        if (blank(config('services.telegram.client_secret'))) {
+            throw new Exception('Telegram login is not configured');
+        }
+
+        $age = now()->timestamp - (int) request('auth_date');
+        if (abs($age) > self::TELEGRAM_AUTH_MAX_AGE_SECONDS) {
+            throw new Exception('Telegram login data is stale');
         }
     }
 

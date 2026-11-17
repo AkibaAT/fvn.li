@@ -23,6 +23,7 @@ use App\Services\FlareSolverrSessionManager;
 use App\Services\GameArchiveOptimizationService;
 use App\Services\GameArchiveOptimizerDockerRunner;
 use App\Services\GameStatsService;
+use App\Services\HtmlSanitizerService;
 use App\Services\ItchHttpClientFactory;
 use App\Services\ItchHttpClientService;
 use App\Services\ItchIoProvider;
@@ -50,6 +51,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->forgetInstance('log');
         $this->app->singleton('log', fn ($app) => new DiagnosticLogManager($app));
+
+        $this->app->singleton(HtmlSanitizerService::class);
 
         $this->app->singleton(LanguageMappingService::class, function () {
             return new LanguageMappingService;

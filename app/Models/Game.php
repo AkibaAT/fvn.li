@@ -15,6 +15,7 @@ use App\Models\Concerns\HasGameSearch;
 use App\Models\Concerns\HasGameTags;
 use App\Services\GameDataSyncService;
 use App\Services\GameVersionParser;
+use App\Services\HtmlSanitizerService;
 use App\Support\DelistedReason;
 use DateMalformedStringException;
 use Exception;
@@ -451,6 +452,13 @@ class Game extends Model
     {
         return Attribute::make(
             get: fn () => $this->getPrimaryUrl()
+        );
+    }
+
+    protected function authors(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => app(HtmlSanitizerService::class)->sanitizeAuthors($value)
         );
     }
 
