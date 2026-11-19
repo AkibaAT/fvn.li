@@ -65,3 +65,16 @@ test('constrainToPopular eager load hides rare tags via whereIn popular ids', fu
 
     expect($subject->tags->pluck('id')->all())->toBe([$popular->id]);
 });
+
+test('disclosure tags are public below the minimum game count', function () {
+    $disclosure = Tag::create(['name' => 'AI Assisted']);
+    $rare = Tag::create(['name' => 'Rare Tag']);
+
+    $game = Game::factory()->create();
+    $game->tags()->attach([$disclosure->id, $rare->id]);
+
+    $game->load(['tags' => Tag::constrainToPopular()]);
+
+    expect(Tag::popularGameCounts())->toBe([$disclosure->id => 1])
+        ->and($game->tags->pluck('id')->all())->toBe([$disclosure->id]);
+});

@@ -18,6 +18,11 @@ class Tag extends Model
 {
     use HasFactory, Searchable;
 
+    /**
+     * Shown publicly regardless of how many games use them.
+     */
+    public const DISCLOSURE_SLUGS = ['no-ai', 'ai-generated', 'ai-assisted'];
+
     protected $fillable = [
         'name',
         'slug',
@@ -41,10 +46,16 @@ class Tag extends Model
     public static function popularGameCounts(): array
     {
         return Cache::remember(self::popularCacheKey(), 3600, function () {
+            $slugPlaceholders = implode(', ', array_fill(0, count(self::DISCLOSURE_SLUGS), '?'));
+
             return DB::table('game_tag')
-                ->select('tag_id', DB::raw('COUNT(*) as games_count'))
-                ->groupBy('tag_id')
-                ->havingRaw('COUNT(*) >= ?', [self::minPublicGameCount()])
+                ->join('tags', 'tags.id', '=', 'game_tag.tag_id')
+                ->select('game_tag.tag_id', DB::raw('COUNT(*) as games_count'))
+                ->groupBy('game_tag.tag_id', 'tags.slug')
+                ->havingRaw(
+                    "COUNT(*) >= ? OR tags.slug IN ({$slugPlaceholders})",
+                    [self::minPublicGameCount(), ...self::DISCLOSURE_SLUGS]
+                )
                 ->pluck('games_count', 'tag_id')
                 ->map(fn ($count) => (int) $count)
                 ->all();
@@ -65,7 +76,7 @@ class Tag extends Model
     }
 
     /**
-     * Eager-load constraint that keeps only tags used by enough games.
+     * Eager-load constraint that keeps only publicly shown tags.
      */
     public static function constrainToPopular(): Closure
     {
