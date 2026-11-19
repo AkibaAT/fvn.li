@@ -194,7 +194,6 @@ else
     artisan config:clear
     artisan route:clear
     artisan view:clear
-    artisan cache:clear
 
     # Run migrations
     artisan migrate --force
@@ -209,6 +208,8 @@ else
     compose_exec_root supervisorctl restart laravel-nightwatch:*
     compose_exec_root supervisorctl restart laravel-queue:*
     compose_exec_root supervisorctl restart inertia-ssr:*
+
+    artisan cache:clear
 
     docker compose restart stats-runner
 
