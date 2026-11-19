@@ -143,6 +143,7 @@ it('anonymizes click statistic ips when forced', function () {
 
 it('creates monthly and yearly audit partitions through database statements', function () {
     Log::spy();
+    DB::shouldReceive('getConnections')->andReturn([]);
     DB::shouldReceive('selectOne')->times(14)->andReturn(null);
     DB::shouldReceive('statement')->times(14)->andReturnTrue();
 
@@ -158,6 +159,7 @@ it('creates monthly and yearly audit partitions through database statements', fu
 
 it('reports skipped and failed audit partition creation', function () {
     Log::spy();
+    DB::shouldReceive('getConnections')->andReturn([]);
     DB::shouldReceive('selectOne')->once()->andReturn((object) ['exists' => 1]);
     DB::shouldReceive('selectOne')->once()->andReturn(null);
     DB::shouldReceive('statement')->once()->andThrow(new RuntimeException('not partitioned'));
