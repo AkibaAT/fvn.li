@@ -45,7 +45,8 @@ class AccountMergeService
             $this->mergeRatings($mergingUser, $otherUser);
             $this->mergeRemainingData($mergingUser, $otherUser);
 
-            $mergingUser->update(['is_review_banned' => $mergingUser->is_review_banned || $otherUser->is_review_banned]);
+            $mergingUser->is_review_banned = $mergingUser->is_review_banned || $otherUser->is_review_banned;
+            $mergingUser->save();
             $otherUser->tokens()->delete();
             DB::table('sessions')->where('user_id', $otherUser->id)->delete();
             $otherUser->delete();

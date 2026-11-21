@@ -324,7 +324,7 @@ test('creates a missing default list while preserving the target account reading
 test('preserves user owned records and resolves duplicate histories without aborting postgres', function () {
     $target = $this->mergingUser;
     $source = $this->otherUser;
-    $source->update(['is_review_banned' => true, 'is_admin' => true]);
+    $source->forceFill(['is_review_banned' => true, 'is_admin' => true])->save();
     $game = Game::factory()->create(['custom_page_updated_by' => $source->id]);
     $version = GameVersion::factory()->for($game)->create();
     $rating = Rating::create([

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models\Concerns;
 
+use InvalidArgumentException;
+
 trait HasGamePlatformSupport
 {
     public function scopeByUrl($query, string $url)
@@ -26,7 +28,11 @@ trait HasGamePlatformSupport
 
     public function scopeByUrlForPlatform($query, string $url, string $platform)
     {
-        return $query->whereRaw("url->>'{$platform}' = ?", [$url]);
+        if (! in_array($platform, ['itch_io', 'steam', 'other'], true)) {
+            throw new InvalidArgumentException("Unsupported platform: {$platform}");
+        }
+
+        return $query->whereRaw('url->>? = ?', [$platform, $url]);
     }
 
     public function scopeFromPlatform($query, string $platform)

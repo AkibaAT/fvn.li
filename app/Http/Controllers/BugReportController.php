@@ -61,7 +61,7 @@ class BugReportController extends Controller
         }
 
         $validated = $request->validate([
-            'page_url' => 'required|string|max:2048',
+            'page_url' => 'required|url:http,https|max:2048',
             'page_title' => 'nullable|string|max:255',
             'description' => 'required|string|min:10|max:5000',
             'request_parameters' => 'nullable|array|max:' . self::MAX_REQUEST_PARAMETER_COUNT,

@@ -351,7 +351,7 @@ test('provider callback only creates a persistent login when remember was reques
         && $event->remember === true);
 });
 
-test('provider callback links to an existing user by email and updates token data', function () {
+test('provider callback does not implicitly link to an existing user by email', function () {
     $existingUser = User::factory()->create([
         'name' => 'Existing',
         'email' => 'existing@example.com',
@@ -370,15 +370,53 @@ test('provider callback links to an existing user by email and updates token dat
         ->assertRedirect(route('games.index'));
 
     $existingUser->refresh();
-    expect(User::where('email', 'existing@example.com')->count())->toBe(1)
-        ->and($existingUser->name)->toBe('Global Discord');
+    expect($existingUser->name)->toBe('Existing')
+        ->and($existingUser->socialAccounts()->count())->toBe(0)
+        ->and(Auth::id())->not->toBe($existingUser->id);
 
-    $account = $existingUser->socialAccounts()->where('provider_name', 'discord')->first();
+    $newUser = Auth::user();
+    expect($newUser)->not->toBeNull()
+        ->and($newUser->email)->toBeNull()
+        ->and($newUser->name)->toBe('Global Discord');
+
+    $account = $newUser->socialAccounts()->where('provider_name', 'discord')->first();
     expect($account)->not->toBeNull()
         ->and($account->provider_id)->toBe('discord-1')
         ->and($account->token)->toBe('token-discord-1')
         ->and($account->refresh_token)->toBe('refresh-discord-1')
-        ->and($account->token_expires_at)->not->toBeNull();
+        ->and($account->token_expires_at)->not->toBeNull()
+        ->and($account->toArray())->not->toHaveKeys(['token', 'refresh_token']);
+});
+
+test('explicit logged-in account merge links social account to the merging user', function () {
+    $existingUser = User::factory()->create([
+        'name' => 'Existing',
+        'email' => 'existing@example.com',
+    ]);
+
+    Socialite::shouldReceive('driver->user')
+        ->once()
+        ->andReturn(fakeSocialiteUser(
+            id: 'discord-merge-1',
+            name: 'Discord Name',
+            email: 'existing@example.com',
+            raw: ['global_name' => 'Global Discord']
+        ));
+
+    $this->actingAs($existingUser)
+        ->withSession(['merging_user_id' => $existingUser->id])
+        ->get(route('auth.callback', ['provider' => 'discord']))
+        ->assertRedirect(route('dashboard'))
+        ->assertSessionHas('success', 'Social account successfully linked.');
+
+    expect($existingUser->socialAccounts()->where('provider_name', 'discord')->where('provider_id', 'discord-merge-1')->exists())->toBeTrue();
+});
+
+test('unsupported oauth providers return 404', function () {
+    Socialite::shouldReceive('driver')->never();
+
+    $this->get('/auth/unknown-provider/redirect')->assertNotFound();
+    $this->get('/auth/unknown-provider/callback')->assertNotFound();
 });
 
 function postTelegramCallback(array $overrides = []): TestResponse

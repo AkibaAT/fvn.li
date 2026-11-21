@@ -7,6 +7,7 @@ namespace App\Support;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Uri\WhatWg\Url;
 
 class SafeRedirectUrl
 {
@@ -25,21 +26,23 @@ class SafeRedirectUrl
             return url($url);
         }
 
-        $host = parse_url($url, PHP_URL_HOST);
-        $scheme = parse_url($url, PHP_URL_SCHEME);
-        if (! is_string($host) || ! is_string($scheme) || strtolower($scheme) !== 'https') {
-            self::logRejected($url, $request);
+        $parsed = Url::parse($url);
+        $host = $parsed?->getAsciiHost();
+        $scheme = $parsed?->getScheme();
+        if (! is_string($host) || $host === '' || $scheme !== 'https') {
+            self::logRejected($url, $request, $host, $scheme);
 
             return null;
         }
 
+        $appHost = Url::parse((string) config('app.url'))?->getAsciiHost();
         $allowedHosts = array_filter(array_unique([
             $request?->getHost(),
-            parse_url((string) config('app.url'), PHP_URL_HOST),
+            $appHost,
         ]));
 
         if (! in_array(strtolower($host), array_map('strtolower', $allowedHosts), true)) {
-            self::logRejected($url, $request);
+            self::logRejected($url, $request, $host, $scheme);
 
             return null;
         }
@@ -57,12 +60,12 @@ class SafeRedirectUrl
         return $safeUrl;
     }
 
-    private static function logRejected(string $url, ?Request $request): void
+    private static function logRejected(string $url, ?Request $request, ?string $host = null, ?string $scheme = null): void
     {
         Log::warning('Ignoring unsafe intended redirect URL', [
             'route' => $request?->route()?->getName(),
-            'host' => parse_url($url, PHP_URL_HOST),
-            'scheme' => parse_url($url, PHP_URL_SCHEME),
+            'host' => $host ?? parse_url($url, PHP_URL_HOST),
+            'scheme' => $scheme ?? parse_url($url, PHP_URL_SCHEME),
         ]);
     }
 }

@@ -29,8 +29,6 @@ class User extends Authenticatable
         'email',
         'password',
         'avatar',
-        'is_admin',
-        'is_review_banned',
     ];
 
     /**
@@ -41,18 +39,6 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
-    ];
-
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-        'is_admin' => 'boolean',
-        'is_review_banned' => 'boolean',
     ];
 
     public function getItchioUsername(): ?string
@@ -172,11 +158,18 @@ class User extends Authenticatable
      */
     public function gameIdsWithAllPrivateTags(array $tagIds): array
     {
+        $uniqueTagIds = array_values(array_unique(array_map('intval', $tagIds)));
+        if ($uniqueTagIds === []) {
+            return [];
+        }
+
         return DB::table('private_tag_games')
-            ->whereIn('private_tag_id', $tagIds)
-            ->groupBy('game_id')
-            ->havingRaw('count(*) = ?', [count($tagIds)])
-            ->pluck('game_id')
+            ->join('private_tags', 'private_tags.id', '=', 'private_tag_games.private_tag_id')
+            ->where('private_tags.user_id', $this->id)
+            ->whereIn('private_tag_games.private_tag_id', $uniqueTagIds)
+            ->groupBy('private_tag_games.game_id')
+            ->havingRaw('count(distinct private_tag_games.private_tag_id) = ?', [count($uniqueTagIds)])
+            ->pluck('private_tag_games.game_id')
             ->all();
     }
 
@@ -184,6 +177,21 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Game::class, 'user_ignored_games', 'user_id', 'game_id')
             ->withTimestamps();
+    }
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'is_admin' => 'boolean',
+            'is_review_banned' => 'boolean',
+        ];
     }
 
     private function ownedGamesQuery(): Builder

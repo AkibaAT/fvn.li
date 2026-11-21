@@ -110,9 +110,10 @@ class VnListEntryController extends Controller
             ->pluck('id')
             ->toArray();
 
-        $entryIds = array_intersect($request->entry_ids, $validEntryIds);
+        $requestedEntryIds = array_values(array_unique(array_map('intval', $request->entry_ids)));
+        $entryIds = array_values(array_intersect($requestedEntryIds, $validEntryIds));
 
-        if (count($entryIds) !== count($request->entry_ids)) {
+        if (count($requestedEntryIds) !== count($request->entry_ids) || count($entryIds) !== count($requestedEntryIds)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Some entry IDs are invalid for this list.',
@@ -120,22 +121,22 @@ class VnListEntryController extends Controller
         }
 
         $cases = [];
-        $ids = [];
+        $bindings = [];
         foreach ($entryIds as $index => $entryId) {
-            $sortOrder = ($index + 1) * 10;
-            $cases[] = "WHEN id = {$entryId} THEN {$sortOrder}";
-            $ids[] = $entryId;
+            $cases[] = 'WHEN id = ? THEN CAST(? AS INTEGER)';
+            $bindings[] = $entryId;
+            $bindings[] = ($index + 1) * 10;
         }
 
-        if (! empty($cases)) {
+        if ($cases !== []) {
             $casesString = implode(' ', $cases);
-            $idsString = implode(',', $ids);
+            $idPlaceholders = implode(',', array_fill(0, count($entryIds), '?'));
+            $bindings = array_merge($bindings, $entryIds, [$vnList->id]);
 
-            DB::statement("
-                UPDATE vn_list_entries
-                SET sort_order = CASE {$casesString} END
-                WHERE id IN ({$idsString}) AND vn_list_id = {$vnList->id}
-            ");
+            DB::statement(
+                "UPDATE vn_list_entries SET sort_order = CASE {$casesString} END WHERE id IN ({$idPlaceholders}) AND vn_list_id = ?",
+                $bindings
+            );
         }
 
         if ($vnList->is_public) {

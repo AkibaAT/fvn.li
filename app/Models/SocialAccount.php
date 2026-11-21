@@ -23,10 +23,9 @@ class SocialAccount extends Model
         'itchio_game_ids',
     ];
 
-    protected $casts = [
-        'token_expires_at' => 'datetime',
-        'provider_data' => 'array',
-        'itchio_game_ids' => 'array',
+    protected $hidden = [
+        'token',
+        'refresh_token',
     ];
 
     protected static function booted(): void
@@ -52,5 +51,17 @@ class SocialAccount extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'token_expires_at' => 'datetime',
+            'provider_data' => 'array',
+            'itchio_game_ids' => 'array',
+        ];
     }
 }

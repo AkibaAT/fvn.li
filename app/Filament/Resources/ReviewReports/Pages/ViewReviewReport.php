@@ -122,7 +122,8 @@ class ViewReviewReport extends ViewRecord
                 ->visible(fn (): bool => $this->record->rating?->user !== null && ! $this->record->rating->user->is_review_banned)
                 ->action(function (): void {
                     $user = $this->record->rating->user;
-                    $user->update(['is_review_banned' => true]);
+                    $user->is_review_banned = true;
+                    $user->save();
 
                     $count = Rating::where('user_id', $user->id)
                         ->where('is_visible', true)
@@ -211,7 +212,9 @@ class ViewReviewReport extends ViewRecord
                 ->modalDescription('This will allow the user to submit reviews again. Their previously hidden reviews will NOT be restored.')
                 ->visible(fn (): bool => $this->record->rating?->user !== null && $this->record->rating->user->is_review_banned)
                 ->action(function (): void {
-                    $this->record->rating->user->update(['is_review_banned' => false]);
+                    $user = $this->record->rating->user;
+                    $user->is_review_banned = false;
+                    $user->save();
 
                     Notification::make()
                         ->title('User unbanned; they can submit reviews again')

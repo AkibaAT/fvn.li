@@ -9,12 +9,15 @@ use App\Models\User;
 use App\Services\AccountMergeService;
 use App\Services\ItchioGameOwnershipSyncService;
 use App\Support\SafeRedirectUrl;
+use App\Support\Seo\MetaTags;
 use Exception;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
+use Inertia\Response;
 use Laravel\Socialite\Facades\Socialite;
 
 class SocialAuthController extends Controller
@@ -22,6 +25,25 @@ class SocialAuthController extends Controller
     public const string TELEGRAM_LOGIN_SESSION_KEY = 'auth.telegram_login_started';
 
     private const int TELEGRAM_AUTH_MAX_AGE_SECONDS = 300;
+
+    public function showTelegramLogin(): Response
+    {
+        session()->put(self::TELEGRAM_LOGIN_SESSION_KEY, true);
+
+        return Inertia::render('auth/telegram-login', [
+            'metaTags' => new MetaTags(title: 'Login with Telegram')->toArray(),
+        ]);
+    }
+
+    public function showItchioCallback(): Response
+    {
+        return Inertia::render('auth/itchio-callback');
+    }
+
+    public function processItchioCallback()
+    {
+        return $this->handleProviderCallback('itchio');
+    }
 
     /**
      * Redirect the user to the provider authentication page.
@@ -52,26 +74,19 @@ class SocialAuthController extends Controller
         ]);
 
         // Provider-specific scope configuration
-        switch ($provider) {
-            case 'discord':
-                return Socialite::driver($provider)
-                    ->setScopes(['identify', 'guilds'])
-                    ->redirect();
-
-            case 'google':
-                return Socialite::driver($provider)
-                    ->setScopes(['openid', 'email', 'profile'])
-                    ->redirect();
-
-            case 'itchio':
-                // For itch.io, we need to handle the implicit flow
-                return Socialite::driver($provider)
-                    ->setScopes(['profile:me'])
-                    ->redirect();
-
-            default:
-                return Socialite::driver($provider)->redirect();
-        }
+        return match ($provider) {
+            'discord' => Socialite::driver($provider)
+                ->setScopes(['identify', 'guilds'])
+                ->redirect(),
+            'google' => Socialite::driver($provider)
+                ->setScopes(['openid', 'email', 'profile'])
+                ->redirect(),
+            // For itch.io, we need to handle the implicit flow
+            'itchio' => Socialite::driver($provider)
+                ->setScopes(['profile:me'])
+                ->redirect(),
+            default => Socialite::driver($provider)->redirect(),
+        };
     }
 
     public function handleProviderCallback(string $provider)
@@ -336,25 +351,15 @@ class SocialAuthController extends Controller
     private function getProviderSpecificName($socialiteUser, string $provider): string
     {
         $userData = $socialiteUser->user ?? [];
+        $fallback = $socialiteUser->getName()
+            ?? $socialiteUser->getNickname()
+            ?? ($provider . ' User ' . substr((string) $socialiteUser->getId(), 0, 8));
 
-        switch ($provider) {
-            case 'google':
-                return $userData['given_name']
-                    ?? $socialiteUser->getName()
-                    ?? $socialiteUser->getNickname()
-                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
-
-            case 'discord':
-                return $userData['global_name']
-                    ?? $socialiteUser->getName()
-                    ?? $socialiteUser->getNickname()
-                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
-
-            default:
-                return $socialiteUser->getName()
-                    ?? $socialiteUser->getNickname()
-                    ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
-        }
+        return match ($provider) {
+            'google' => $userData['given_name'] ?? $fallback,
+            'discord' => $userData['global_name'] ?? $fallback,
+            default => $fallback,
+        };
     }
 
     private function findOrCreateUser($socialiteUser, string $provider): User
@@ -375,38 +380,34 @@ class SocialAuthController extends Controller
         // For minimal scope authentication, we might not have name or email
         $name = $socialiteUser->getName()
             ?? $socialiteUser->getNickname()
-            ?? ($provider . ' User ' . substr($socialiteUser->getId(), 0, 8));
+            ?? ($provider . ' User ' . substr((string) $socialiteUser->getId(), 0, 8));
 
         $email = $socialiteUser->getEmail();
         $avatar = $socialiteUser->getAvatar();
 
-        Log::info('Creating/looking up user with data', [
+        // Never implicitly link to an existing account by email; users merge accounts
+        // explicitly while logged in from the dashboard.
+        if ($email && User::where('email', $email)->exists()) {
+            Log::info('Email already belongs to another account; creating separate user without implicit merge', [
+                'provider' => $provider,
+            ]);
+            $email = null;
+        }
+
+        Log::info('Creating new user from social auth', [
             'provider' => $provider,
             'has_name' => $name !== '',
             'has_email' => ! empty($email),
             'has_avatar' => ! empty($avatar),
         ]);
 
-        // If user has email and we need to link with existing account
-        $user = null;
-        if ($email) {
-            $user = User::where('email', $email)->first();
-            if ($user) {
-                Log::info('Found existing user by email', ['user_id' => $user->id]);
-            }
-        }
-
-        // If user doesn't exist, create a new one with minimal info
-        if (! $user) {
-            Log::info('Creating new user');
-            $user = User::create([
-                'name' => $name,
-                'email' => $email, // This can be null with our updated schema
-                'password' => Hash::make(Str::random(24)),
-                'avatar' => $avatar,
-            ]);
-            Log::info('Created new user', ['user_id' => $user->id]);
-        }
+        $user = User::create([
+            'name' => $name,
+            'email' => $email, // Nullable so new social accounts never collide on existing emails
+            'password' => Hash::make(Str::random(24)),
+            'avatar' => $avatar,
+        ]);
+        Log::info('Created new user', ['user_id' => $user->id]);
 
         return $user;
     }
