@@ -470,14 +470,14 @@ it('disconnects a linked provider only when another login provider remains', fun
 });
 
 it('deletes the authenticated account and anonymizes retained data', function () {
-    User::query()->firstOrCreate(
+    User::unguarded(fn () => User::query()->firstOrCreate(
         ['id' => 1],
         [
             'name' => 'System User',
             'email' => 'system@example.test',
             'password' => bcrypt('password'),
         ],
-    );
+    ));
     $user = User::factory()->create();
     $reviewerRequest = AdditionRequest::factory()->approved()->create([
         'reviewed_by' => $user->id,

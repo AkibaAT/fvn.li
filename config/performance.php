@@ -19,6 +19,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Expose Performance Response Headers
+    |--------------------------------------------------------------------------
+    |
+    | When enabled (or when APP_DEBUG is true), attach X-Execution-Time,
+    | X-Memory-Usage, and X-Query-Count headers to responses.
+    |
+    */
+
+    'expose_headers' => env('PERFORMANCE_EXPOSE_HEADERS', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Slow Request Threshold
     |--------------------------------------------------------------------------
     |

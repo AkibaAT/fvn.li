@@ -7,22 +7,34 @@ namespace App\Jobs;
 use App\Models\Game;
 use App\Services\RatingCalculationService;
 use Exception;
-use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
+use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class UpdateGameRating implements ShouldQueue
+class UpdateGameRating implements ShouldBeUnique, ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Queueable;
+
+    public int $tries = 3;
+
+    /** @var list<int> */
+    public array $backoff = [10, 60, 180];
+
+    public int $timeout = 60;
+
+    public int $uniqueFor = 30;
 
     public function __construct(
         public int $gameId
     ) {
         $this->onQueue('default');
+    }
+
+    public function uniqueId(): string
+    {
+        return (string) $this->gameId;
     }
 
     public function handle(RatingCalculationService $ratingService): void

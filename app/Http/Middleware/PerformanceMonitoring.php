@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Middleware;
 
 use Closure;
@@ -11,35 +13,67 @@ use Throwable;
 
 class PerformanceMonitoring
 {
+    private static bool $queryListenerRegistered = false;
+
+    private static int $trackingDepth = 0;
+
+    private static int $activeQueryCount = 0;
+
+    public static function resetState(): void
+    {
+        self::$trackingDepth = 0;
+        self::$activeQueryCount = 0;
+    }
+
+    private static function ensureQueryListenerRegistered(): void
+    {
+        if (self::$queryListenerRegistered) {
+            return;
+        }
+
+        DB::listen(static function (): void {
+            if (self::$trackingDepth > 0) {
+                self::$activeQueryCount++;
+            }
+        });
+
+        self::$queryListenerRegistered = true;
+    }
+
     public function handle(Request $request, Closure $next): Response
     {
         // Start performance tracking
         $startTime = microtime(true);
         $startMemory = memory_get_usage(true);
 
-        // Enable query logging (can be disabled via PERFORMANCE_LOG_QUERIES=false for high-traffic production)
-        $shouldLogQueries = config('performance.log_queries', true);
-        if ($shouldLogQueries) {
-            DB::flushQueryLog();
-            DB::enableQueryLog();
+        $shouldCountQueries = (bool) config('performance.log_queries', true);
+        $previousQueryCount = self::$activeQueryCount;
+
+        if ($shouldCountQueries) {
+            self::ensureQueryListenerRegistered();
+            self::$trackingDepth++;
+            self::$activeQueryCount = 0;
+
+            if (DB::logging()) {
+                DB::flushQueryLog();
+            }
         }
 
         try {
             $response = $next($request);
 
             $executionTime = (microtime(true) - $startTime) * 1000; // milliseconds
-            $peakMemory = memory_get_peak_usage(true);
-            $memoryUsed = $peakMemory - $startMemory;
-            $queryCount = $shouldLogQueries ? count(DB::getQueryLog()) : 0;
+            $memoryUsed = max(0, memory_get_usage(true) - $startMemory);
+            $queryCount = $shouldCountQueries ? self::$activeQueryCount : 0;
 
-            if ($response instanceof Response) {
+            if ($response instanceof Response && (config('performance.expose_headers', false) || config('app.debug', false))) {
                 $response->headers->set('X-Execution-Time', round($executionTime, 2) . 'ms');
                 $response->headers->set('X-Memory-Usage', round($memoryUsed / 1024 / 1024, 2) . 'MB');
-                $response->headers->set('X-Query-Count', $queryCount);
+                $response->headers->set('X-Query-Count', (string) $queryCount);
             }
 
-            $slowThreshold = config('performance.slow_request_threshold', 1000);
-            $verySlowThreshold = config('performance.very_slow_request_threshold', 3000);
+            $slowThreshold = (int) config('performance.slow_request_threshold', 1000);
+            $verySlowThreshold = (int) config('performance.very_slow_request_threshold', 3000);
 
             if ($executionTime > $slowThreshold) {
                 $this->logSlowRequest($request, $response, $executionTime, $memoryUsed, $queryCount, $verySlowThreshold);
@@ -49,9 +83,14 @@ class PerformanceMonitoring
 
             return $response;
         } finally {
-            if ($shouldLogQueries) {
-                DB::disableQueryLog();
-                DB::flushQueryLog();
+            if ($shouldCountQueries) {
+                self::$trackingDepth = max(0, self::$trackingDepth - 1);
+                self::$activeQueryCount = self::$trackingDepth > 0 ? $previousQueryCount + self::$activeQueryCount : 0;
+
+                if (DB::logging()) {
+                    DB::disableQueryLog();
+                    DB::flushQueryLog();
+                }
             }
         }
     }

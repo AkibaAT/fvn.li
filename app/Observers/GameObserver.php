@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Jobs\PurgeModeratedGame;
+use App\Jobs\SyncGameSearchIndex;
 use App\Models\AdditionRequest;
 use App\Models\Game;
 use App\Services\Discord\DiscordCatalogMessageSyncService;
@@ -20,6 +21,20 @@ use Illuminate\Support\Facades\Log;
 
 class GameObserver
 {
+    public function creating(Game $game): void
+    {
+        if ($game->is_visible && ! $game->first_visible_at) {
+            $game->first_visible_at = now();
+        }
+    }
+
+    public function updating(Game $game): void
+    {
+        if ($game->isDirty('is_visible') && $game->is_visible && ! $game->getOriginal('is_visible') && ! $game->first_visible_at) {
+            $game->first_visible_at = now();
+        }
+    }
+
     public function created(Game $game): void
     {
         GameFilterService::clearCache();
@@ -27,11 +42,7 @@ class GameObserver
         EdgeCache::purge([EdgeCache::GAMES]);
         $this->bumpRecommendationCacheVersion();
 
-        // This handles the case where a game is imported with is_visible = true from the start
-        if ($game->is_visible && ! $game->first_visible_at) {
-            $game->first_visible_at = now();
-            $game->saveQuietly(); // Prevent infinite recursion
-
+        if ($game->is_visible && $game->first_visible_at) {
             Log::info('Set first_visible_at for newly created visible game', [
                 'game_id' => $game->id,
                 'game_name' => $game->name,
@@ -48,19 +59,7 @@ class GameObserver
 
         // Defer indexing until after the transaction commits to ensure all relationships are saved
         if ($game->is_visible && ! empty(trim($game->name))) {
-            $gameId = $game->id;
-            $gameName = $game->name;
-
-            dispatch(function () use ($gameId, $gameName) {
-                $game = Game::with(['tags', 'gameJams', 'gameVersions'])->find($gameId);
-                if ($game) {
-                    $game->searchable();
-                    Log::info('Added newly created visible game to search index', [
-                        'game_id' => $gameId,
-                        'game_name' => $gameName,
-                    ]);
-                }
-            })->afterCommit();
+            SyncGameSearchIndex::dispatch($game->id, remove: false, context: 'created')->afterCommit();
         }
     }
 
@@ -71,14 +70,9 @@ class GameObserver
 
         // Track when a game first becomes visible and log the visibility change
         if ($game->wasChanged('is_visible')) {
-            $wasVisible = $game->getOriginal('is_visible');
             $isVisible = $game->is_visible;
 
-            // Only set if: game is now visible, was not visible before, and first_visible_at is not already set
-            if ($isVisible && ! $wasVisible && ! $game->first_visible_at) {
-                $game->first_visible_at = now();
-                $game->saveQuietly(); // Prevent infinite recursion
-
+            if ($isVisible && $game->wasChanged('first_visible_at')) {
                 Log::info('Set first_visible_at for game becoming visible', [
                     'game_id' => $game->id,
                     'game_name' => $game->name,
@@ -89,41 +83,11 @@ class GameObserver
             if ($isVisible && ! empty(trim($game->name))) {
                 // Game is now visible - add to search index
                 Log::debug('Adding game to search index', ['game_id' => $game->id]);
-
-                // Defer indexing until after the transaction commits to ensure all relationships are saved
-                $gameId = $game->id;
-                $gameName = $game->name;
-
-                dispatch(function () use ($gameId, $gameName) {
-                    $game = Game::with(['tags', 'gameJams', 'gameVersions'])->find($gameId);
-                    if ($game) {
-                        $game->searchable();
-                        Log::info('Added game to search index', [
-                            'game_id' => $gameId,
-                            'game_name' => $gameName,
-                        ]);
-                    }
-                })->afterCommit();
+                SyncGameSearchIndex::dispatch($game->id, remove: false)->afterCommit();
             } elseif (! $isVisible) {
                 // Game is now hidden - remove from search index
                 Log::debug('Removing game from search index', ['game_id' => $game->id]);
-
-                $gameId = $game->id;
-                $gameName = $game->name;
-
-                dispatch(function () use ($gameId, $gameName) {
-                    $game = Game::find($gameId);
-
-                    if (! $game || $game->is_visible) {
-                        return;
-                    }
-
-                    $game->unsearchable();
-                    Log::info('Removed game from search index', [
-                        'game_id' => $gameId,
-                        'game_name' => $gameName,
-                    ]);
-                })->afterCommit();
+                SyncGameSearchIndex::dispatch($game->id, remove: true)->afterCommit();
             }
 
             HomePageCacheService::clearAll();
@@ -136,20 +100,13 @@ class GameObserver
         }
 
         if ($game->wasChanged('delisted_at') && ! $game->wasChanged('is_visible') && $game->is_visible) {
-            $gameId = $game->id;
-
-            dispatch(function () use ($gameId) {
-                $game = Game::with(['tags', 'gameJams', 'gameVersions'])->find($gameId);
-                if ($game && $game->is_visible) {
-                    $game->searchable();
-                }
-            })->afterCommit();
+            SyncGameSearchIndex::dispatch($game->id, remove: false)->afterCommit();
 
             HomePageCacheService::clearAll();
             $this->bumpRecommendationCacheVersion();
         }
 
-        if ($game->isDirty(['status', 'game_engine', 'is_visible', 'content_type'])) {
+        if ($game->wasChanged(['status', 'game_engine', 'is_visible', 'content_type'])) {
             Log::debug('Clearing filter cache after game update', ['game_id' => $game->id]);
             GameFilterService::clearCache();
         }

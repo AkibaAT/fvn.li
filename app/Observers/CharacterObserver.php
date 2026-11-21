@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Jobs\ReindexCharacterDialogue;
 use App\Models\Character;
 use App\Services\GameStatsService;
 use App\Services\ObserverSearchIndexService;
@@ -17,23 +18,13 @@ class CharacterObserver
     {
         Log::debug('Character updated', ['character_id' => $character->character_id]);
         // If display names changed, update related dialogue texts in search index
-        if ($character->isDirty('display_names') || $character->isDirty('display_name_corrections')) {
+        if ($character->wasChanged(['display_names', 'display_name_corrections'])) {
             GameStatsService::clearCache($character->game_id);
             Log::debug('Character display names changed, dispatching re-index job', ['character_id' => $character->character_id]);
 
             // Dispatch re-indexing after the transaction commits to avoid holding locks
             // while doing expensive search indexing operations
-            $characterId = $character->id;
-            dispatch(function () use ($characterId) {
-                $gameIds = $this->gameIdsForCharacter($characterId);
-                if ($gameIds->isNotEmpty()) {
-                    app(ObserverSearchIndexService::class)->reindexDialogue(
-                        $gameIds,
-                        'character change',
-                        ['character_id' => $characterId]
-                    );
-                }
-            })->afterCommit();
+            ReindexCharacterDialogue::dispatch($character->id)->afterCommit();
 
             Log::debug('Character re-index job dispatched', ['character_id' => $character->character_id]);
         }

@@ -11,6 +11,8 @@ use App\Models\NotificationHistory;
 use App\Models\NotificationQueue;
 use App\Models\ReviewReport;
 use App\Models\SocialAccount;
+use App\Models\UserGameProgress;
+use App\Models\VersionLanguageStats;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -72,7 +74,55 @@ class DiscordNotificationsController extends Controller
                 return $notifications->filter(fn (NotificationQueue $notification): bool => $notification->status === 'processing')->values();
             });
 
-            $formattedNotifications = $notifications->map(function ($notification) {
+            $nonTestNotifications = $notifications->filter(
+                fn (NotificationQueue $notification): bool => ($notification->payload['type'] ?? null) !== 'test'
+                    && $notification->user_id !== null
+                    && $notification->game_id !== null
+            );
+
+            $userIds = $nonTestNotifications->pluck('user_id')->unique()->values();
+            $gameIds = $nonTestNotifications->pluck('game_id')->unique()->values();
+
+            $latestProgressByPair = $userIds->isNotEmpty() && $gameIds->isNotEmpty()
+                ? UserGameProgress::query()
+                    ->with('gameVersion')
+                    ->whereIn('user_id', $userIds)
+                    ->whereIn('game_id', $gameIds)
+                    ->orderByDesc('game_version_id')
+                    ->get()
+                    ->unique(fn (UserGameProgress $progress): string => "{$progress->user_id}:{$progress->game_id}")
+                    ->keyBy(fn (UserGameProgress $progress): string => "{$progress->user_id}:{$progress->game_id}")
+                : collect();
+
+            $versionIds = [];
+            foreach ($nonTestNotifications as $notification) {
+                $queuedVersion = $notification->gameVersion;
+                if ($queuedVersion) {
+                    $versionIds[$queuedVersion->id] = true;
+                }
+
+                $pairKey = "{$notification->user_id}:{$notification->game_id}";
+                $lastReadVersion = $latestProgressByPair->get($pairKey)?->gameVersion;
+                $compareToVersion = $lastReadVersion
+                    ?? $notification->game?->gameVersions
+                        ->where('id', '!=', $queuedVersion?->id)
+                        ->sortByDesc('published_at')
+                        ->first();
+
+                if ($compareToVersion) {
+                    $versionIds[$compareToVersion->id] = true;
+                }
+            }
+
+            $engStatsByVersionId = $versionIds !== []
+                ? VersionLanguageStats::query()
+                    ->whereIn('game_version_id', array_keys($versionIds))
+                    ->where('iso_code', 'eng')
+                    ->get()
+                    ->keyBy('game_version_id')
+                : collect();
+
+            $formattedNotifications = $notifications->map(function ($notification) use ($latestProgressByPair, $engStatsByVersionId) {
                 $user = $notification->user;
                 $discordAccount = $user->socialAccounts->where('provider_name', 'discord')->first();
                 $game = $notification->game;
@@ -87,10 +137,7 @@ class DiscordNotificationsController extends Controller
                     ];
                 }
 
-                $lastReadVersion = $game->userProgress()
-                    ->where('user_id', $user->id)
-                    ->orderBy('game_version_id', 'desc')
-                    ->first()?->gameVersion;
+                $lastReadVersion = $latestProgressByPair->get("{$user->id}:{$game->id}")?->gameVersion;
 
                 $compareToVersion = $lastReadVersion;
                 if (! $compareToVersion) {
@@ -99,8 +146,8 @@ class DiscordNotificationsController extends Controller
 
                 $wordCountDiff = null;
                 if ($compareToVersion) {
-                    $latestStats = $queuedVersion->getStatsForLanguage('eng');
-                    $compareStats = $compareToVersion->getStatsForLanguage('eng');
+                    $latestStats = $engStatsByVersionId->get($queuedVersion->id);
+                    $compareStats = $engStatsByVersionId->get($compareToVersion->id);
 
                     if ($latestStats && $compareStats) {
                         $wordCountDiff = $latestStats->words - $compareStats->words;

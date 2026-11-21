@@ -28,6 +28,11 @@ class GameDataSyncService
 
     private static array $httpCache = [];
 
+    public static function clearAllHttpCache(): void
+    {
+        self::$httpCache = [];
+    }
+
     /**
      * Load full game details - delegates to platform-specific service
      *

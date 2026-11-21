@@ -18,7 +18,7 @@ class DiagnosticLogManager extends LogManager
 {
     public function __construct($app)
     {
-        $this->writeDiagnostic('construct', [
+        $this->writeDiagnostic('construct', fn (): array => [
             'incoming_app_class' => is_object($app) ? $app::class : get_debug_type($app),
             'incoming_config_class' => $this->safeConfigClass($app),
             'trace' => $this->compactTrace(),
@@ -29,7 +29,7 @@ class DiagnosticLogManager extends LogManager
 
     public function setApplication($app)
     {
-        $this->writeDiagnostic('setApplication', [
+        $this->writeDiagnostic('setApplication', fn (): array => [
             'incoming_app_class' => is_object($app) ? $app::class : get_debug_type($app),
             'incoming_config_class' => $this->safeConfigClass($app),
             'trace' => $this->compactTrace(),
@@ -40,7 +40,7 @@ class DiagnosticLogManager extends LogManager
 
     public function getDefaultDriver()
     {
-        $this->writeDiagnostic('getDefaultDriver before config access', $this->state());
+        $this->writeDiagnostic('getDefaultDriver before config access', fn (): array => $this->state());
 
         $default = $this->safeConfigValue($this->app, 'logging.default');
 
@@ -48,7 +48,7 @@ class DiagnosticLogManager extends LogManager
             return $default ?? 'null';
         }
 
-        $this->writeDiagnostic('getDefaultDriver using fallback', [
+        $this->writeDiagnostic('getDefaultDriver using fallback', fn (): array => [
             'configured_default_type' => get_debug_type($default),
         ]);
 
@@ -57,7 +57,7 @@ class DiagnosticLogManager extends LogManager
 
     protected function configurationFor($name)
     {
-        $this->writeDiagnostic("configurationFor({$name}) before config access", $this->state());
+        $this->writeDiagnostic("configurationFor({$name}) before config access", fn (): array => $this->state());
 
         $config = $this->configRepository();
 
@@ -69,7 +69,7 @@ class DiagnosticLogManager extends LogManager
             }
         }
 
-        $this->writeDiagnostic("configurationFor({$name}) using fallback", $this->state());
+        $this->writeDiagnostic("configurationFor({$name}) using fallback", fn (): array => $this->state());
 
         return match ($name) {
             'emergency' => ['path' => $this->fallbackLogPath()],
@@ -241,7 +241,10 @@ class DiagnosticLogManager extends LogManager
         );
     }
 
-    private function writeDiagnostic(string $event, array $context): void
+    /**
+     * @param  callable(): array<string, mixed>  $contextFactory
+     */
+    private function writeDiagnostic(string $event, callable $contextFactory): void
     {
         if (! $this->diagnosticsEnabled()) {
             return;
@@ -249,7 +252,7 @@ class DiagnosticLogManager extends LogManager
 
         @file_put_contents(
             'php://stderr',
-            '[Laravel log manager diagnostics] ' . $event . ' ' . json_encode($context) . PHP_EOL,
+            '[Laravel log manager diagnostics] ' . $event . ' ' . json_encode($contextFactory()) . PHP_EOL,
         );
     }
 

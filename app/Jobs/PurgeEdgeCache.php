@@ -5,16 +5,14 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Services\EdgeCache;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
 class PurgeEdgeCache implements ShouldBeUnique, ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable;
+    use Queueable;
 
     public const int WINDOW_SECONDS = 30;
 
@@ -42,7 +40,7 @@ class PurgeEdgeCache implements ShouldBeUnique, ShouldQueue
         try {
             EdgeCache::send($tags);
         } catch (Throwable $exception) {
-            EdgeCache::purge($tags);
+            EdgeCache::requeuePending($tags);
 
             throw $exception;
         }

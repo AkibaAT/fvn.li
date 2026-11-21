@@ -47,7 +47,14 @@ class Handler extends ExceptionHandler
     public function register(): void
     {
         $this->reportable(function (Throwable $e) {
-            $this->writeNativeErrorLog('Laravel exception fallback', $e);
+            $diagnosticsEnabled = filter_var(
+                $_ENV['LOG_MANAGER_DIAGNOSTICS'] ?? $_SERVER['LOG_MANAGER_DIAGNOSTICS'] ?? getenv('LOG_MANAGER_DIAGNOSTICS'),
+                FILTER_VALIDATE_BOOL,
+            );
+
+            if ($diagnosticsEnabled) {
+                $this->writeNativeErrorLog('Laravel exception fallback', $e);
+            }
         });
 
         $this->renderable(function (NotFoundHttpException $e, Request $request) {

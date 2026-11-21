@@ -38,28 +38,13 @@ class GameVersion extends Model
         'is_mac',
         'is_android',
         'is_web',
+        'is_latest',
     ];
 
     protected $hidden = [
         'route_graph_data',
         'route_graph_unreachable_data',
         'stats_error',
-    ];
-
-    protected $casts = [
-        'published_at' => 'datetime',
-        'stats_completed_at' => 'datetime',
-        'stats_retry_at' => 'datetime',
-        'stats_attempts' => 'integer',
-        'stats_skipped' => 'boolean',
-        'is_windows' => 'boolean',
-        'is_linux' => 'boolean',
-        'is_mac' => 'boolean',
-        'is_android' => 'boolean',
-        'is_web' => 'boolean',
-        'is_latest' => 'boolean',
-        'route_graph_data' => 'array',
-        'route_graph_unreachable_data' => 'array',
     ];
 
     /**
@@ -419,5 +404,27 @@ class GameVersion extends Model
                 $targetLanguage->save();
             }
         }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'published_at' => 'datetime',
+            'stats_completed_at' => 'datetime',
+            'stats_retry_at' => 'datetime',
+            'stats_attempts' => 'integer',
+            'stats_skipped' => 'boolean',
+            'is_windows' => 'boolean',
+            'is_linux' => 'boolean',
+            'is_mac' => 'boolean',
+            'is_android' => 'boolean',
+            'is_web' => 'boolean',
+            'is_latest' => 'boolean',
+            'route_graph_data' => 'array',
+            'route_graph_unreachable_data' => 'array',
+        ];
     }
 }

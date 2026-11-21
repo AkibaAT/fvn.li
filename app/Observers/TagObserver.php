@@ -15,7 +15,7 @@ class TagObserver
     public function updated(Tag $tag): void
     {
         // If the tag name changed, update all related games
-        if ($tag->isDirty('name')) {
+        if ($tag->wasChanged('name') || $tag->isDirty('name')) {
             GamePageCacheService::invalidateMany($tag->games()->pluck('games.id'));
             $this->updateRelatedGames($tag);
             GameFilterService::clearCache();

@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Listeners\FlushOctaneStaticCaches;
+use App\Services\FlareSolverrSessionManager;
+use App\Services\ItchHttpClientService;
 use Laravel\Octane\Contracts\OperationTerminated;
 use Laravel\Octane\Events\RequestHandled;
 use Laravel\Octane\Events\RequestReceived;
@@ -103,6 +106,7 @@ return [
         OperationTerminated::class => [
             FlushOnce::class,
             FlushTemporaryContainerInstances::class,
+            FlushOctaneStaticCaches::class,
             // DisconnectFromDatabases::class,
             // CollectGarbage::class,
         ],
@@ -133,7 +137,8 @@ return [
     ],
 
     'flush' => [
-        //
+        FlareSolverrSessionManager::class,
+        ItchHttpClientService::class,
     ],
 
     /*
@@ -147,12 +152,7 @@ return [
     |
     */
 
-    'tables' => [
-        'example:1000' => [
-            'name' => 'string:1000',
-            'votes' => 'int',
-        ],
-    ],
+    'tables' => [],
 
     /*
     |--------------------------------------------------------------------------

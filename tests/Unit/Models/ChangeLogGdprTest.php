@@ -53,7 +53,6 @@ describe('GDPR data export', function () {
             'new_values' => ['name' => 'Test'],
             'context' => ['ip' => '127.0.0.1'],
             'source' => 'web',
-            'description' => 'Created list',
         ]);
 
         $export = ChangeLog::exportUserData($this->user->id);
@@ -320,7 +319,6 @@ describe('GDPR compliance edge cases', function () {
             'new_values' => null,
             'context' => null,
             'source' => null,
-            'description' => null,
         ]);
 
         $export = ChangeLog::exportUserData($this->user->id);

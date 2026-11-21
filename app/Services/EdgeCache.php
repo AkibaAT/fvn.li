@@ -41,12 +41,24 @@ class EdgeCache
             return;
         }
 
+        self::requeuePending($tags);
+
+        PurgeEdgeCache::dispatch()->afterCommit();
+    }
+
+    /**
+     * @param  list<string>  $tags
+     */
+    public static function requeuePending(array $tags): void
+    {
+        if (! self::isEnabled() || $tags === []) {
+            return;
+        }
+
         Cache::lock(self::PENDING_KEY . ':lock', 5)->block(5, function () use ($tags): void {
             $pending = Cache::get(self::PENDING_KEY, []);
             Cache::put(self::PENDING_KEY, array_values(array_unique([...$pending, ...$tags])), self::PENDING_TTL_SECONDS);
         });
-
-        PurgeEdgeCache::dispatch()->afterCommit();
     }
 
     /**

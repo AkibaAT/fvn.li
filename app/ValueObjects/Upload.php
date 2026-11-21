@@ -16,8 +16,6 @@ class Upload
 
     private const array PROCESSABLE_EXTENSIONS = [
         'zip',
-        'gz',
-        'bz2',
         'tar',
     ];
 

@@ -80,10 +80,9 @@ describe('user deletion', function () {
 
         $prefs = UserNotificationPreferences::create([
             'user_id' => $user->id,
-            'discord_enabled' => true,
-            'telegram_enabled' => false,
-            'email_enabled' => true,
-            'browser_enabled' => false,
+            'browser_notifications_enabled' => false,
+            'discord_notifications_enabled' => true,
+            'notification_digest' => 'asap',
         ]);
 
         $user->delete();

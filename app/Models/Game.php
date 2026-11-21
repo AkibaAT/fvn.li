@@ -107,6 +107,7 @@ class Game extends Model
         'slug',
         'name',
         'status',
+        'initially_published_at',
         'is_visible',
         'is_moderation_hidden',
         'moderation_note',
@@ -167,56 +168,6 @@ class Game extends Model
 
     protected $appends = ['current_price', 'original_price', 'discount_percentage', 'formatted_current_price', 'formatted_original_price', 'optimized_thumbnail_url', 'primary_url', 'effective_name'];
 
-    protected $casts = [
-        'initially_published_at' => 'datetime',
-        'latest_version_published_at' => 'datetime',
-        'first_visible_at' => 'datetime',
-        'delisted_at' => 'datetime',
-        'delisted_reason' => DelistedReason::class,
-        'min_price' => 'float',
-        'is_windows' => 'boolean',
-        'is_linux' => 'boolean',
-        'is_mac' => 'boolean',
-        'is_android' => 'boolean',
-        'is_web' => 'boolean',
-        'is_nsfw' => 'boolean',
-        'is_visible' => 'boolean',
-        'is_on_sale' => 'boolean',
-        'sale_discount_percent' => 'integer',
-        'is_paid' => 'boolean',
-        'has_demo' => 'boolean',
-        'is_stats_extraction_disabled' => 'boolean',
-        'is_moderation_hidden' => 'boolean',
-        'optimized_thumbnails' => 'array',
-        'supported_languages' => 'collection',
-        'uploads' => 'array',
-        'screenshots' => 'array',
-        'additional_links' => 'array',
-        'custom_css' => 'string',
-        'has_custom_page' => 'boolean',
-        'custom_screenshots' => 'array',
-        'custom_assets' => 'array',
-        'custom_page_updated_at' => 'datetime',
-        'view_mode' => 'string',
-        'rating_score' => 'float',
-        'rating_count' => 'integer',
-        'trending_score' => 'integer',
-        'trending_score_calculated_at' => 'datetime',
-        // Platform support casts
-        'platform' => 'string',
-        'content_type' => 'string',
-        'url' => 'array', // JSONB field storing URLs by platform: { "itch_io": "...", "steam": "...", "other": "..." }
-        // Steam-specific casts
-        'steam_genres' => 'array',
-        'steam_user_tags' => 'array',
-        // Discord integration casts
-        'discord_likes' => 'array',
-        'discord_dislikes' => 'array',
-        'abbreviations' => 'array',
-        'discord_tags' => 'array',
-        'discord_updated_at' => 'datetime',
-    ];
-
     /**
      * Boot the model - add validation for platform field
      */
@@ -265,7 +216,7 @@ class Game extends Model
             }
 
             // If platform is being set for the first time (new game), ensure it's valid
-            if ($game->wasRecentlyCreated && $game->platform === null) {
+            if (! $game->exists && $game->platform === null) {
                 throw new InvalidArgumentException(
                     'Game platform must be explicitly set when creating a new game. ' .
                     "Use one of: 'itch_io', 'steam', 'other'"
@@ -434,6 +385,62 @@ class Game extends Model
     public function languageMappings(): HasMany
     {
         return $this->hasMany(LanguageMapping::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'initially_published_at' => 'datetime',
+            'latest_version_published_at' => 'datetime',
+            'first_visible_at' => 'datetime',
+            'delisted_at' => 'datetime',
+            'delisted_reason' => DelistedReason::class,
+            'min_price' => 'float',
+            'is_windows' => 'boolean',
+            'is_linux' => 'boolean',
+            'is_mac' => 'boolean',
+            'is_android' => 'boolean',
+            'is_web' => 'boolean',
+            'is_nsfw' => 'boolean',
+            'is_visible' => 'boolean',
+            'is_on_sale' => 'boolean',
+            'sale_discount_percent' => 'integer',
+            'is_paid' => 'boolean',
+            'has_demo' => 'boolean',
+            'is_stats_extraction_disabled' => 'boolean',
+            'is_moderation_hidden' => 'boolean',
+            'optimized_thumbnails' => 'array',
+            'supported_languages' => 'collection',
+            'uploads' => 'array',
+            'screenshots' => 'array',
+            'additional_links' => 'array',
+            'custom_css' => 'string',
+            'has_custom_page' => 'boolean',
+            'custom_screenshots' => 'array',
+            'custom_assets' => 'array',
+            'custom_page_updated_at' => 'datetime',
+            'view_mode' => 'string',
+            'rating_score' => 'float',
+            'rating_count' => 'integer',
+            'trending_score' => 'integer',
+            'trending_score_calculated_at' => 'datetime',
+            // Platform support casts
+            'platform' => 'string',
+            'content_type' => 'string',
+            'url' => 'array', // JSONB field storing URLs by platform: { "itch_io": "...", "steam": "...", "other": "..." }
+            // Steam-specific casts
+            'steam_genres' => 'array',
+            'steam_user_tags' => 'array',
+            // Discord integration casts
+            'discord_likes' => 'array',
+            'discord_dislikes' => 'array',
+            'abbreviations' => 'array',
+            'discord_tags' => 'array',
+            'discord_updated_at' => 'datetime',
+        ];
     }
 
     protected function getArrayableAttributes(): array

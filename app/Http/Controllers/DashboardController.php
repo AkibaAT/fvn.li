@@ -5,27 +5,28 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\BugReport;
-use App\Models\User;
 use App\Services\GameFilterService;
 use App\Services\OwnedGameSummaryService;
 use App\Support\Seo\MetaTags;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function dashboard(): Response
+    public function dashboard(Request $request): Response
     {
-        $authId = Auth::id();
-        if (! $authId) {
+        $user = $request->user();
+        if (! $user) {
             return $this->loginResponse();
         }
-        $user = User::findOrFail($authId);
 
-        $connectedProviders = $user->socialAccounts()->pluck('provider_name')->toArray();
+        $user->load(['socialAccounts', 'preferences', 'notificationPreferences']);
 
-        $socialAccounts = $this->getSocialAccountsData($user);
+        $connectedProviders = $user->socialAccounts->pluck('provider_name')->all();
+
+        $socialAccounts = $this->getSocialAccountsData($user->socialAccounts);
 
         $ownedGameSummary = app(OwnedGameSummaryService::class);
         $itchioUsername = $ownedGameSummary->username($user);
@@ -60,7 +61,7 @@ class DashboardController extends Controller
             })
             ->values();
 
-        $notificationPreferences = $user->notificationPreferences()->first() ?? $user->notificationPreferences()->create([
+        $notificationPreferences = $user->notificationPreferences ?? $user->notificationPreferences()->create([
             'browser_notifications_enabled' => false,
             'discord_notifications_enabled' => false,
             'notification_digest' => 'asap',
@@ -82,7 +83,7 @@ class DashboardController extends Controller
                 ];
             });
 
-        $ignoredGamesCount = $user->ignoredGames()->count();
+        $ignoredGamesCount = $ignoredGames->count();
 
         $activeBugReports = BugReport::where('user_id', $user->id)
             ->where('is_closed', false)
@@ -144,39 +145,37 @@ class DashboardController extends Controller
         ]);
     }
 
-    private function getSocialAccountsData(User $user): array
+    private function getSocialAccountsData(Collection $accounts): array
     {
-        return $user->socialAccounts()->get()->mapWithKeys(function ($account) {
-            $displayName = null;
-            $avatar = null;
-
-            if ($account->provider_data) {
-                switch ($account->provider_name) {
-                    case 'discord':
-                        $displayName = $account->provider_data['global_name'] ?? $account->provider_data['username'] ?? null;
-                        $avatar = isset($account->provider_data['id'], $account->provider_data['avatar'])
+        return $accounts->mapWithKeys(function ($account) {
+            [$displayName, $avatar] = $account->provider_data
+                ? match ($account->provider_name) {
+                    'discord' => [
+                        $account->provider_data['global_name'] ?? $account->provider_data['username'] ?? null,
+                        isset($account->provider_data['id'], $account->provider_data['avatar'])
                             ? "https://cdn.discordapp.com/avatars/{$account->provider_data['id']}/{$account->provider_data['avatar']}.png"
-                            : null;
-                        break;
-                    case 'google':
-                        $displayName = $account->provider_data['given_name'] ?? null;
-                        $avatar = $account->provider_data['picture'] ?? null;
-                        break;
-                    case 'steam':
-                        $displayName = $account->provider_data['personaname'] ?? null;
-                        $avatar = $account->provider_data['avatarfull'] ?? null;
-                        break;
-                    case 'telegram':
-                        $displayName = $account->provider_data['first_name'] .
-                            (isset($account->provider_data['last_name']) ? ' ' . $account->provider_data['last_name'] : '');
-                        $avatar = $account->provider_data['photo_url'] ?? null;
-                        break;
-                    case 'itchio':
-                        $displayName = $account->provider_data['display_name'] ?? null;
-                        $avatar = $account->provider_data['cover_url'] ?? null;
-                        break;
+                            : null,
+                    ],
+                    'google' => [
+                        $account->provider_data['given_name'] ?? null,
+                        $account->provider_data['picture'] ?? null,
+                    ],
+                    'steam' => [
+                        $account->provider_data['personaname'] ?? null,
+                        $account->provider_data['avatarfull'] ?? null,
+                    ],
+                    'telegram' => [
+                        ($account->provider_data['first_name'] ?? '') .
+                            (isset($account->provider_data['last_name']) ? ' ' . $account->provider_data['last_name'] : ''),
+                        $account->provider_data['photo_url'] ?? null,
+                    ],
+                    'itchio' => [
+                        $account->provider_data['display_name'] ?? null,
+                        $account->provider_data['cover_url'] ?? null,
+                    ],
+                    default => [null, null],
                 }
-            }
+            : [null, null];
 
             return [
                 $account->provider_name => [
@@ -184,6 +183,6 @@ class DashboardController extends Controller
                     'avatar' => $avatar,
                 ],
             ];
-        })->toArray();
+        })->all();
     }
 }
