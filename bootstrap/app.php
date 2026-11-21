@@ -2,61 +2,98 @@
 
 declare(strict_types=1);
 
-/*
-|--------------------------------------------------------------------------
-| Create The Application
-|--------------------------------------------------------------------------
-|
-| The first thing we will do is create a new Laravel application instance
-| which serves as the "glue" for all the components of Laravel, and is
-| the IoC container for the system binding all of the various parts.
-|
-*/
-
 use App\Exceptions\Handler;
-use App\Http\Kernel;
+use App\Http\Middleware\AdminPanelAccess;
+use App\Http\Middleware\Authenticate;
+use App\Http\Middleware\CachePublicPage;
+use App\Http\Middleware\EncryptCookies;
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\PerformanceMonitoring;
+use App\Http\Middleware\PreventRequestForgery;
+use App\Http\Middleware\RequireSanctumTokenAbility;
+use App\Http\Middleware\RequireUserApiToken;
+use App\Http\Middleware\StartSession;
+use App\Http\Middleware\ThrottleUserApiIp;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Cookie\Middleware\EncryptCookies as BaseEncryptCookies;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery as BasePreventRequestForgery;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Session\Middleware\StartSession as BaseStartSession;
+use Illuminate\Support\Facades\Route;
+use Laravel\Sanctum\Exceptions\MissingAbilityException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-$app = new Application(
-    $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__)
-);
+return Application::configure(basePath: $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__ . '/../routes/web.php',
+        api: __DIR__ . '/../routes/api.php',
+        commands: __DIR__ . '/../routes/console.php',
+        then: function (): void {
+            Route::middleware('user-api')
+                ->prefix('api/v1')
+                ->group(base_path('routes/user-api.php'));
 
-/*
-|--------------------------------------------------------------------------
-| Bind Important Interfaces
-|--------------------------------------------------------------------------
-|
-| Next, we need to bind some important interfaces into the container so
-| we will be able to resolve them when needed. The kernels serve the
-| incoming requests to this application from both the web and CLI.
-|
-*/
+            Route::prefix('browser-api')
+                ->group(base_path('routes/browser-api.php'));
+        },
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectUsersTo('/');
 
-$app->singleton(
-    Illuminate\Contracts\Http\Kernel::class,
-    Kernel::class
-);
+        $middleware->web(
+            prepend: [PerformanceMonitoring::class],
+            append: [HandleInertiaRequests::class],
+            replace: [
+                BaseEncryptCookies::class => EncryptCookies::class,
+                BaseStartSession::class => StartSession::class,
+                BasePreventRequestForgery::class => PreventRequestForgery::class,
+            ],
+        );
 
-$app->singleton(
-    Illuminate\Contracts\Console\Kernel::class,
-    App\Console\Kernel::class
-);
+        $middleware->api(
+            prepend: [
+                PerformanceMonitoring::class,
+                ThrottleRequests::class . ':api',
+            ],
+        );
 
-$app->singleton(
-    ExceptionHandler::class,
-    Handler::class
-);
+        $middleware->group('user-api', [
+            PerformanceMonitoring::class,
+            ThrottleUserApiIp::class,
+            SubstituteBindings::class,
+        ]);
 
-/*
-|--------------------------------------------------------------------------
-| Return The Application
-|--------------------------------------------------------------------------
-|
-| This script returns the application instance. The instance is given to
-| the calling script so we can separate the building of the instances
-| from the actual running of the application and sending responses.
-|
-*/
+        $middleware->alias([
+            'auth' => Authenticate::class,
+            CachePublicPage::ALIAS => CachePublicPage::class,
+            'admin' => AdminPanelAccess::class,
+            'sanctum.token' => RequireSanctumTokenAbility::class,
+            'user.api.token' => RequireUserApiToken::class,
+        ]);
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($request->is('api/v1/*')) {
+                return response()->json(['message' => 'Not found.'], 404);
+            }
+        });
 
-return $app;
+        $exceptions->render(function (AccessDeniedHttpException $e, Request $request) {
+            $missing = $e->getPrevious();
+            if ($request->is('api/v1/*') && $missing instanceof MissingAbilityException) {
+                return response()->json([
+                    'message' => 'This token lacks the ' . implode(', ', $missing->abilities()) . ' permission.',
+                ], 403);
+            }
+        });
+    })
+    ->withSingletons([
+        ExceptionHandler::class => Handler::class,
+    ])
+    ->create();

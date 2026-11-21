@@ -2,23 +2,31 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Request;
+
 if (! function_exists('canonical')) {
     function canonical(): string
     {
-        $allowed = Config::get('canonical.allowed_params');
+        $allowed = Config::get('canonical.allowed_params', []);
         $build = [];
         $query = '';
 
-        foreach ($allowed as $param) {
-            if (Request::has($param)) {
-                $build[$param] = Request::get($param);
+        if (is_array($allowed)) {
+            foreach ($allowed as $param) {
+                $value = Request::query($param);
+                if ($value !== null) {
+                    $build[$param] = $value;
+                }
             }
         }
 
-        if (count($build)) {
+        if ($build !== []) {
             $query = '?' . http_build_query($build);
         }
 
-        return Config::get('app.url') . Request::getPathInfo() . $query;
+        $baseUrl = rtrim((string) Config::get('app.url', ''), '/');
+
+        return $baseUrl . Request::getPathInfo() . $query;
     }
 }

@@ -183,13 +183,12 @@ Route::middleware(['web'])->group(function () {
 
         // Image uploads for content editor (auth required, but game permission checked in controller)
         Route::post('upload-editor-image', [EditorUploadController::class, 'uploadEditorImage'])
+            ->middleware('throttle:30,1')
             ->name('browser-api.upload-editor-image');
 
-        // Game operations + user lists (support both api.* and browser-api.* where used)
+        // Game operations + user lists
         Route::get('games/{game:id}/lists',
             [VnListGameController::class, 'getGameLists'])->name('browser-api.games.lists');
-        Route::post('games/{game:id}/add-to-list',
-            [VnListGameController::class, 'addGameToList'])->name('browser-api.games.add-to-list');
         Route::post('games/{game:id}/add-to-list',
             [VnListGameController::class, 'addGameToList'])->name('api.games.add-to-list');
         Route::post('lists/{vnList}/add-game',
@@ -223,6 +222,7 @@ Route::middleware(['web'])->group(function () {
 
         // Review Reports
         Route::post('review-reports/{rating}', [ReviewReportController::class, 'store'])
+            ->middleware('throttle:10,1')
             ->whereNumber('rating')->name('browser-api.review-reports.store');
         Route::get('review-reports', [ReviewReportController::class, 'index'])
             ->name('browser-api.review-reports.index');
@@ -254,13 +254,4 @@ Route::middleware(['web'])->group(function () {
             Route::post('servers/{server}/test-notification', [DiscordConfigController::class, 'testNotification'])->name('browser-api.discord.servers.test-notification');
         });
     });
-
-    // Health/test
-    Route::get('test', function () {
-        return response()->json([
-            'success' => true,
-            'message' => 'Browser API is working',
-            'timestamp' => now()->toISOString(),
-        ]);
-    })->name('browser-api.test');
 });

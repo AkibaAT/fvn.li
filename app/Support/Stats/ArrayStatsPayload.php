@@ -37,7 +37,7 @@ class ArrayStatsPayload implements StatsPayload
         $stats = $this->stats;
         unset($stats['file_statistics']);
 
-        return new static($stats);
+        return clone ($this, ['stats' => $stats]);
     }
 
     public function section(string $name): iterable

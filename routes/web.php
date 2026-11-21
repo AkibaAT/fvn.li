@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ClickTrackingController;
+use App\Http\Controllers\CsrfTokenController;
 use App\Http\Controllers\Dashboard\DashboardNotificationController;
 use App\Http\Controllers\Dashboard\DigestNotificationController;
 use App\Http\Controllers\Dashboard\ItchioGameOwnershipController;
 use App\Http\Controllers\Dashboard\UserAccountController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DeveloperPortalController;
 use App\Http\Controllers\DialogueController;
 use App\Http\Controllers\DiscordConfigController;
 use App\Http\Controllers\FeedController;
@@ -16,6 +18,8 @@ use App\Http\Controllers\Games\GamesDisplayController;
 use App\Http\Controllers\Games\GamesSearchController;
 use App\Http\Controllers\Games\GameTagsController;
 use App\Http\Controllers\Games\RouteMapController;
+use App\Http\Controllers\GameUrlRedirectController;
+use App\Http\Controllers\HealthCheckController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MyGamesController;
 use App\Http\Controllers\RatingsController;
@@ -26,25 +30,12 @@ use App\Http\Controllers\UserPreferencesController;
 use App\Http\Controllers\VnLists\PublicVnListController;
 use App\Http\Controllers\VnLists\VnListPageController;
 use App\Http\Middleware\EnsureGameIsVisible;
-use App\Models\Game;
-use App\Support\Seo\MetaTags;
-use Carbon\CarbonImmutable;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::middleware('auth')->prefix('developers')->group(function () {
-    Route::get('', fn () => Inertia::render('developers/index', [
-        'metaTags' => new MetaTags(title: 'Developer API', description: 'Build with the fvn.li user API.', noindex: true)->toArray(),
-    ]))->name('developers');
-    Route::get('swagger', fn (Request $request) => Inertia::render('developers/swagger', [
-        'metaTags' => new MetaTags(title: 'API Explorer', noindex: true)->toArray(),
-    ])->toResponse($request)->header('Cache-Control', 'no-store'))->name('developers.swagger');
-    Route::get('openapi.yaml', fn () => response()->file(resource_path('openapi/user-api.yaml'), ['Content-Type' => 'application/yaml']))
-        ->name('developers.openapi');
+    Route::get('', [DeveloperPortalController::class, 'index'])->name('developers');
+    Route::get('swagger', [DeveloperPortalController::class, 'swagger'])->name('developers.swagger');
+    Route::get('openapi.yaml', [DeveloperPortalController::class, 'openapi'])->name('developers.openapi');
 });
 
 /*
@@ -53,54 +44,9 @@ Route::middleware('auth')->prefix('developers')->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::get('health', function () {
-    try {
-        DB::connection()->getPdo();
-
-        cache()->store('redis')->put('health_check', 'ok', 1);
-        cache()->store('redis')->get('health_check');
-
-        $pipeline = Cache::remember('health.pipeline', 60, function (): array {
-            $now = CarbonImmutable::now();
-            $heartbeat = Cache::get('scheduler.heartbeat');
-            $heartbeatAt = $heartbeat ? CarbonImmutable::parse($heartbeat) : null;
-            $oldestDue = DB::table('notification_queue')
-                ->where('status', 'pending')
-                ->where('scheduled_at', '<=', $now)
-                ->min('scheduled_at');
-            $oldestDueAt = $oldestDue ? CarbonImmutable::parse($oldestDue) : null;
-
-            return [
-                'scheduler' => [
-                    'heartbeat_at' => $heartbeatAt?->toISOString(),
-                    'age_seconds' => $heartbeatAt ? max(0, (int) $heartbeatAt->diffInSeconds($now)) : null,
-                    'stale' => ! $heartbeatAt || $heartbeatAt->lt($now->subSeconds(300)),
-                ],
-                'notification_queue' => [
-                    'pending_due_count' => DB::table('notification_queue')
-                        ->where('status', 'pending')
-                        ->where('scheduled_at', '<=', $now)
-                        ->count(),
-                    'oldest_due_age_seconds' => $oldestDueAt ? max(0, (int) $oldestDueAt->diffInSeconds($now)) : null,
-                    'stale_processing_count' => DB::table('notification_queue')
-                        ->where('status', 'processing')
-                        ->where('updated_at', '<', $now->subMinutes(15))
-                        ->count(),
-                ],
-                'failed_jobs_count' => DB::table('failed_jobs')->count(),
-            ];
-        });
-
-        return response()->json(['status' => 'ok', ...$pipeline], 200);
-    } catch (Exception $e) {
-        Log::warning('Health check failed', [
-            'error' => $e->getMessage(),
-            'exception_class' => get_class($e),
-        ]);
-
-        return response()->json(['status' => 'error'], 503);
-    }
-});
+Route::get('health', HealthCheckController::class)
+    ->withoutMiddleware(['web'])
+    ->name('health');
 
 /*
 |--------------------------------------------------------------------------
@@ -110,9 +56,7 @@ Route::get('health', function () {
 | have expired. This allows the frontend to recover from 419 errors.
 */
 
-Route::get('csrf-token', function () {
-    return response()->json(['token' => csrf_token()]);
-})->name('csrf.token');
+Route::get('csrf-token', CsrfTokenController::class)->name('csrf.token');
 
 /*
 |--------------------------------------------------------------------------
@@ -120,31 +64,7 @@ Route::get('csrf-token', function () {
 |--------------------------------------------------------------------------
 */
 
-Route::get('by-url/{url}', function (Request $request, $url) {
-    $game = Game::byUrl($url)->first();
-
-    if (! $game) {
-        $decodedUrl = urldecode($url);
-        $game = Game::byUrl($decodedUrl)->first();
-    }
-
-    if (! $game && str_starts_with($url, 'https:/') && ! str_starts_with($url, 'https://')) {
-        $fixedUrl = str_replace('https:/', 'https://', $url);
-        $game = Game::byUrl($fixedUrl)->first();
-    }
-
-    if (! $game) {
-        $fullPath = $request->getPathInfo();
-        $urlPart = substr($fullPath, strlen('/by-url/'));
-        $game = Game::byUrl($urlPart)->first();
-    }
-
-    if (! $game) {
-        abort(404);
-    }
-
-    return redirect(status: 301)->route('games.show', $game);
-})->where('url', '.*');
+Route::get('by-url/{url}', GameUrlRedirectController::class)->where('url', '.*');
 
 // Home route
 Route::get('/', [HomeController::class, 'home'])
@@ -253,31 +173,30 @@ Route::get('system/status', [SystemStatusController::class, 'systemStatus'])
     ->name('system.status');
 
 // Social Authentication Routes
-Route::get('auth/telegram', function () {
-    session()->put(SocialAuthController::TELEGRAM_LOGIN_SESSION_KEY, true);
-
-    return Inertia::render('auth/telegram-login', [
-        'metaTags' => new MetaTags(title: 'Login with Telegram')->toArray(),
-    ]);
-})->name('auth.telegram');
+Route::get('auth/telegram', [SocialAuthController::class, 'showTelegramLogin'])
+    ->name('auth.telegram');
 
 Route::post('auth/telegram/callback', [SocialAuthController::class, 'handleProviderCallback'])
     ->defaults('provider', 'telegram')
+    ->middleware('throttle:30,1')
     ->name('auth.telegram.callback');
 
 Route::get('auth/{provider}/redirect', [SocialAuthController::class, 'redirectToProvider'])
+    ->whereIn('provider', ['discord', 'google', 'steam', 'telegram', 'itchio'])
+    ->middleware('throttle:30,1')
     ->name('auth.redirect');
 
 // Special routes for itch.io
-Route::get('auth/itchio/callback', function () {
-    return Inertia::render('auth/itchio-callback');
-})->name('auth.itchio.callback');
+Route::get('auth/itchio/callback', [SocialAuthController::class, 'showItchioCallback'])
+    ->name('auth.itchio.callback');
 
-Route::get('auth/itchio/process', function () {
-    return app()->make(SocialAuthController::class)->handleProviderCallback('itchio');
-})->name('auth.itchio.process');
+Route::get('auth/itchio/process', [SocialAuthController::class, 'processItchioCallback'])
+    ->middleware('throttle:30,1')
+    ->name('auth.itchio.process');
 
 Route::get('auth/{provider}/callback', [SocialAuthController::class, 'handleProviderCallback'])
+    ->whereIn('provider', ['discord', 'google', 'steam', 'telegram', 'itchio'])
+    ->middleware('throttle:30,1')
     ->name('auth.callback');
 
 // Svelte/Inertia Dialogue Browser + JSON API
@@ -324,10 +243,10 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware(['auth', 'admin'])->group(function () {
-    Route::get('discord', fn () => Inertia::render('dashboard/discord/index'))->name('dashboard.discord.index');
+    Route::get('discord', [DiscordConfigController::class, 'index'])->name('dashboard.discord.index');
     Route::get('discord/install/callback', [DiscordConfigController::class, 'handleBotInstallCallback'])->name('dashboard.discord.install.callback');
     Route::get('discord/install/{guild}', [DiscordConfigController::class, 'redirectToBotInstall'])->name('dashboard.discord.install');
-    Route::get('discord/{server}', fn ($server) => Inertia::render('dashboard/discord/server', ['server' => (int) $server]))->name('dashboard.discord.server');
+    Route::get('discord/{server}', [DiscordConfigController::class, 'server'])->whereNumber('server')->name('dashboard.discord.server');
 });
 
 // Browser API JSON for versions moved to browser-api.php

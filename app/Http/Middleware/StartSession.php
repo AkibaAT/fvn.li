@@ -12,6 +12,7 @@ use Illuminate\Session\Middleware\StartSession as Middleware;
 use Illuminate\Session\Store;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cookie;
+use Override;
 use Symfony\Component\HttpFoundation\Response;
 
 class StartSession extends Middleware
@@ -48,6 +49,7 @@ class StartSession extends Middleware
         return false;
     }
 
+    #[Override]
     public function handle($request, Closure $next)
     {
         if (! CachePublicPage::appliesTo($request)) {
@@ -61,6 +63,7 @@ class StartSession extends Middleware
         return $next($request);
     }
 
+    #[Override]
     protected function addCookieToResponse(Response $response, Session $session)
     {
         $request = request();
@@ -76,6 +79,7 @@ class StartSession extends Middleware
         }
     }
 
+    #[Override]
     protected function saveSession($request)
     {
         if (self::shouldPersist($request)) {

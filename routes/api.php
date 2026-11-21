@@ -13,7 +13,7 @@ use App\Http\Controllers\Api\GamePageViewController;
 use App\Http\Controllers\Api\GameReviewsController;
 use App\Http\Controllers\Api\RenpyAnalyzerController;
 use App\Http\Controllers\Api\UserNotificationsController;
-use Illuminate\Http\Request;
+use App\Http\Controllers\Api\UserProfileController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -27,9 +27,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['auth:sanctum', 'sanctum.token:profile'])->get('/user', function (Request $request) {
-    return $request->user();
-});
+Route::middleware(['auth:sanctum', 'sanctum.token:profile'])->get('/user', UserProfileController::class);
 
 // Discord bot game search
 Route::middleware(['auth:sanctum', 'sanctum.token:discord-bot'])->prefix('discord')->group(function () {

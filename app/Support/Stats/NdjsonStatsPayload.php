@@ -18,7 +18,7 @@ use RuntimeException;
  */
 class NdjsonStatsPayload implements StatsPayload
 {
-    public const SCHEMA = 'fvn.renpy_stats.v1';
+    public const string SCHEMA = 'fvn.renpy_stats.v1';
 
     /** @var array<string, array<string, mixed>>|null */
     private ?array $languages = null;
@@ -59,7 +59,10 @@ class NdjsonStatsPayload implements StatsPayload
 
     public function withoutFileStatistics(): static
     {
-        return new static($this->path, $this->ownsFile, true);
+        return clone ($this, [
+            'suppressFileStatistics' => true,
+            'fileStatistics' => null,
+        ]);
     }
 
     public function section(string $name): iterable

@@ -11,6 +11,7 @@ use App\Models\GameJam;
 use App\Models\GameVersion;
 use App\Models\Rating;
 use App\Models\Tag;
+use App\Models\User;
 use App\Observers\CharacterObserver;
 use App\Observers\GameJamObserver;
 use App\Observers\GameObserver;
@@ -18,6 +19,7 @@ use App\Observers\GameVersionObserver;
 use App\Observers\RatingObserver;
 use App\Observers\TagObserver;
 use App\Observers\UniversalAuditObserver;
+use App\Observers\UserObserver;
 use App\Services\FlareSolverrClient;
 use App\Services\FlareSolverrSessionManager;
 use App\Services\GameArchiveOptimizationService;
@@ -31,11 +33,14 @@ use App\Services\ItchUrlSafetyValidator;
 use App\Services\LanguageMappingService;
 use App\Support\Diagnostics\DiagnosticLogManager;
 use App\Support\IconVersion;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use ReflectionClass;
@@ -44,6 +49,9 @@ use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class AppServiceProvider extends ServiceProvider
 {
+    /** @var list<class-string<Model>>|null */
+    private static ?array $auditableModels = null;
+
     /**
      * Register any application services.
      */
@@ -90,15 +98,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Model::preventSilentlyDiscardingAttributes(! $this->app->isProduction());
+
+        $this->configureRateLimiting();
+
         View::share('iconVersion', IconVersion::get());
 
-        // Register specific model observers for search index updates
+        // Register specific model observers for search index and user lifecycle updates
         Game::observe(GameObserver::class);
         GameJam::observe(GameJamObserver::class);
         GameVersion::observe(GameVersionObserver::class);
         Character::observe(CharacterObserver::class);
         Tag::observe(TagObserver::class);
         Rating::observe(RatingObserver::class);
+        User::observe(UserObserver::class);
 
         $this->disableSearchSyncingForTests();
 
@@ -114,6 +127,27 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->registerSlowQueryLogging();
+    }
+
+    private function configureRateLimiting(): void
+    {
+        RateLimiter::for('api', function (Request $request): Limit {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('user-api-ip', fn (Request $request): Limit => Limit::perMinute(300)->by('ip:' . $request->ip()));
+        $userLimit = static fn (string $bucket, int $max): callable => static fn (Request $request): Limit => Limit::perMinute($max)->by("user-api-{$bucket}:" . ($request->user()?->getKey() ?? $request->ip()));
+        RateLimiter::for('user-api', $userLimit('requests', 120));
+        RateLimiter::for('user-api-write', $userLimit('write', 30));
+        RateLimiter::for('user-api-lookup', $userLimit('lookup', 10));
+
+        RateLimiter::for('save-parser', function (Request $request): Limit {
+            return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('notification-health-test', function (Request $request): Limit {
+            return Limit::perHour(5)->by((string) ($request->user()?->id ?: $request->ip()));
+        });
     }
 
     private function disableSearchSyncingForTests(): void
@@ -136,31 +170,30 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        $modelPath = app_path('Models');
-        if (! is_dir($modelPath)) {
-            return;
+        if (self::$auditableModels === null) {
+            self::$auditableModels = [];
+            $modelPath = app_path('Models');
+
+            if (is_dir($modelPath)) {
+                foreach (glob($modelPath . '/*.php') ?: [] as $file) {
+                    $fileName = basename($file, '.php');
+                    $modelClass = "App\\Models\\{$fileName}";
+
+                    if (! class_exists($modelClass) || ! is_subclass_of($modelClass, Model::class)) {
+                        continue;
+                    }
+
+                    $reflection = new ReflectionClass($modelClass);
+                    if ($reflection->isAbstract()) {
+                        continue;
+                    }
+
+                    self::$auditableModels[] = $modelClass;
+                }
+            }
         }
 
-        $modelFiles = glob($modelPath . '/*.php');
-
-        foreach ($modelFiles as $file) {
-            $fileName = basename($file, '.php');
-            $modelClass = "App\\Models\\{$fileName}";
-
-            if (! class_exists($modelClass)) {
-                continue;
-            }
-
-            if (! is_subclass_of($modelClass, Model::class)) {
-                continue;
-            }
-
-            $reflection = new ReflectionClass($modelClass);
-            if ($reflection->isAbstract()) {
-                continue;
-            }
-
-            // Register the observer
+        foreach (self::$auditableModels as $modelClass) {
             $modelClass::observe(UniversalAuditObserver::class);
         }
     }
@@ -171,13 +204,13 @@ class AppServiceProvider extends ServiceProvider
     private function registerSlowQueryLogging(): void
     {
         // Slow query threshold in milliseconds
-        $slowQueryThreshold = config('database.slow_query_threshold', 1000);
+        $slowQueryThreshold = (int) config('database.slow_query_threshold', 1000);
 
         DB::listen(function ($query) use ($slowQueryThreshold) {
             if ($query->time > $slowQueryThreshold) {
                 Log::warning('Slow query detected', [
                     'sql' => $query->sql,
-                    'bindings' => $query->bindings,
+                    'bindings_count' => count($query->bindings),
                     'time_ms' => $query->time,
                     'connection' => $query->connectionName,
                 ]);

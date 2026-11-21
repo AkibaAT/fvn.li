@@ -22,6 +22,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use RuntimeException;
 
 class DiscordConfigController extends Controller
@@ -46,6 +48,11 @@ class DiscordConfigController extends Controller
         | self::DISCORD_PERMISSION_EMBED_LINKS
         | self::DISCORD_PERMISSION_READ_MESSAGE_HISTORY;
 
+    public function index(): InertiaResponse
+    {
+        return Inertia::render('dashboard/discord/index');
+    }
+
     public function show(DiscordServer $server): JsonResponse
     {
         $this->authorize('view', $server);
@@ -57,6 +64,11 @@ class DiscordConfigController extends Controller
         return response()->json([
             'server' => $server,
         ]);
+    }
+
+    public function server(int $server): InertiaResponse
+    {
+        return Inertia::render('dashboard/discord/server', ['server' => $server]);
     }
 
     public function guilds(Request $request): JsonResponse
