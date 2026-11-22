@@ -15,7 +15,7 @@
 
     let { gameId, isIgnored, class: className = '' }: Props = $props();
 
-    const auth = $derived((page as any).props?.auth);
+    const auth = $derived(page.props.auth);
     const toggleAction = useAsyncAction();
 
     const handleToggle = async (event: MouseEvent) => {

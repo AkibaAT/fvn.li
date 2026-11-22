@@ -72,7 +72,7 @@
     <div class="space-y-4">
         {#if vapidPublicKey}
             <div class="flex items-center gap-4">
-                <div class="flex-grow">
+                <div class="grow">
                     <div class="font-medium text-fg">Browser Push Notifications</div>
                     <div class="mt-1 text-sm text-fg-muted">Receive game updates on this browser. Each device has its own subscription.</div>
                 </div>
@@ -87,7 +87,7 @@
 
         {#if hasDiscord}
             <div class="flex items-center gap-4">
-                <div class="flex-grow">
+                <div class="grow">
                     <div class="font-medium text-fg">Discord Notifications</div>
                     <div class="mt-1 text-sm text-fg-muted">Receive direct messages without needing to share a server with the bot.</div>
                 </div>

@@ -164,7 +164,7 @@
                                     Reported {formatLocalDate(report.created_at)}
                                 </p>
                             </div>
-                            <ChevronRightIcon class="ml-2 h-5 w-5 flex-shrink-0 text-fg-faint" />
+                            <ChevronRightIcon class="ml-2 h-5 w-5 shrink-0 text-fg-faint" />
                         </div>
                     </Button>
                 {/each}

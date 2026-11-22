@@ -74,12 +74,12 @@
     const safePhrases: Phrases = $derived(phrases ?? {});
     let selectedPhrase = $state<string | null>(null);
     let showContext = $state(false);
-    let showOnlyReviews = $state(untrack(() => filters?.showOnlyReviews ?? true));
-    let showOnlyVisibleGames = $state(untrack(() => filters?.showOnlyVisibleGames ?? false));
-    let sortField = $state<'published_at' | 'rating'>(untrack(() => filters?.sortField ?? 'published_at'));
-    let sortDirection = $state<'asc' | 'desc'>(untrack(() => filters?.sortDirection ?? 'desc'));
-    let page = $state<number>(untrack(() => filters?.page ?? 1));
-    let perPage = $state<number>(untrack(() => filters?.perPage ?? 10));
+    let showOnlyReviews = $derived(filters?.showOnlyReviews ?? true);
+    let showOnlyVisibleGames = $derived(filters?.showOnlyVisibleGames ?? false);
+    let sortField = $derived<'published_at' | 'rating'>(filters?.sortField ?? 'published_at');
+    let sortDirection = $derived<'asc' | 'desc'>(filters?.sortDirection ?? 'desc');
+    let page = $derived<number>(filters?.page ?? 1);
+    let perPage = $derived<number>(filters?.perPage ?? 10);
     let historyModal = $state<{ gameId: number | null; gameName: string; open: boolean }>({
         gameId: null,
         gameName: '',
@@ -149,7 +149,7 @@
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {#each Object.entries(safePhrases) as [phrase, data] (phrase)}
                         <div class="flex items-center justify-between rounded-md border p-2 {phraseTone(data.avg_rating)}">
-                            <span class="flex-grow">{phrase}</span>
+                            <span class="grow">{phrase}</span>
                             <div class="ml-2 flex items-center gap-2 text-sm text-fg-muted">
                                 <span>{data.count}x</span>
                                 <span>({data.avg_rating.toFixed(1)}★)</span>

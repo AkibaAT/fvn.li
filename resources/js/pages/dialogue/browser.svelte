@@ -36,9 +36,7 @@
     const gameSlug = $derived(initial.gameSlug);
     const preselectedVersionId = $derived(initial?.versionId ?? null);
 
-    const initialLocation = $derived(
-        typeof window !== 'undefined' ? window.location.href : (page.props as any)?.ziggy?.location || 'http://localhost/',
-    );
+    const initialLocation = $derived(typeof window !== 'undefined' ? window.location.href : page.props.ziggy?.location || 'http://localhost/');
 
     const url = untrack(() => new URL(initialLocation, typeof window === 'undefined' ? 'http://localhost/' : undefined));
     const qp = url.searchParams;

@@ -96,7 +96,7 @@ export function useGameCard(props: GameCardProps) {
     // partial reloads update props without remounting cards.
     const thumbnailUrl = $derived(getGameThumbnail(props.game) || null);
     const authorsInlineHtml = $derived(formatAuthorsInline(props.game.authors));
-    const auth = $derived((page as any).props?.auth as GameCardAuth | undefined);
+    const auth = $derived(page.props.auth as GameCardAuth | undefined);
     const isIgnored = $derived(props.ignoredGameIds?.includes(props.game.id) || false);
     const supportedPlatforms = $derived(getSupportedPlatforms(props.game));
     const storePlatform = $derived(props.game.platform ? getStorePlatformFromString(props.game.platform) : 'itch_io');

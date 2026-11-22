@@ -45,7 +45,7 @@
                 {#each notifications as notification (notification.id)}
                     <div class="rounded-lg border border-border bg-surface-alt p-4">
                         <div class="flex items-start space-x-3">
-                            <div class="mt-0.5 flex-shrink-0">
+                            <div class="mt-0.5 shrink-0">
                                 <InformationCircleIcon class="h-5 w-5 text-fg-muted" />
                             </div>
                             <div class="min-w-0 flex-1">

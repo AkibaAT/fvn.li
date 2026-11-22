@@ -2,7 +2,7 @@
     import { refreshPage } from '@/utils/refreshPage';
     import { getErrorMessage } from '@/utils/async-action.svelte';
     import { toast } from '@/utils/toast';
-    import { onMount, untrack } from 'svelte';
+    import { onMount } from 'svelte';
     import TinyMCEEditor from './TinyMCEEditor.svelte';
     import { Button, Popover } from '@/components/ui';
     import { fetchGameContentView, revertGameContent, updateGameContent, updateGameViewMode } from '@/api/game-content';
@@ -41,8 +41,8 @@
     const hasCustomPage = $derived(game.has_custom_page ?? false);
 
     let isEditing = $state(false);
-    let editContent = $state(untrack(() => content));
-    let displayContent = $state(untrack(() => content));
+    let editContent = $derived(content);
+    let displayContent = $derived(content);
     let isSaving = $state(false);
     let saveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
     let isReverting = $state(false);
@@ -54,11 +54,16 @@
     // Teleport edit controls to external container when provided
     $effect(() => {
         if (controlsTarget && controlsEl) {
+            const originalParent = controlsEl.parentNode;
+            const nextSibling = controlsEl.nextSibling;
             controlsTarget.appendChild(controlsEl);
             return () => {
-                // Move back on cleanup if element still exists
                 if (controlsEl?.parentNode === controlsTarget) {
-                    controlsTarget.removeChild(controlsEl);
+                    if (originalParent && originalParent.isConnected) {
+                        originalParent.insertBefore(controlsEl, nextSibling);
+                    } else {
+                        controlsTarget.removeChild(controlsEl);
+                    }
                 }
             };
         }
@@ -66,11 +71,6 @@
     let showEditorLoading = $state(false);
     let viewModeQueue = Promise.resolve();
     const refreshGame = () => refreshPage(['game', 'metaTags']);
-
-    $effect(() => {
-        displayContent = content;
-        editContent = content;
-    });
 
     onMount(() => {
         if (hasCustomPage && canEdit) {
@@ -133,7 +133,7 @@
 
             isEditing = false;
             saveStatus = 'saved';
-            const savedContent = data.content ?? editContent;
+            const savedContent = data.content ?? displayContent;
             displayContent = savedContent;
 
             if (onContentUpdate) {

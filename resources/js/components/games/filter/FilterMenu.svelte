@@ -58,7 +58,7 @@
                         >
                     {/if}
                 </span>
-                <ChevronRightIcon class="h-3.5 w-3.5 flex-shrink-0 text-fg-muted" />
+                <ChevronRightIcon class="h-3.5 w-3.5 shrink-0 text-fg-muted" />
             </button>
         {/each}
     {/each}

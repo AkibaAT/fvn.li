@@ -60,7 +60,7 @@
         recordGamePageView(game.id);
     });
 
-    const auth = $derived((page.props as any)?.auth);
+    const auth = $derived(page.props.auth);
     const isAuthenticated = $derived(Boolean(auth?.user));
 
     const reviewStyles = useReviewStyleString();

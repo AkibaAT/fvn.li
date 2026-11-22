@@ -4,7 +4,6 @@
     import { getErrorMessage, useAsyncAction } from '@/utils/async-action.svelte';
     import { toast } from '@/utils/toast';
     import { Link, page } from '@inertiajs/svelte';
-    import { untrack } from 'svelte';
     import {
         addGameToCustomList,
         addGameToDefaultList,
@@ -44,19 +43,19 @@
         user?: { id: number; name: string };
     }
 
-    const auth = $derived((page as any).props?.auth);
+    const auth = $derived(page.props.auth);
     const isAuthenticated = $derived(Boolean(auth?.user));
 
     let allLists = $state<VnList[]>([]);
-    let userLists = $state<VnList[]>(untrack(() => listMemberships.map((list) => ({ ...list, id: list.list_id }))));
+    let userLists = $derived<VnList[]>(listMemberships.map((list) => ({ ...list, id: list.list_id })));
     let showListDialog = $state(false);
     let showUserLists = $state(false);
     const toggleNotificationsAction = useAsyncAction();
-    let notificationStatus = $state(untrack(() => userProgress?.is_receiving_updates ?? false));
+    let notificationStatus = $derived(isAuthenticated ? (userProgress?.is_receiving_updates ?? false) : false);
     let newListName = $state('');
     let newListIsPublic = $state(false);
     const createAction = useAsyncAction();
-    let listStates = $state<Record<number, boolean>>(untrack(() => Object.fromEntries(listMemberships.map((list) => [list.list_id, true]))));
+    let listStates = $derived<Record<number, boolean>>(Object.fromEntries(listMemberships.map((list) => [list.list_id, true])));
     let loadingStates = $state<Record<number, boolean>>({});
 
     let defaultListQueue = Promise.resolve();
@@ -64,16 +63,6 @@
     let assignedPrivateTags = $derived<PrivateTagRef[]>(privateTags);
 
     const refreshUserData = () => refreshPage(['game', 'games', 'vnLists', 'vnList', 'availableLists']);
-
-    $effect(() => {
-        userLists = listMemberships.map((list) => ({ ...list, id: list.list_id }));
-        listStates = Object.fromEntries(listMemberships.map((list) => [list.list_id, true]));
-    });
-
-    $effect(() => {
-        if (!isAuthenticated) return;
-        notificationStatus = userProgress?.is_receiving_updates ?? false;
-    });
 
     const loadUserListsForDialog = async () => {
         if (!isAuthenticated) return;

@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { untrack } from 'svelte';
     import { refreshPage } from '@/utils/refreshPage';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import PlusCircleIcon from '@/components/icons/PlusCircle.svelte';
@@ -25,9 +24,9 @@
 
     let { lists, visibility, metaTags, counts = { all: 0, public: 0, private: 0 } }: Props = $props();
 
-    let visibilityFilter = $state(untrack(() => visibility));
-    let page = $state(untrack(() => lists.current_page));
-    let perPage = $state(untrack(() => lists.per_page));
+    let visibilityFilter = $derived(visibility);
+    let page = $derived(lists.current_page);
+    let perPage = $derived(lists.per_page);
 
     const filterSync = useUrlSyncedFilters({
         route: route('lists.index'),

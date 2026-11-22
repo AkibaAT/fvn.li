@@ -52,10 +52,10 @@
 
     let { reviewUser, reviews, stats, filters, metaTags }: Props = $props();
 
-    let page = $state(untrack(() => filters.page ?? 1));
-    let perPage = $state(untrack(() => filters.perPage ?? reviews.per_page ?? 10));
-    let sortField = $state(untrack(() => filters.sortField ?? 'published_at'));
-    let sortDirection = $state(untrack(() => filters.sortDirection ?? 'desc'));
+    let page = $derived(filters.page ?? 1);
+    let perPage = $derived(filters.perPage ?? reviews.per_page ?? 10);
+    let sortField = $derived(filters.sortField ?? 'published_at');
+    let sortDirection = $derived(filters.sortDirection ?? 'desc');
 
     const filterSync = useUrlSyncedFilters({
         route: untrack(() => route('users.reviews', reviewUser.id)),

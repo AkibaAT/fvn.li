@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { untrack } from 'svelte';
     import RatingFilterBar from '@/components/ratings/RatingFilterBar.svelte';
     import RatingList from '@/components/ratings/RatingList.svelte';
     import RatingStatsCard from '@/components/ratings/RatingStatsCard.svelte';
@@ -49,14 +48,14 @@
     let { pageTitle = 'Ratings', stats, ratings, filters, metaTags }: Props = $props();
 
     const safeStats = $derived(stats ?? emptyStats());
-    let page = $state(untrack(() => filters?.page ?? 1));
-    let perPage = $state(untrack(() => filters?.perPage ?? ratings?.per_page ?? 10));
-    let showOnlyReviews = $state(untrack(() => filters?.showOnlyReviews ?? true));
-    let showOnlyVisibleGames = $state(untrack(() => filters?.showOnlyVisibleGames ?? true));
-    let platform = $state(untrack(() => filters?.platform ?? ''));
-    let stars = $state<number | ''>(untrack(() => filters?.stars ?? ''));
-    let sortField = $state<'published_at' | 'rating'>(untrack(() => filters?.sortField ?? 'published_at'));
-    let sortDirection = $state<'asc' | 'desc'>(untrack(() => filters?.sortDirection ?? 'desc'));
+    let page = $derived(filters?.page ?? 1);
+    let perPage = $derived(filters?.perPage ?? ratings?.per_page ?? 10);
+    let showOnlyReviews = $derived(filters?.showOnlyReviews ?? true);
+    let showOnlyVisibleGames = $derived(filters?.showOnlyVisibleGames ?? true);
+    let platform = $derived(filters?.platform ?? '');
+    let stars = $derived<number | ''>(filters?.stars ?? '');
+    let sortField = $derived<'published_at' | 'rating'>(filters?.sortField ?? 'published_at');
+    let sortDirection = $derived<'asc' | 'desc'>(filters?.sortDirection ?? 'desc');
 
     const filterSync = useUrlSyncedFilters({
         route: route('ratings.index'),

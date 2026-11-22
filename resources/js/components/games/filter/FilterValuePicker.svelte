@@ -188,7 +188,7 @@
                     onclick={() => updateFilters({ [def.key]: !currentFilters[def.key] })}
                     class="popover-row-hover flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-none"
                 >
-                    <span class="flex h-4 w-4 flex-shrink-0 items-center justify-center" aria-hidden="true">
+                    <span class="flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
                         {#if currentFilters[def.key]}
                             <CheckIcon class="h-3.5 w-3.5 text-accent-fg" />
                         {/if}
@@ -207,7 +207,7 @@
                     class="popover-row-hover flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-none"
                 >
                     <span
-                        class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border {isSelected
+                        class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border {isSelected
                             ? 'border-accent-fg'
                             : 'border-border-strong'}"
                         aria-hidden="true"
@@ -235,7 +235,7 @@
                     class="popover-row-hover flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-none"
                 >
                     <span
-                        class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-sm border {activeInOperator
+                        class="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border {activeInOperator
                             ? 'border-accent-fg bg-accent text-on-accent'
                             : 'border-border-strong'}"
                         aria-hidden="true"
@@ -263,7 +263,7 @@
                         {optionLabel(value, item)}
                     </span>
                     {#if canExclude && valueMembership && valueMembership !== tagOperator}
-                        <span class="flex-shrink-0 rounded-full bg-surface-alt px-1.5 py-0.5 text-2xs text-fg-muted">
+                        <span class="shrink-0 rounded-full bg-surface-alt px-1.5 py-0.5 text-2xs text-fg-muted">
                             {valueMembership === 'include' ? 'Included' : 'Excluded'}
                         </span>
                     {/if}

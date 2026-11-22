@@ -3,7 +3,6 @@
     import MagnifyingGlassIcon from '@/components/icons/MagnifyingGlass.svelte';
     import ClipboardIcon from '@/components/icons/Clipboard.svelte';
     import XMarkIcon from '@/components/icons/XMark.svelte';
-    import { untrack } from 'svelte';
     import type { VnList } from '@/types/lists';
     import PublicListResults from '@/components/lists/PublicListResults.svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
@@ -37,13 +36,13 @@
         counts = { all: 0, plan_to_read: 0, reading: 0, completed: 0, on_hold: 0, dropped: 0, custom: 0 },
     }: Props = $props();
 
-    let searchInput = $state(untrack(() => initialSearch));
-    let currentSearch = $state(untrack(() => initialSearch));
-    let currentSort = $state(untrack(() => initialSort));
-    let type = $state(untrack(() => initialType));
-    let activeGame = $state<FilterGame | null>(untrack(() => initialFilterGame));
-    let page = $state(untrack(() => lists.current_page));
-    let perPage = $state(untrack(() => lists.per_page));
+    let searchInput = $derived(initialSearch);
+    let currentSearch = $derived(initialSearch);
+    let currentSort = $derived(initialSort);
+    let type = $derived(initialType);
+    let activeGame = $derived<FilterGame | null>(initialFilterGame);
+    let page = $derived(lists.current_page);
+    let perPage = $derived(lists.per_page);
 
     const typeLabel = (t: string) => t.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 

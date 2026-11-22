@@ -100,7 +100,7 @@
     hover
     class="flex h-full flex-col overflow-hidden {className}"
 >
-    <div class="flex-grow p-6">
+    <div class="grow p-6">
         <div class="mb-4 flex items-start justify-between gap-4">
             <div class="min-w-0 flex-1">
                 {#if showUser && list.user}

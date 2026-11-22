@@ -7,14 +7,14 @@ type Options = {
 };
 
 export function useUrlTab<T extends string>(validTabs: readonly T[], defaultTab: T, { readHash = false }: Options = {}) {
-    function readInitial(): T {
-        const url = new SvelteURL(page.url, 'http://localhost');
+    function readTab(currentUrl: string): T {
+        const url = new SvelteURL(currentUrl, 'http://localhost');
         const hash = readHash && typeof window !== 'undefined' ? window.location.hash.slice(1) : null;
         const tab = url.searchParams.get('tab') ?? hash;
         return (validTabs as readonly string[]).includes(tab ?? '') ? (tab as T) : defaultTab;
     }
 
-    let activeTab = $state<T>(readInitial());
+    let activeTab = $derived<T>(readTab(page.url));
 
     function setTab(tab: T) {
         if (tab === activeTab) return;

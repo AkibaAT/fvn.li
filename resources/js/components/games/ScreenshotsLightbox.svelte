@@ -3,7 +3,6 @@
     import XLinesIcon from '@/components/icons/XLines.svelte';
     import { Button, Dialog } from '@/components/ui';
     import { gameScreenshotAltText, gameScreenshotThumbnailAltText } from '@/utils/imageAltText';
-    import { untrack } from 'svelte';
 
     import type { Screenshot } from '@/types/game-show';
 
@@ -17,17 +16,10 @@
 
     let { isOpen, screenshots, startIndex = 0, gameName, onClose }: Props = $props();
 
-    let index = $state(untrack(() => startIndex));
-    let isZoomed = $state(false);
+    let index = $derived(isOpen ? startIndex : startIndex);
+    let isZoomed = $derived(isOpen ? false : false);
     let touchStart: number | null = null;
     let touchEnd: number | null = null;
-
-    $effect(() => {
-        if (isOpen) {
-            index = startIndex;
-            isZoomed = false;
-        }
-    });
 
     const currentImage = $derived(!isOpen || !screenshots || screenshots.length === 0 ? '' : screenshots[index]?.url || '');
 
@@ -96,7 +88,7 @@
             onclick={onClose}
         ></Button>
 
-        <div class="relative z-10 flex flex-shrink-0 items-center justify-between p-2">
+        <div class="relative z-10 flex shrink-0 items-center justify-between p-2">
             <div class="text-sm text-white">{index + 1} / {screenshots.length}</div>
             <Button
                 type="button"
@@ -178,7 +170,7 @@
             {/if}
         </div>
 
-        <div class="relative z-10 flex flex-shrink-0 items-center justify-between bg-black px-4 py-2">
+        <div class="relative z-10 flex shrink-0 items-center justify-between bg-black px-4 py-2">
             {#if screenshots.length > 1}
                 <div class="mr-4 flex flex-1 justify-center overflow-hidden">
                     <div
@@ -195,7 +187,7 @@
                                     e.stopPropagation();
                                     index = i;
                                 }}
-                                class="flex-shrink-0 cursor-pointer overflow-hidden rounded-sm transition-colors {i === index
+                                class="shrink-0 cursor-pointer overflow-hidden rounded-sm transition-colors {i === index
                                     ? 'border-4 border-white'
                                     : 'border-2 border-transparent hover:border-fg-muted'}"
                                 ariaLabel="Go to screenshot {i + 1}"
