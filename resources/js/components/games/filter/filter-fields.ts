@@ -71,7 +71,7 @@ interface FlagsFilterField extends FieldBase {
 
 export type FilterField = MultiFilterField | SingleFilterField | FlagsFilterField;
 
-export const FILTER_FIELDS: readonly FilterField[] = [
+const FILTER_FIELDS: readonly FilterField[] = [
     {
         id: 'tags',
         label: 'Tags',

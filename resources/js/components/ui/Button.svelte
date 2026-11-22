@@ -13,7 +13,6 @@
     import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
 
     type ButtonLikeProps = HTMLButtonAttributes & HTMLAnchorAttributes;
-    type ButtonAction = (node: HTMLElement) => void | { destroy?: () => void };
 
     interface Props extends ButtonLikeProps {
         variant?: ButtonVariant;
@@ -30,7 +29,6 @@
         ariaLabel?: string;
         ref?: HTMLElement | null;
         attachment?: Attachment<HTMLElement>;
-        action?: ButtonAction;
     }
 
     let {
@@ -49,7 +47,6 @@
         ariaLabel,
         ref = $bindable(null),
         attachment,
-        action,
         ...restProps
     }: Props = $props();
 
@@ -103,12 +100,6 @@
     let isDisabled = $derived(disabled || loading);
     let classes = $derived(cn(baseClasses, toneClasses[tone][variant], sizeClasses[size], className));
     let linkProps = $derived(restProps as any);
-
-    $effect(() => {
-        if (!ref || !action) return;
-        const result = action(ref);
-        return () => result?.destroy?.();
-    });
 </script>
 
 {#snippet content()}

@@ -116,15 +116,15 @@
     const renderedName = $derived(previewingVisitorView ? previewName : displayName);
 </script>
 
-<div class="relative flex w-full min-w-0 flex-wrap items-center gap-2 {className}">
+<div class="group relative flex w-full min-w-0 flex-wrap items-center gap-2 {className}">
     {#if isEditing}
         <input
             type="text"
             bind:value={editName}
             onkeydown={handleKeyPress}
             disabled={isSaving}
-            class="min-w-0 flex-1 rounded-md border border-border-input bg-surface-alt px-2 py-1 text-display font-bold break-words text-fg focus:border-fg-muted focus:outline-none"
-            use:focusOnMount
+            class="min-w-0 flex-1 rounded-md border border-border-input bg-surface-alt px-2 py-1 text-display font-bold break-words text-fg focus:border-fg-muted focus:outline-hidden"
+            {@attach focusOnMount}
             maxlength={255}
         />
         <Button
@@ -159,7 +159,7 @@
                 tone="primary"
                 size="xs"
                 onclick={handleEdit}
-                class="whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100"
+                class="whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                 title="Edit name"
             >
                 Edit

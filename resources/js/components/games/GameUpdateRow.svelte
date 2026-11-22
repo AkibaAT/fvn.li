@@ -1,5 +1,6 @@
 <script lang="ts">
     import { untrack } from 'svelte';
+    import { Link } from '@inertiajs/svelte';
     import GameFlags from './GameFlags.svelte';
     import GameTagList from './GameTagList.svelte';
     import GlyphStrip from './GlyphStrip.svelte';
@@ -12,11 +13,8 @@
 
     let props: GameCardProps = $props();
 
+    const card = untrack(() => useGameCard(props));
     const {
-        thumbnailUrl,
-        authorsInlineHtml,
-        supportedPlatforms,
-        storePlatform,
         handlePlatform,
         handleLanguage,
         handleTag,
@@ -27,8 +25,13 @@
         handleDemoToggle,
         handleSaleToggle,
         handleLostToggle,
-        orderedTags,
-    } = untrack(() => useGameCard(props));
+    } = card;
+
+    const thumbnailUrl = $derived(card.thumbnailUrl);
+    const authorsInlineHtml = $derived(card.authorsInlineHtml);
+    const supportedPlatforms = $derived(card.supportedPlatforms);
+    const storePlatform = $derived(card.storePlatform);
+    const orderedTags = $derived(card.orderedTags);
 
     const {
         game,
@@ -83,9 +86,9 @@
     {#snippet body()}
         <div class="flex items-center gap-1.5">
             <h2 class="min-w-0 truncate text-sm leading-tight font-semibold text-fg">
-                <a href={route('games.show', game.slug)} class="hover:underline" aria-label="View details for {game.effective_name}">
+                <Link href={route('games.show', game.slug)} class="hover:underline" aria-label="View details for {game.effective_name}">
                     {game.effective_name}
-                </a>
+                </Link>
             </h2>
 
             <GameFlags

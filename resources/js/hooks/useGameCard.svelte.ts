@@ -89,29 +89,13 @@ export interface GameCardProps {
 }
 
 export function useGameCard(props: GameCardProps) {
-    const {
-        game,
-        selectedTags,
-        onTagClick,
-        onPlatformClick,
-        onLanguageClick,
-        onStatusClick,
-        onStorePlatformClick,
-        onNsfwToggle,
-        onPaidToggle,
-        onDemoToggle,
-        onSaleToggle,
-        onLostToggle,
-    } = props;
     const { getSupportedPlatforms } = usePlatformIcons();
     const { getStorePlatformFromString } = useStorePlatformIcons();
 
-    const thumbnailUrl = getGameThumbnail(game) || null;
-    const authorsInlineHtml = formatAuthorsInline(game.authors);
-
-    // Session/state shared by every card and row variant. These stay $derived:
-    // partial reloads update the props without remounting the cards, and the
-    // ignore button's label flips purely off `ignoredGameIds` changing.
+    // Session/state and derived display data stay $derived because Inertia
+    // partial reloads update props without remounting cards.
+    const thumbnailUrl = $derived(getGameThumbnail(props.game) || null);
+    const authorsInlineHtml = $derived(formatAuthorsInline(props.game.authors));
     const auth = $derived((page as any).props?.auth as GameCardAuth | undefined);
     const isIgnored = $derived(props.ignoredGameIds?.includes(props.game.id) || false);
     const supportedPlatforms = $derived(getSupportedPlatforms(props.game));
@@ -131,72 +115,77 @@ export function useGameCard(props: GameCardProps) {
     };
 
     const handleTag = (id: number) => {
-        if (onTagClick) return onTagClick(String(id));
+        if (props.onTagClick) return props.onTagClick(String(id));
         navigateWith({ selectedTags: [String(id)] });
     };
 
     const handlePlatform = (platform: GameCardPlatform) => {
-        if (onPlatformClick) return onPlatformClick(platform);
+        if (props.onPlatformClick) return props.onPlatformClick(platform);
         navigateWith({ selectedPlatforms: [platform] });
     };
 
     const handleLanguage = (iso: string) => {
-        if (onLanguageClick) return onLanguageClick(iso);
+        if (props.onLanguageClick) return props.onLanguageClick(iso);
         navigateWith({ selectedLanguages: [iso] });
     };
 
     const handleStatus = (status: string) => {
-        if (onStatusClick) return onStatusClick(status);
+        if (props.onStatusClick) return props.onStatusClick(status);
         navigateWith({ selectedStatuses: [status] });
     };
 
     const handleStorePlatform = (platform: string) => {
-        if (onStorePlatformClick) return onStorePlatformClick(platform);
+        if (props.onStorePlatformClick) return props.onStorePlatformClick(platform);
         navigateWith({ selectedStorePlatforms: [platform] });
     };
 
     const handleNsfwToggle = () => {
-        if (onNsfwToggle) return onNsfwToggle();
+        if (props.onNsfwToggle) return props.onNsfwToggle();
         navigateWith({ nsfw: true });
     };
 
     const handlePaidToggle = () => {
-        if (onPaidToggle) return onPaidToggle();
+        if (props.onPaidToggle) return props.onPaidToggle();
         navigateWith({ showPaid: true });
     };
 
     const handleDemoToggle = () => {
-        if (onDemoToggle) return onDemoToggle();
+        if (props.onDemoToggle) return props.onDemoToggle();
         navigateWith({ showDemo: true });
     };
 
     const handleSaleToggle = () => {
-        if (onSaleToggle) return onSaleToggle();
+        if (props.onSaleToggle) return props.onSaleToggle();
         navigateWith({ showSale: true });
     };
 
     const handleLostToggle = () => {
-        if (onLostToggle) return onLostToggle();
+        if (props.onLostToggle) return props.onLostToggle();
         navigateWith({ showLost: true });
     };
 
     // Tag ordering and state
-    const orderedTags =
-        game.tags && game.tags.length > 0
-            ? [...game.tags].sort((a, b) => {
-                  const aSelected = selectedTags?.includes(String(a.id)) ?? false;
-                  const bSelected = selectedTags?.includes(String(b.id)) ?? false;
+    const orderedTags = $derived(
+        props.game.tags && props.game.tags.length > 0
+            ? [...props.game.tags].sort((a, b) => {
+                  const aSelected = props.selectedTags?.includes(String(a.id)) ?? false;
+                  const bSelected = props.selectedTags?.includes(String(b.id)) ?? false;
                   if (aSelected === bSelected) return 0;
                   return aSelected ? -1 : 1;
               })
-            : [];
+            : [],
+    );
 
     return {
         // Image handling
-        thumbnailUrl,
+        get thumbnailUrl() {
+            return thumbnailUrl;
+        },
 
         // Content
-        authorsInlineHtml,
+        get authorsInlineHtml() {
+            return authorsInlineHtml;
+        },
 
         // Session/state
         get auth() {
@@ -225,6 +214,8 @@ export function useGameCard(props: GameCardProps) {
         handleLostToggle,
 
         // Tags
-        orderedTags,
+        get orderedTags() {
+            return orderedTags;
+        },
     };
 }

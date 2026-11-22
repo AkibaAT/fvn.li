@@ -1,4 +1,11 @@
 <script lang="ts" module>
+    const DEFAULT_STYLES = {
+        maxWidth: '100%',
+        fontSize: '100%',
+        lineHeight: '150%',
+        margin: '0 auto',
+    };
+
     export function getReviewTextStyles(): {
         maxWidth: string;
         fontSize: string;
@@ -11,31 +18,27 @@
             const savedLineHeight = localStorage.getItem('reviewLineHeightPreference');
 
             return {
-                maxWidth: `${savedWidth ? parseInt(savedWidth) : 100}%`,
-                fontSize: `${savedFontSize ? parseInt(savedFontSize) : 100}%`,
-                lineHeight: `${savedLineHeight ? parseInt(savedLineHeight) : 150}%`,
+                maxWidth: `${savedWidth ? parseInt(savedWidth, 10) : 100}%`,
+                fontSize: `${savedFontSize ? parseInt(savedFontSize, 10) : 100}%`,
+                lineHeight: `${savedLineHeight ? parseInt(savedLineHeight, 10) : 150}%`,
                 margin: '0 auto',
             };
         }
-        return {
-            maxWidth: '100%',
-            fontSize: '100%',
-            lineHeight: '150%',
-            margin: '0 auto',
-        };
+        return { ...DEFAULT_STYLES };
     }
 
     export function useReviewTextStyles() {
-        let styles = $state(getReviewTextStyles());
+        let styles = $state({ ...DEFAULT_STYLES });
 
         $effect(() => {
             const handleStorageChange = () => {
                 const newStyles = getReviewTextStyles();
-                const hasChanged = JSON.stringify(styles) !== JSON.stringify(newStyles);
-                if (hasChanged) {
+                if (styles.maxWidth !== newStyles.maxWidth || styles.fontSize !== newStyles.fontSize || styles.lineHeight !== newStyles.lineHeight) {
                     styles = newStyles;
                 }
             };
+
+            handleStorageChange();
 
             window.addEventListener('storage', handleStorageChange);
             window.addEventListener('reviewTextStylesChanged', handleStorageChange);
@@ -80,100 +83,46 @@
     let { class: className = '' }: { class?: string } = $props();
 
     let popoverOpen = $state(false);
+    let reviewWidth = $state<number | null>(null);
+    let reviewFontSize = $state<number | null>(null);
+    let reviewLineHeight = $state<number | null>(null);
 
-    let isUpdatingFromStorage = false;
-
-    let reviewWidth = $state<number | null>(
-        typeof window !== 'undefined'
-            ? (() => {
-                  const s = localStorage.getItem('reviewWidthPreference');
-                  return s ? parseInt(s) : null;
-              })()
-            : null,
-    );
-
-    let reviewFontSize = $state<number | null>(
-        typeof window !== 'undefined'
-            ? (() => {
-                  const s = localStorage.getItem('reviewFontSizePreference');
-                  return s ? parseInt(s) : null;
-              })()
-            : null,
-    );
-
-    let reviewLineHeight = $state<number | null>(
-        typeof window !== 'undefined'
-            ? (() => {
-                  const s = localStorage.getItem('reviewLineHeightPreference');
-                  return s ? parseInt(s) : null;
-              })()
-            : null,
-    );
+    function persistPreference(key: string, value: number | null) {
+        if (typeof window === 'undefined') return;
+        if (value !== null) {
+            localStorage.setItem(key, value.toString());
+        } else {
+            localStorage.removeItem(key);
+        }
+        window.dispatchEvent(new Event('reviewTextStylesChanged'));
+    }
 
     $effect(() => {
-        let storageTimeoutId: number | null = null;
+        const readFromStorage = () => {
+            const w = localStorage.getItem('reviewWidthPreference');
+            const f = localStorage.getItem('reviewFontSizePreference');
+            const l = localStorage.getItem('reviewLineHeightPreference');
+            reviewWidth = w ? parseInt(w, 10) : null;
+            reviewFontSize = f ? parseInt(f, 10) : null;
+            reviewLineHeight = l ? parseInt(l, 10) : null;
+        };
+
+        readFromStorage();
 
         const handleStorageChange = (e: StorageEvent) => {
-            if (storageTimeoutId !== null) {
-                clearTimeout(storageTimeoutId);
-            }
-
-            isUpdatingFromStorage = true;
-
             if (e.key === 'reviewWidthPreference') {
-                reviewWidth = e.newValue ? parseInt(e.newValue) : null;
+                reviewWidth = e.newValue ? parseInt(e.newValue, 10) : null;
             } else if (e.key === 'reviewFontSizePreference') {
-                reviewFontSize = e.newValue ? parseInt(e.newValue) : null;
+                reviewFontSize = e.newValue ? parseInt(e.newValue, 10) : null;
             } else if (e.key === 'reviewLineHeightPreference') {
-                reviewLineHeight = e.newValue ? parseInt(e.newValue) : null;
+                reviewLineHeight = e.newValue ? parseInt(e.newValue, 10) : null;
             }
-
-            storageTimeoutId = window.setTimeout(() => {
-                isUpdatingFromStorage = false;
-                storageTimeoutId = null;
-            }, 50);
         };
 
         window.addEventListener('storage', handleStorageChange);
         return () => {
             window.removeEventListener('storage', handleStorageChange);
-            if (storageTimeoutId !== null) {
-                clearTimeout(storageTimeoutId);
-            }
         };
-    });
-
-    $effect(() => {
-        if (!isUpdatingFromStorage && typeof window !== 'undefined') {
-            if (reviewWidth !== null) {
-                localStorage.setItem('reviewWidthPreference', reviewWidth.toString());
-            } else {
-                localStorage.removeItem('reviewWidthPreference');
-            }
-            window.dispatchEvent(new Event('reviewTextStylesChanged'));
-        }
-    });
-
-    $effect(() => {
-        if (!isUpdatingFromStorage && typeof window !== 'undefined') {
-            if (reviewFontSize !== null) {
-                localStorage.setItem('reviewFontSizePreference', reviewFontSize.toString());
-            } else {
-                localStorage.removeItem('reviewFontSizePreference');
-            }
-            window.dispatchEvent(new Event('reviewTextStylesChanged'));
-        }
-    });
-
-    $effect(() => {
-        if (!isUpdatingFromStorage && typeof window !== 'undefined') {
-            if (reviewLineHeight !== null) {
-                localStorage.setItem('reviewLineHeightPreference', reviewLineHeight.toString());
-            } else {
-                localStorage.removeItem('reviewLineHeightPreference');
-            }
-            window.dispatchEvent(new Event('reviewTextStylesChanged'));
-        }
     });
 
     function resetToDefault() {
@@ -195,7 +144,10 @@
             min: 50,
             max: 100,
             value: reviewWidth || 100,
-            set: (value: number) => (reviewWidth = value),
+            set: (value: number) => {
+                reviewWidth = value;
+                persistPreference('reviewWidthPreference', value);
+            },
         },
         {
             label: 'Font size',
@@ -203,7 +155,10 @@
             min: 75,
             max: 150,
             value: reviewFontSize || 100,
-            set: (value: number) => (reviewFontSize = value),
+            set: (value: number) => {
+                reviewFontSize = value;
+                persistPreference('reviewFontSizePreference', value);
+            },
         },
         {
             label: 'Line height',
@@ -211,7 +166,10 @@
             min: 100,
             max: 300,
             value: reviewLineHeight || 150,
-            set: (value: number) => (reviewLineHeight = value),
+            set: (value: number) => {
+                reviewLineHeight = value;
+                persistPreference('reviewLineHeightPreference', value);
+            },
         },
     ]);
 </script>

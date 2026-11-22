@@ -22,19 +22,20 @@ function getPathname(urlOrPath: string): string {
     }
 }
 
-function computeRoutes(currentUrl?: string): Routes {
-    if (typeof window === 'undefined') {
-        return {
-            games: { path: '/games', isActive: false },
-            lists: { path: '/lists/public', isActive: false },
-            ratings: { path: '/ratings', isActive: false },
-        };
+function safeRoutePath(name: string, fallback: string): string {
+    try {
+        return getPathname(route(name));
+    } catch {
+        return fallback;
     }
+}
 
-    const currentPath = getPathname(currentUrl ?? window.location.pathname);
-    const gamesPath = getPathname(route('games.index'));
-    const listsPath = getPathname(route('lists.public'));
-    const ratingsPath = getPathname(route('ratings.index'));
+function computeRoutes(currentUrl?: string): Routes {
+    const fallbackPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+    const currentPath = getPathname(currentUrl || fallbackPath);
+    const gamesPath = safeRoutePath('games.index', '/games');
+    const listsPath = safeRoutePath('lists.public', '/lists/public');
+    const ratingsPath = safeRoutePath('ratings.index', '/ratings');
 
     return {
         games: {
@@ -53,13 +54,7 @@ function computeRoutes(currentUrl?: string): Routes {
 }
 
 export function useStableRoutes() {
-    let currentUrl = $state('');
-    let routes = $state<Routes>(computeRoutes());
-
-    $effect(() => {
-        currentUrl = page.url;
-        routes = computeRoutes(currentUrl);
-    });
+    const routes = $derived(computeRoutes(page.url));
 
     return {
         get games() {

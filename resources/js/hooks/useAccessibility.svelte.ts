@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/svelte';
 import { announceToScreenReader } from '@/utils/accessibility';
 
 /**
@@ -19,15 +20,21 @@ export function useRouteAccessibility() {
     let navigationAnnounced = false;
 
     $effect(() => {
+        if (typeof document === 'undefined') {
+            return;
+        }
+
+        let focusTimerId: ReturnType<typeof setTimeout> | null = null;
+
         const handleStart = () => {
             announce('Navigating to new page...', 'polite');
             navigationAnnounced = true;
         };
 
-        const handleProgress = (event: CustomEvent<{ progress: ProgressEvent | undefined }>) => {
-            if (event.detail.progress?.loaded && event.detail.progress?.total) {
-                const progress = Math.round((event.detail.progress.loaded / event.detail.progress.total) * 100);
-                announce(`Loading progress: ${progress}%`, 'polite');
+        const handleProgress = (event: { detail: { progress?: { percentage?: number } | null } }) => {
+            const percentage = event.detail.progress?.percentage;
+            if (typeof percentage === 'number') {
+                announce(`Loading progress: ${Math.round(percentage)}%`, 'polite');
             }
         };
 
@@ -36,7 +43,12 @@ export function useRouteAccessibility() {
                 announce('Page loaded successfully', 'polite');
                 navigationAnnounced = false;
 
-                setTimeout(() => {
+                if (focusTimerId !== null) {
+                    clearTimeout(focusTimerId);
+                }
+
+                focusTimerId = setTimeout(() => {
+                    focusTimerId = null;
                     if (typeof document === 'undefined') return;
                     const active = document.activeElement as HTMLElement | null;
                     const tag = active?.tagName ?? '';
@@ -57,21 +69,20 @@ export function useRouteAccessibility() {
             navigationAnnounced = false;
         };
 
-        if (typeof document !== 'undefined') {
-            document.addEventListener('inertia:start', handleStart as EventListener);
-            document.addEventListener('inertia:progress', handleProgress as EventListener);
-            document.addEventListener('inertia:success', handleSuccess as EventListener);
-            document.addEventListener('inertia:error', handleError as EventListener);
+        const removeStart = router.on('start', handleStart);
+        const removeProgress = router.on('progress', handleProgress);
+        const removeSuccess = router.on('success', handleSuccess);
+        const removeError = router.on('error', handleError);
 
-            return () => {
-                document.removeEventListener('inertia:start', handleStart as EventListener);
-                document.removeEventListener('inertia:progress', handleProgress as EventListener);
-                document.removeEventListener('inertia:success', handleSuccess as EventListener);
-                document.removeEventListener('inertia:error', handleError as EventListener);
-            };
-        }
-
-        return () => {};
+        return () => {
+            removeStart();
+            removeProgress();
+            removeSuccess();
+            removeError();
+            if (focusTimerId !== null) {
+                clearTimeout(focusTimerId);
+            }
+        };
     });
 
     return {

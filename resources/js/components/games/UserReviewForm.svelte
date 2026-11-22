@@ -3,7 +3,7 @@
     import StarIcon from '@/components/icons/Star.svelte';
     import TinyMCEEditor from '@/components/editor/TinyMCEEditor.svelte';
     import { untrack } from 'svelte';
-    import { page } from '@inertiajs/svelte';
+    import { Link, page } from '@inertiajs/svelte';
     import { useAsyncAction } from '@/utils/async-action.svelte';
     import { toast } from '@/utils/toast';
     import { Alert, Button, Card, Checkbox } from '@/components/ui';
@@ -18,7 +18,7 @@
 
     let { gameId, initialReview = null, onEditingChange, onReviewChange }: Props = $props();
 
-    const auth = $derived((page as any).props?.auth);
+    const auth = $derived(page.props.auth);
     const isAuthenticated = $derived(Boolean(auth?.user));
 
     let isEditing = $state(false);
@@ -116,7 +116,7 @@
 {#if !isAuthenticated}
     <Card variant="flat" padding="sm" class="text-center">
         <p class="text-sm text-fg-muted">
-            <a href={route('login')} class="text-fg underline underline-offset-2">Log in</a>
+            <Link href={route('login')} class="text-fg underline underline-offset-2">Log in</Link>
             to leave a review for this game.
         </p>
     </Card>

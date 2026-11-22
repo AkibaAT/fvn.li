@@ -18,11 +18,17 @@ export * from './game';
 export * from './lists';
 
 interface Auth {
-    user: User;
+    user: User | null;
+}
+
+interface FlashMessagesData {
+    message?: string | null;
+    error?: string | null;
 }
 
 export interface SharedData {
     auth: Auth;
+    flash?: FlashMessagesData;
     ziggy: (Config & { location: string }) | null;
 
     [key: string]: unknown;
@@ -32,10 +38,11 @@ export interface SharedData {
 export interface User {
     id: number;
     name: string;
-    email?: string;
-    avatar?: string;
-    created_at: string;
-    updated_at: string;
+    email?: string | null;
+    avatar?: string | null;
+    is_admin?: boolean;
+    created_at?: string;
+    updated_at?: string;
 }
 
 export interface SocialAccount {

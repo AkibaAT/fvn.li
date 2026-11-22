@@ -104,34 +104,49 @@
 
     $effect(() => {
         if (!server) return;
+        let active = true;
         (async () => {
             try {
-                channels = await fetchDiscordServerChannels(serverId);
+                const fetchedChannels = await fetchDiscordServerChannels(serverId);
+                if (active) channels = fetchedChannels;
             } catch {
-                channels = server?.available_channels || [];
+                if (active) channels = server?.available_channels || [];
             }
         })();
+        return () => {
+            active = false;
+        };
     });
 
     $effect(() => {
         if (!server) return;
+        let active = true;
         (async () => {
             try {
-                roles = await fetchDiscordServerRoles(serverId);
+                const fetchedRoles = await fetchDiscordServerRoles(serverId);
+                if (active) roles = fetchedRoles;
             } catch {
-                roles = [];
+                if (active) roles = [];
             }
         })();
+        return () => {
+            active = false;
+        };
     });
 
     $effect(() => {
+        let active = true;
         (async () => {
             try {
-                ruleFieldMetadata = await fetchRuleMetadata();
+                const metadata = await fetchRuleMetadata();
+                if (active) ruleFieldMetadata = metadata;
             } catch {
-                ruleFieldMetadata = {};
+                if (active) ruleFieldMetadata = {};
             }
         })();
+        return () => {
+            active = false;
+        };
     });
 
     async function saveConfig(partial?: Partial<ServerConfig>) {

@@ -6,7 +6,8 @@ const api = vi.hoisted(() => ({ fetchUserLists: vi.fn(), fetchGameListMembership
 vi.mock('@/api/lists', () => api);
 const tagApi = vi.hoisted(() => ({ listPrivateTags: vi.fn(), setGamePrivateTag: vi.fn(), createPrivateTag: vi.fn() }));
 vi.mock('@/api/private-tags', () => tagApi);
-vi.mock('@inertiajs/svelte', () => ({
+vi.mock('@inertiajs/svelte', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@inertiajs/svelte')>()),
     page: { props: { auth: { user: { id: 1 } } } },
     router: {
         reload: ({ onSuccess, onFinish }: { onSuccess: () => void; onFinish: () => void }) => {

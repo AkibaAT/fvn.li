@@ -88,11 +88,11 @@
         previousFilters = filters;
     });
 
-    let options = $state<any>(null);
-    let versionStats = $state<any>(null);
-    let searchData = $state<any>(null);
-    let duplicates = $state<DuplicateItem[]>([]);
-    let wordFrequency = $state<any[]>([]);
+    let options = $state.raw<any>(null);
+    let versionStats = $state.raw<any>(null);
+    let searchData = $state.raw<any>(null);
+    let duplicates = $state.raw<DuplicateItem[]>([]);
+    let wordFrequency = $state.raw<any[]>([]);
     let optionsLoading = $state(false);
     let searchLoading = $state(false);
     let duplicatesLoading = $state(false);

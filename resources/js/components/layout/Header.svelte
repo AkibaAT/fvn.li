@@ -9,7 +9,7 @@
     import SearchBar from '@/components/layout/SearchBar.svelte';
 
     let showMobileSearch = $state(false);
-    let MobileSearchComponent = $state<any>(null);
+    let MobileSearchComponent = $state.raw<any>(null);
 
     async function loadMobileSearch() {
         MobileSearchComponent ??= (await import('@/components/layout/MobileSearch.svelte')).default;

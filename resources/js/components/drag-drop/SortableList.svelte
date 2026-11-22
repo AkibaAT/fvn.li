@@ -5,7 +5,7 @@
     import { useSortable } from '@dnd-kit-svelte/svelte/sortable';
     import { move } from '@dnd-kit/helpers';
     import { Feedback } from '@dnd-kit/dom';
-    import { defaultSortableTransition } from '@dnd-kit/dom/sortable';
+    import { OptimisticSortingPlugin, SortableKeyboardPlugin, defaultSortableTransition } from '@dnd-kit/dom/sortable';
 
     interface Props {
         items: T[];
@@ -44,7 +44,7 @@
             {@const sortable = useSortable({
                 id: item.id,
                 index: () => index,
-                plugins: () => (defaults) => [...defaults, Feedback.configure({ feedback: 'move' })],
+                plugins: [SortableKeyboardPlugin, OptimisticSortingPlugin, Feedback.configure({ feedback: 'move' })],
                 transition: defaultSortableTransition,
                 disabled,
             })}

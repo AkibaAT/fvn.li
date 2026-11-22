@@ -1,4 +1,5 @@
 import '../css/app.css';
+import type { ResolvedComponent } from '@inertiajs/svelte';
 import { createInertiaApp } from '@inertiajs/svelte';
 import { hydrate, mount } from 'svelte';
 import { initializeAppearance } from '@/hooks/use-appearance.svelte';
@@ -8,21 +9,23 @@ import { revealInlineSpoiler } from '@/utils/review-spoilers';
 import { installZiggyGlobals } from '@/utils/ziggy';
 import type { SharedZiggyConfig } from '@/utils/ziggy';
 
+const appName = import.meta.env.VITE_APP_NAME || 'FVN.li';
+const pages = import.meta.glob<ResolvedComponent>('./pages/**/*.svelte');
+
 createInertiaApp({
+    title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: async (name) => {
-        const pages = import.meta.glob('./pages/**/*.svelte', {
-            import: 'default',
-        });
+        const loader = pages[`./pages/${name}.svelte`];
 
-        const page = (await pages[`./pages/${name}.svelte`]?.()) as any;
-
-        if (!page) {
+        if (!loader) {
             throw new Error(`Unknown Inertia page: ${name}`);
         }
 
+        const resolved = await loader();
+
         return {
-            default: page,
-            layout: page.layout || AppFrame,
+            default: resolved.default,
+            layout: resolved.layout || (AppFrame as ResolvedComponent['layout']),
         };
     },
     setup({ el, App, props }) {

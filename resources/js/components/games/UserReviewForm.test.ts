@@ -8,7 +8,8 @@ const api = vi.hoisted(() => ({
 }));
 const router = vi.hoisted(() => ({ reload: vi.fn() }));
 
-vi.mock('@inertiajs/svelte', () => ({
+vi.mock('@inertiajs/svelte', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@inertiajs/svelte')>()),
     router,
     page: {
         props: {

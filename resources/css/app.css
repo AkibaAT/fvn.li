@@ -66,10 +66,6 @@
 }
 
 @layer base {
-    [x-cloak] {
-        display: none !important;
-    }
-
     /* Outside :focus-visible so transitions don't animate the ring. */
     :where(a[href], button, input, select, textarea, summary, [role='button'], [role='tab'], [tabindex]:not([tabindex='-1'])) {
         outline-color: var(--accent-fg);
@@ -167,18 +163,6 @@
 }
 
 @layer utilities {
-    .cursor-grab {
-        cursor: grab;
-    }
-
-    .cursor-grabbing {
-        cursor: grabbing;
-    }
-
-    .active\:cursor-grabbing:active {
-        cursor: grabbing;
-    }
-
     .popover-elevated {
         background-color: var(--surface);
         box-shadow:
@@ -207,18 +191,6 @@
 
     .scrollbar-none {
         scrollbar-width: none;
-    }
-
-    .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border-width: 0;
     }
 }
 

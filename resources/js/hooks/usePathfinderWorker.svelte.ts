@@ -4,6 +4,7 @@ import { findPath, type PathfinderOptions, type RoutePath } from '@/utils/pathfi
 interface PendingRequest {
     resolve: (path: RoutePath | null) => void;
     reject: (error: Error) => void;
+    timeoutId: ReturnType<typeof setTimeout>;
 }
 
 class PathfinderWorkerManager {
@@ -16,6 +17,11 @@ class PathfinderWorkerManager {
     }
 
     private initWorker() {
+        if (typeof Worker === 'undefined') {
+            this.worker = null;
+            return;
+        }
+
         try {
             this.worker = new Worker(new URL('../workers/pathfinder.worker.ts', import.meta.url), { type: 'module' });
 
@@ -26,6 +32,7 @@ class PathfinderWorkerManager {
                 const pending = this.pendingRequests.get(requestId);
                 if (!pending) return;
 
+                clearTimeout(pending.timeoutId);
                 this.pendingRequests.delete(requestId);
                 if (error) {
                     pending.reject(new Error(error));
@@ -52,7 +59,15 @@ class PathfinderWorkerManager {
         const requestId = String(++this.requestIdCounter);
 
         return new Promise((resolve, reject) => {
-            this.pendingRequests.set(requestId, { resolve, reject });
+            const timeoutId = setTimeout(() => {
+                const pending = this.pendingRequests.get(requestId);
+                if (!pending) return;
+
+                this.pendingRequests.delete(requestId);
+                pending.reject(new Error('Pathfinding timeout'));
+            }, 5000);
+
+            this.pendingRequests.set(requestId, { resolve, reject, timeoutId });
             // Callers typically pass $state/$derived proxies; postMessage's
             // structured clone rejects them, so snapshot to plain values.
             this.worker!.postMessage({
@@ -63,14 +78,6 @@ class PathfinderWorkerManager {
                 options: $state.snapshot(options),
                 requestId,
             });
-
-            window.setTimeout(() => {
-                const pending = this.pendingRequests.get(requestId);
-                if (!pending) return;
-
-                this.pendingRequests.delete(requestId);
-                pending.reject(new Error('Pathfinding timeout'));
-            }, 5000);
         });
     }
 
@@ -90,6 +97,7 @@ class PathfinderWorkerManager {
 
     private rejectPending(error: Error) {
         this.pendingRequests.forEach((pending) => {
+            clearTimeout(pending.timeoutId);
             pending.reject(error);
         });
         this.pendingRequests.clear();
@@ -98,15 +106,29 @@ class PathfinderWorkerManager {
 
 let workerManager: PathfinderWorkerManager | null = null;
 
-export function usePathfinderWorker() {
+function getWorkerManager(): PathfinderWorkerManager | null {
+    if (typeof Worker === 'undefined') {
+        return null;
+    }
+
     if (!workerManager) {
         workerManager = new PathfinderWorkerManager();
     }
 
+    return workerManager;
+}
+
+export function usePathfinderWorker() {
     return {
-        findPath: (startNodeId: string, targetNodeId: string, edges: RouteEdge[], options: PathfinderOptions = {}) =>
-            workerManager!.findPath(startNodeId, targetNodeId, edges, options),
-        clearCache: () => workerManager!.clearCache(),
+        findPath: (startNodeId: string, targetNodeId: string, edges: RouteEdge[], options: PathfinderOptions = {}) => {
+            const manager = getWorkerManager();
+            if (!manager) {
+                return Promise.resolve(findPath(startNodeId, targetNodeId, edges, options));
+            }
+
+            return manager.findPath(startNodeId, targetNodeId, edges, options);
+        },
+        clearCache: () => getWorkerManager()?.clearCache(),
         terminate: () => {
             workerManager?.terminate();
             workerManager = null;

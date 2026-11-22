@@ -24,16 +24,22 @@
     } from '@/utils/route-map';
     import { getErrorMessage } from '@/utils/async-action.svelte';
     import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-    import { router } from '@inertiajs/svelte';
-    import { untrack } from 'svelte';
+    import { page, router } from '@inertiajs/svelte';
+    import { onMount, untrack } from 'svelte';
 
     const getColorMode = (): 'light' | 'dark' =>
         typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'dark' : 'light';
 
-    let colorMode = $state<'light' | 'dark'>(getColorMode());
+    let colorMode = $state<'light' | 'dark'>('light');
 
     $effect(() => {
-        if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
+        if (typeof document === 'undefined') {
+            return;
+        }
+
+        colorMode = getColorMode();
+
+        if (typeof MutationObserver === 'undefined') {
             return;
         }
 
@@ -56,10 +62,10 @@
         metaTags,
     }: RouteMapPageProps = $props();
 
-    let routeGraph = $state<RouteGraphData>((() => $state.snapshot(initialGraph) as RouteGraphData)());
-    let selectedVersionId = $state<number>((() => $state.snapshot(currentVersion)?.id ?? 0)());
-    let selectedLanguage = $state<string | null>((() => $state.snapshot(currentLanguage) ?? null)());
-    let visibleLanguages = $state<string[]>((() => [...($state.snapshot(availableLanguages) ?? [])])());
+    let routeGraph = $state.raw<RouteGraphData>(untrack(() => initialGraph));
+    let selectedVersionId = $state<number>(untrack(() => currentVersion?.id ?? 0));
+    let selectedLanguage = $state<string | null>(untrack(() => currentLanguage ?? null));
+    let visibleLanguages = $state<string[]>(untrack(() => [...(availableLanguages ?? [])]));
     let selectedNodeId = $state<string | null>(null);
     let isLoading = $state(false);
     let graphError = $state<string | null>(null);
@@ -67,10 +73,14 @@
     let graphGeneration = 0;
     let searchQuery = $state('');
     let showSidebar = $state(false);
-    let includeUnreachable = $state<boolean>(
-        (() => Boolean($state.snapshot(initialIncludeUnreachable) || ($state.snapshot(initialGraph) as RouteGraphData)?.includes_unreachable))(),
+    let includeUnreachable = $state<boolean>(untrack(() => Boolean(initialIncludeUnreachable || initialGraph?.includes_unreachable)));
+    let navigationTarget = $state<string | null>(
+        untrack(() => {
+            const url = page.url ?? '';
+            const queryIdx = url.indexOf('?');
+            return queryIdx >= 0 ? new URLSearchParams(url.slice(queryIdx + 1)).get('target') : null;
+        }),
     );
-    let navigationTarget = $state<string | null>(typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('target') : null);
     let routePreferences = $state<RoutePreference[]>([]);
     let preferenceVariable = $state('');
     let preferenceMode = $state<RoutePreference['mode']>('maximize');
@@ -80,9 +90,11 @@
 
     // Web worker for pathfinding (prevents UI freezing on large graphs).
     // The manager is a module-level singleton that outlives Inertia page
-    // navigations, so drop any cached paths from a previously viewed graph.
+    // navigations, so drop any cached paths on mount (client-only).
     const pathfinder = usePathfinderWorker();
-    pathfinder.clearCache();
+    onMount(() => {
+        pathfinder.clearCache();
+    });
     let navigationPath = $state<Array<{ nodeId: string; edge: RouteEdge | null }> | null>(null);
     let isCalculatingPath = $state(false);
     let saveUploadError = $state<string | null>(null);

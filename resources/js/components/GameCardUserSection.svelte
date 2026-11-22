@@ -3,7 +3,7 @@
     import ChevronDownIcon from '@/components/icons/ChevronDown.svelte';
     import { getErrorMessage, useAsyncAction } from '@/utils/async-action.svelte';
     import { toast } from '@/utils/toast';
-    import { page } from '@inertiajs/svelte';
+    import { Link, page } from '@inertiajs/svelte';
     import { untrack } from 'svelte';
     import {
         addGameToCustomList,
@@ -261,9 +261,9 @@
                         {#each userListsInGame as list (list.id)}
                             <div class="flex flex-col rounded-md border border-border bg-surface p-3">
                                 <div class="min-w-0">
-                                    <a href={route('lists.show', list.id)} class="block truncate text-ui font-medium text-fg hover:underline">
+                                    <Link href={route('lists.show', list.id)} class="block truncate text-ui font-medium text-fg hover:underline">
                                         {list.name}
-                                    </a>
+                                    </Link>
                                     <div class="mt-1 text-xs text-fg-faint">
                                         {formatListType(list.type)}
                                         {#if list.is_public}<span class="ml-1">· Public</span>{/if}

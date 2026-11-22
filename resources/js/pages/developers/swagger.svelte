@@ -1,12 +1,13 @@
-<script>
+<script lang="ts">
     import { Link } from '@inertiajs/svelte';
     import { onMount } from 'svelte';
     import PageHeader from '@/components/layout/PageHeader.svelte';
     import SeoHead from '@/components/seo/SeoHead.svelte';
     import { Alert, Button } from '@/components/ui';
+    import type { MetaTags } from '@/types/meta-tags';
     import 'swagger-ui-dist/swagger-ui.css';
 
-    let { metaTags } = $props();
+    let { metaTags }: { metaTags?: MetaTags | null } = $props();
     let loadError = $state(false);
 
     onMount(() => {

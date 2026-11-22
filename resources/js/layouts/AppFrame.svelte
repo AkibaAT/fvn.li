@@ -1,7 +1,7 @@
 <script lang="ts">
     import { toast } from '@/utils/toast';
     import type { Snippet } from 'svelte';
-    import { page } from '@inertiajs/svelte';
+    import { page, router } from '@inertiajs/svelte';
     import { onMount } from 'svelte';
     import Container from '@/components/Container.svelte';
     import Footer from '@/components/footer/Footer.svelte';
@@ -10,6 +10,7 @@
     import FlashMessages from '@/components/layout/FlashMessages.svelte';
     import { useRouteAccessibility } from '@/hooks/useAccessibility.svelte';
     import { syncPushSubscription } from '@/utils/push';
+    import type { SharedData } from '@/types';
 
     interface Props {
         children: Snippet;
@@ -18,9 +19,10 @@
     let { children }: Props = $props();
 
     const FULL_WIDTH_PAGES = new Set(['games/route-map']);
-    let isFullWidth = $derived(FULL_WIDTH_PAGES.has((page as any).component as string));
-    const flash = $derived(((page.props as any)?.flash ?? {}) as { message?: string; error?: string });
-    const userId = $derived((page.props as any)?.auth?.user?.id ?? null);
+    const sharedProps = $derived(page.props as unknown as SharedData);
+    let isFullWidth = $derived(FULL_WIDTH_PAGES.has(page.component));
+    const flash = $derived(sharedProps.flash ?? {});
+    const userId = $derived(sharedProps.auth?.user?.id ?? null);
     let pushReady = $state(false);
 
     useRouteAccessibility();
@@ -69,14 +71,14 @@
             lastFocusedId = null;
         };
 
-        document.addEventListener('inertia:start', onStart as EventListener);
-        document.addEventListener('inertia:navigate', onComplete as EventListener);
-        document.addEventListener('inertia:finish', onComplete as EventListener);
+        const removeStart = router.on('start', onStart);
+        const removeNavigate = router.on('navigate', onComplete);
+        const removeFinish = router.on('finish', onComplete);
 
         return () => {
-            document.removeEventListener('inertia:start', onStart as EventListener);
-            document.removeEventListener('inertia:navigate', onComplete as EventListener);
-            document.removeEventListener('inertia:finish', onComplete as EventListener);
+            removeStart();
+            removeNavigate();
+            removeFinish();
         };
     });
 </script>
@@ -85,7 +87,7 @@
 
 <div class="flex min-h-screen flex-col bg-page text-fg">
     <Header />
-    <FlashMessages message={flash?.message} error={flash?.error} />
+    <FlashMessages message={flash?.message ?? undefined} error={flash?.error ?? undefined} />
 
     <main
         id="main-content"

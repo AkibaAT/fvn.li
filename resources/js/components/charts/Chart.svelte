@@ -1,18 +1,14 @@
-<script lang="ts">
-    import { onMount, onDestroy, untrack } from 'svelte';
+<script lang="ts" module>
     import {
         BarController,
         BarElement,
         CategoryScale,
         Chart as ChartJS,
-        type ChartData,
-        type ChartOptions,
         Filler,
         Legend,
         LineController,
         LinearScale,
         LineElement,
-        type Plugin,
         PointElement,
         Title,
         Tooltip,
@@ -31,6 +27,11 @@
         Title,
         Tooltip,
     );
+</script>
+
+<script lang="ts">
+    import { onMount, onDestroy, untrack } from 'svelte';
+    import type { ChartData, ChartOptions, Plugin } from 'chart.js';
 
     let {
         type = 'line',
@@ -63,7 +64,7 @@
 
     let canvasRef: HTMLCanvasElement;
     let chart: ChartJS | null = null;
-    let mounted = $state(false);
+    let mounted = false;
 
     onMount(() => {
         chart = new ChartJS(canvasRef, {
@@ -83,7 +84,7 @@
 
         // Read chart without tracking to avoid circular dependency
         const c = untrack(() => chart);
-        if (!c || !untrack(() => mounted)) return;
+        if (!c || !mounted) return;
 
         c.data = newData;
         if (c.options && newOptions) {

@@ -2,7 +2,7 @@
     import { toast } from '@/utils/toast';
     import ExclamationCircleIcon from '@/components/icons/ExclamationCircle.svelte';
     import { submitBugReport } from '@/api';
-    import { usePage } from '@inertiajs/svelte';
+    import { Link, usePage } from '@inertiajs/svelte';
     import { useAsyncAction } from '@/utils/async-action.svelte';
     import { Alert, Button, Dialog, TextInput, Textarea } from '@/components/ui';
 
@@ -92,7 +92,7 @@
         {#if !user}
             <Alert class="mb-4" role="status">
                 You must be logged in to submit a bug report. Please
-                <a href={route('login')} class="font-medium underline hover:no-underline"> log in </a>
+                <Link href={route('login')} class="font-medium underline hover:no-underline">log in</Link>
                 to continue.
             </Alert>
         {/if}

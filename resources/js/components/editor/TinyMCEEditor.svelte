@@ -42,14 +42,34 @@
     }
 
     onMount(() => {
-        const script = document.createElement('script');
-        script.src = '/assets/tinymce/tinymce.min.js';
-        script.onload = () => {
-            initEditor();
+        let disposed = false;
+        const onScriptLoad = () => {
+            if (!disposed) {
+                initEditor();
+            }
         };
-        document.head.appendChild(script);
+
+        let existingScript: HTMLScriptElement | null = null;
+
+        if ((window as any).tinymce) {
+            initEditor();
+        } else {
+            existingScript = document.querySelector<HTMLScriptElement>('script[data-tinymce-script="true"]');
+            if (existingScript) {
+                existingScript.addEventListener('load', onScriptLoad, { once: true });
+            } else {
+                const script = document.createElement('script');
+                script.src = '/assets/tinymce/tinymce.min.js';
+                script.dataset.tinymceScript = 'true';
+                script.addEventListener('load', onScriptLoad, { once: true });
+                document.head.appendChild(script);
+                existingScript = script;
+            }
+        }
 
         return () => {
+            disposed = true;
+            existingScript?.removeEventListener('load', onScriptLoad);
             if (editorInstance) {
                 editorInstance.destroy();
                 editorInstance = null;

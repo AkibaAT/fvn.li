@@ -24,7 +24,7 @@
     };
 </script>
 
-<div class="fixed right-4 bottom-4 z-50 space-y-2">
+<div class="pointer-events-none fixed right-4 bottom-4 z-50 space-y-2">
     {#each $toastStore as notification (notification.id)}
         {@const Icon = toastIcons[notification.type]}
         {@const tone = alertToneClasses[toastTones[notification.type]]}
@@ -35,7 +35,7 @@
         >
             <div class="p-4">
                 <div class="flex items-start">
-                    <div class="flex-shrink-0">
+                    <div class="shrink-0">
                         <Icon class="h-6 w-6 {tone.icon}" />
                     </div>
                     <div class="ml-3 flex-1 pt-0.5">
@@ -43,7 +43,7 @@
                             {notification.message}
                         </p>
                     </div>
-                    <div class="ml-4 flex flex-shrink-0">
+                    <div class="ml-4 flex shrink-0">
                         <Button
                             type="button"
                             variant="ghost"

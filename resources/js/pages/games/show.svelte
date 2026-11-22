@@ -146,12 +146,8 @@
     });
 
     let versionsPage = $state(1);
-    // eslint-disable-next-line svelte/prefer-writable-derived
-    let versionsPerPage = $state(5);
-    let versionsData = $state<any>(null);
-    $effect(() => {
-        versionsPerPage = gameVersions?.per_page ?? gameVersions?.meta?.per_page ?? 5;
-    });
+    let versionsPerPage = $derived(gameVersions?.per_page ?? gameVersions?.meta?.per_page ?? 5);
+    let versionsData = $state.raw<any>(null);
 
     const currentVersions = $derived(versionsData?.versions ?? gameVersions?.data ?? []);
     const versionsPagination = $derived(
@@ -422,16 +418,24 @@
     $effect(() => {
         if (typeof window === 'undefined') return;
         const hash = window.location.hash;
-        if (hash?.startsWith('#review-')) {
-            setTimeout(() => {
-                const el = document.getElementById(hash.slice(1));
-                if (el) {
-                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    el.classList.add('bg-surface-alt', 'rounded-md', 'transition-colors');
-                    setTimeout(() => el.classList.remove('bg-surface-alt'), 3000);
-                }
-            }, 500);
-        }
+        if (!hash?.startsWith('#review-')) return;
+
+        let clearHighlightTimer: ReturnType<typeof setTimeout> | null = null;
+        const scrollTimer = setTimeout(() => {
+            const el = document.getElementById(hash.slice(1));
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.add('bg-surface-alt', 'rounded-md', 'transition-colors');
+                clearHighlightTimer = setTimeout(() => el.classList.remove('bg-surface-alt'), 3000);
+            }
+        }, 500);
+
+        return () => {
+            clearTimeout(scrollTimer);
+            if (clearHighlightTimer !== null) {
+                clearTimeout(clearHighlightTimer);
+            }
+        };
     });
 
     const sections = $derived.by((): StickyBackBarSection[] => {

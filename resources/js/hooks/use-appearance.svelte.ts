@@ -109,8 +109,6 @@ export function useAppearance() {
 
     $effect(() => {
         applyTheme(appearance);
-
-        return () => mediaQuery()?.removeEventListener('change', handleSystemThemeChange);
     });
 
     return {

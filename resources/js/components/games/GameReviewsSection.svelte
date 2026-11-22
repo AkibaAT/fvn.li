@@ -275,7 +275,7 @@
                                         {@html review.review}
                                     </div>
                                     {#if !expandedReviews[review.id] && shouldCollapseReview(review.review)}
-                                        <div class="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-surface"></div>
+                                        <div class="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-surface"></div>
                                     {/if}
                                 </div>
                                 {#if shouldCollapseReview(review.review)}
