@@ -82,11 +82,20 @@ jobs:
             git diff --check
           fi
 
+      - name: Lint PHP
+        run: ddev exec composer lint
+
+      - name: Static analysis (Larastan)
+        run: ddev exec composer analyse
+
       - name: Type check frontend
         run: ddev bun types
 
       - name: Lint frontend
         run: ddev bun lint:check
+
+      - name: Check frontend formatting
+        run: ddev bun run format:check
 
       - name: Wait for test Meilisearch
         run: ddev exec bash -lc 'for i in {1..30}; do curl -fsS http://meilisearch-test:7700/health && exit 0; sleep 2; done; exit 1'

@@ -119,11 +119,20 @@ jobs:
       - name: Install Bun dependencies
         run: bun install --frozen-lockfile
 
+      - name: Lint PHP
+        run: composer lint
+
+      - name: Static analysis (Larastan)
+        run: composer analyse
+
       - name: Type check frontend
         run: bun types
 
       - name: Lint frontend
         run: bun lint:check
+
+      - name: Check frontend formatting
+        run: bun run format:check
 
       - name: Build frontend assets
         run: bun run build:ssr
