@@ -5,6 +5,7 @@ use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\TestResponse;
@@ -380,10 +381,13 @@ test('provider callback does not implicitly link to an existing user by email', 
         ->and($newUser->name)->toBe('Global Discord');
 
     $account = $newUser->socialAccounts()->where('provider_name', 'discord')->first();
+    $rawAccount = DB::table('social_accounts')->where('id', $account->id)->first();
     expect($account)->not->toBeNull()
         ->and($account->provider_id)->toBe('discord-1')
         ->and($account->token)->toBe('token-discord-1')
         ->and($account->refresh_token)->toBe('refresh-discord-1')
+        ->and($rawAccount->token)->not->toBe('token-discord-1')
+        ->and($rawAccount->refresh_token)->not->toBe('refresh-discord-1')
         ->and($account->token_expires_at)->not->toBeNull()
         ->and($account->toArray())->not->toHaveKeys(['token', 'refresh_token']);
 });
@@ -549,4 +553,43 @@ test('callback errors redirect to games index with a flash error', function () {
     $this->get(route('auth.callback', ['provider' => 'discord']))
         ->assertRedirect(route('games.index'))
         ->assertSessionHas('error', 'Failed to authenticate with discord');
+});
+
+test('encrypt social account tokens migration idempotently encrypts plaintext tokens', function () {
+    $user = User::factory()->create();
+
+    $plaintextId = DB::table('social_accounts')->insertGetId([
+        'user_id' => $user->id,
+        'provider_name' => 'discord',
+        'provider_id' => 'migration-plain-1',
+        'token' => 'plaintext-access-token',
+        'refresh_token' => 'plaintext-refresh-token',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $alreadyEncrypted = SocialAccount::create([
+        'user_id' => $user->id,
+        'provider_name' => 'google',
+        'provider_id' => 'migration-encrypted-1',
+        'token' => 'already-encrypted-token',
+        'refresh_token' => 'already-encrypted-refresh',
+    ]);
+    $rawBefore = DB::table('social_accounts')->where('id', $alreadyEncrypted->id)->first();
+
+    $migration = require database_path('migrations/2026_11_21_000001_encrypt_social_account_tokens.php');
+    $migration->up();
+
+    $plainAccount = SocialAccount::findOrFail($plaintextId);
+    $rawAfterPlain = DB::table('social_accounts')->where('id', $plaintextId)->first();
+    $rawAfterEncrypted = DB::table('social_accounts')->where('id', $alreadyEncrypted->id)->first();
+
+    expect($rawAfterPlain->token)->not->toBe('plaintext-access-token')
+        ->and($rawAfterPlain->refresh_token)->not->toBe('plaintext-refresh-token')
+        ->and($plainAccount->token)->toBe('plaintext-access-token')
+        ->and($plainAccount->refresh_token)->toBe('plaintext-refresh-token')
+        ->and($rawAfterEncrypted->token)->toBe($rawBefore->token)
+        ->and($rawAfterEncrypted->refresh_token)->toBe($rawBefore->refresh_token)
+        ->and($alreadyEncrypted->fresh()->token)->toBe('already-encrypted-token')
+        ->and($alreadyEncrypted->fresh()->refresh_token)->toBe('already-encrypted-refresh');
 });

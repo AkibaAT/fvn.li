@@ -59,6 +59,8 @@ class SocialAccount extends Model
     protected function casts(): array
     {
         return [
+            'token' => 'encrypted',
+            'refresh_token' => 'encrypted',
             'token_expires_at' => 'datetime',
             'provider_data' => 'array',
             'itchio_game_ids' => 'array',
