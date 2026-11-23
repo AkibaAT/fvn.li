@@ -53,7 +53,7 @@
                     role="menuitemradio"
                     aria-checked={isSelected}
                     onclick={() => onSelectAppearance(opt.mode)}
-                    class="popover-row-hover flex w-full items-start gap-3 rounded-md px-3 py-2 text-left transition-colors focus:outline-none {isSelected
+                    class="popover-row-hover flex w-full items-start gap-3 rounded-md px-3 py-2 text-left transition-colors focus:outline-hidden {isSelected
                         ? 'text-fg'
                         : 'text-fg-muted'}"
                 >

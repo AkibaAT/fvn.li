@@ -281,7 +281,7 @@
                             value={meta.per_page || perPageOptions[0]}
                             onchange={handlePerPageChange}
                             disabled={loading}
-                            class="h-7 cursor-pointer appearance-none rounded-md bg-transparent pr-5 pl-1 text-ui text-fg-muted hover:text-fg focus:outline-none"
+                            class="h-7 cursor-pointer appearance-none rounded-md bg-transparent pr-5 pl-1 text-ui text-fg-muted hover:text-fg focus:outline-hidden"
                         >
                             {#each perPageOptions as option (option)}<option value={option}>{option} per page</option>{/each}
                         </select>

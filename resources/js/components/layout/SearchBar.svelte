@@ -43,7 +43,7 @@
             oninput={search.handleSearchChange}
             name="search"
             placeholder="Search titles, authors, tags"
-            class="h-8 w-full rounded-md border border-border-input bg-page pr-8 pl-8 text-ui text-fg transition-colors placeholder:text-fg-faint focus:border-fg-muted focus:outline-none"
+            class="h-8 w-full rounded-md border border-border-input bg-page pr-8 pl-8 text-ui text-fg transition-colors placeholder:text-fg-faint focus:border-fg-muted focus:outline-hidden"
             autocomplete="off"
             aria-label="Search titles, authors, and tags"
         />

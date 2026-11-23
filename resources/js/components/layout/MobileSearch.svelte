@@ -51,7 +51,7 @@
                     value={search.searchTerm}
                     oninput={search.handleSearchChange}
                     placeholder="Search titles, authors, tags"
-                    class="h-9 w-full rounded-md border border-border-input bg-page pr-20 pl-8 text-ui text-fg transition-colors placeholder:text-fg-faint focus:border-fg-muted focus:outline-none"
+                    class="h-9 w-full rounded-md border border-border-input bg-page pr-20 pl-8 text-ui text-fg transition-colors placeholder:text-fg-faint focus:border-fg-muted focus:outline-hidden"
                     autocomplete="off"
                     aria-label="Search titles, authors, and tags"
                 />

@@ -45,7 +45,7 @@
         {id}
         type="button"
         onclick={() => (open = !open)}
-        class="flex w-full items-center justify-between rounded-md border border-border-input bg-surface-alt px-3 py-2 text-left text-sm text-fg focus:border-fg-muted focus:outline-none"
+        class="flex w-full items-center justify-between rounded-md border border-border-input bg-surface-alt px-3 py-2 text-left text-sm text-fg focus:border-fg-muted focus:outline-hidden"
         aria-expanded={open}
         aria-haspopup="dialog"
     >

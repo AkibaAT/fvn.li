@@ -186,7 +186,7 @@
                             onclick={() => (rating = starValue)}
                             onmouseenter={() => (hoveredRating = starValue)}
                             onmouseleave={() => (hoveredRating = 0)}
-                            class="focus:outline-none"
+                            class="focus:outline-hidden"
                             ariaLabel="{starValue} star{starValue !== 1 ? 's' : ''}"
                         >
                             <StarIcon

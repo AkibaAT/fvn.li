@@ -61,7 +61,7 @@
     {#if gameVersions && gameVersions.length > 1}
         <select
             aria-label="Game version"
-            class="cursor-pointer rounded-md border border-border-input bg-surface-alt px-3 py-1.5 text-sm text-fg transition-colors focus:border-fg-muted focus:outline-none"
+            class="cursor-pointer rounded-md border border-border-input bg-surface-alt px-3 py-1.5 text-sm text-fg transition-colors focus:border-fg-muted focus:outline-hidden"
             value={selectedVersionId}
             onchange={(e) => {
                 const target = e.target as HTMLSelectElement;

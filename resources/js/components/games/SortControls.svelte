@@ -25,7 +25,7 @@
             aria-label="Sort by"
             value={currentSort || defaultSort}
             onchange={(e) => onSortChange((e.target as HTMLSelectElement).value)}
-            class="h-7 cursor-pointer appearance-none rounded-md bg-transparent pr-5 pl-1 text-ui font-medium text-fg hover:text-fg focus:outline-none"
+            class="h-7 cursor-pointer appearance-none rounded-md bg-transparent pr-5 pl-1 text-ui font-medium text-fg hover:text-fg focus:outline-hidden"
         >
             {#each Object.entries(sortOptions) as [value, label] (value)}
                 <option {value}>{label}</option>

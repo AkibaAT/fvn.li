@@ -153,27 +153,15 @@
         return '#5865F2';
     }
 
-    let title = $state('');
-    let desc = $state('');
-    let tmplUrl = $state('');
-    let tmplColor = $state('#5865F2');
-    let thumbnailUrl = $state('');
-    let imageUrl = $state('');
-    let footerText = $state('');
-    let footerIconUrl = $state('');
-    let fields = $state<EmbedField[]>([]);
-
-    $effect(() => {
-        title = stringField(template, 'title');
-        desc = stringField(template, 'description');
-        tmplUrl = stringField(template, 'url');
-        tmplColor = colorIntToHex(template.color);
-        thumbnailUrl = stringField(template, 'thumbnail.url');
-        imageUrl = stringField(template, 'image.url');
-        footerText = stringField(template, 'footer.text');
-        footerIconUrl = stringField(template, 'footer.icon_url');
-        fields = arrayField(template, 'fields');
-    });
+    let title = $derived(stringField(template, 'title'));
+    let desc = $derived(stringField(template, 'description'));
+    let tmplUrl = $derived(stringField(template, 'url'));
+    let tmplColor = $derived(colorIntToHex(template.color));
+    let thumbnailUrl = $derived(stringField(template, 'thumbnail.url'));
+    let imageUrl = $derived(stringField(template, 'image.url'));
+    let footerText = $derived(stringField(template, 'footer.text'));
+    let footerIconUrl = $derived(stringField(template, 'footer.icon_url'));
+    let fields = $derived<EmbedField[]>(arrayField(template, 'fields'));
 
     function buildTemplate(): Record<string, unknown> {
         const result: Record<string, unknown> = { ...template };

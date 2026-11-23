@@ -16,7 +16,7 @@
     const isRequired = $derived(required ?? undefined);
 
     const inputClass = $derived(
-        cn('block w-full rounded-md border border-border-input bg-surface-alt px-3 py-2 text-sm text-fg transition-colors placeholder:text-fg-faint focus:border-fg-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-60',
+        cn('block w-full rounded-md border border-border-input bg-surface-alt px-3 py-2 text-sm text-fg transition-colors placeholder:text-fg-faint focus:border-fg-muted focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-60',
                 error && 'border-red-500 focus:border-red-500',
                 className),
     );

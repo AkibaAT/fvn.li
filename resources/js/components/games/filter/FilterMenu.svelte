@@ -48,7 +48,7 @@
                 data-field={field.id}
                 aria-label={field.activeCount > 0 ? `${field.label}, ${field.activeCount} active` : field.label}
                 onclick={() => onSelect(field.id)}
-                class="popover-row-hover flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-none"
+                class="popover-row-hover flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-hidden"
             >
                 <span class="flex min-w-0 items-center gap-2">
                     <span class="truncate">{field.label}</span>

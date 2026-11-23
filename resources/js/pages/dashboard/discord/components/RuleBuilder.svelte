@@ -337,7 +337,7 @@
                                                             valuePickerKey = valuePickerKey === pickerKey ? null : pickerKey;
                                                             if (valuePickerKey === null) valueSearch = '';
                                                         }}
-                                                        class="flex w-full items-center justify-between rounded-md border border-border-input bg-surface-alt px-2 py-1.5 text-left text-sm text-fg focus:border-fg-muted focus:outline-none"
+                                                        class="flex w-full items-center justify-between rounded-md border border-border-input bg-surface-alt px-2 py-1.5 text-left text-sm text-fg focus:border-fg-muted focus:outline-hidden"
                                                     >
                                                         <span class="truncate">
                                                             {conditionValues(condition.value).join(', ') || 'Select values'}

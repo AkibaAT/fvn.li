@@ -109,7 +109,7 @@
         <button
             type="button"
             onclick={onBack}
-            class="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-ui text-fg-muted transition-colors hover:text-fg focus:outline-none"
+            class="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-ui text-fg-muted transition-colors hover:text-fg focus:outline-hidden"
             aria-label="Back to filter menu"
         >
             <ChevronLeftIcon class="h-3.5 w-3.5" />
@@ -123,7 +123,7 @@
                 type="button"
                 onclick={() => updateFilters(fieldClearPatch(field))}
                 aria-label="Clear {field.label.toLowerCase()} filter"
-                class="rounded-md px-1.5 text-xs text-fg-muted transition-colors hover:text-fg focus:outline-none"
+                class="rounded-md px-1.5 text-xs text-fg-muted transition-colors hover:text-fg focus:outline-hidden"
             >
                 Clear
             </button>
@@ -166,7 +166,7 @@
                 type="text"
                 placeholder="Search {field.label.toLowerCase()}..."
                 aria-label="Search {field.label.toLowerCase()}"
-                class="block w-full rounded-md border border-border bg-surface-alt px-2 py-1.5 text-ui text-fg transition-colors placeholder:text-fg-faint focus:border-border-strong focus:outline-none"
+                class="block w-full rounded-md border border-border bg-surface-alt px-2 py-1.5 text-ui text-fg transition-colors placeholder:text-fg-faint focus:border-border-strong focus:outline-hidden"
             />
         </div>
     {/if}
@@ -186,7 +186,7 @@
                     role="option"
                     aria-selected={Boolean(currentFilters[def.key])}
                     onclick={() => updateFilters({ [def.key]: !currentFilters[def.key] })}
-                    class="popover-row-hover flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-none"
+                    class="popover-row-hover flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-hidden"
                 >
                     <span class="flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
                         {#if currentFilters[def.key]}
@@ -204,7 +204,7 @@
                     role="option"
                     aria-selected={isSelected}
                     onclick={() => updateFilters({ [field.property]: value })}
-                    class="popover-row-hover flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-none"
+                    class="popover-row-hover flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-hidden"
                 >
                     <span
                         class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border {isSelected
@@ -232,7 +232,7 @@
                     role="option"
                     aria-selected={activeInOperator}
                     onclick={() => toggleValue(value)}
-                    class="popover-row-hover flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-none"
+                    class="popover-row-hover flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui text-fg transition-colors focus:outline-hidden"
                 >
                     <span
                         class="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border {activeInOperator
