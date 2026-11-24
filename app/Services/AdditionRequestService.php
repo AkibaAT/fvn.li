@@ -116,7 +116,7 @@ class AdditionRequestService
         }
 
         // Only allow http and https
-        if (! in_array($parsed['scheme'], ['http', 'https'])) {
+        if (! in_array($parsed['scheme'], ['http', 'https'], true)) {
             return [
                 'valid' => false,
                 'error' => "Only HTTP/HTTPS URLs are supported: {$url}",
@@ -180,7 +180,7 @@ class AdditionRequestService
     {
         $query = $user->additionRequests();
 
-        if ($status && in_array($status, AdditionRequest::getStatuses())) {
+        if ($status && in_array($status, AdditionRequest::getStatuses(), true)) {
             $query->where('status', $status);
         }
 

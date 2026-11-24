@@ -107,7 +107,7 @@ class RefreshGames extends Command
         $sortField = $this->option('sort');
         $allowedSortFields = ['id', 'name', 'created_at', 'updated_at'];
 
-        if (in_array($sortField, $allowedSortFields)) {
+        if (in_array($sortField, $allowedSortFields, true)) {
             $query->orderBy($sortField);
             $this->info("Sorting by {$sortField}");
         } else {

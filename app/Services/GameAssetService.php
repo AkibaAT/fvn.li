@@ -139,7 +139,7 @@ class GameAssetService
             throw new Exception('Image file too large. Maximum size is 10MB.');
         }
 
-        if (! in_array($file->getMimeType(), $allowedTypes)) {
+        if (! in_array($file->getMimeType(), $allowedTypes, true)) {
             throw new Exception('Invalid image type. Only JPEG, PNG, GIF, and WebP are allowed.');
         }
     }

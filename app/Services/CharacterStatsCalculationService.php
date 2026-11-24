@@ -28,7 +28,7 @@ class CharacterStatsCalculationService
     {
         $dataLevel = $this->getVersionDataLevel($versionId);
 
-        return in_array($dataLevel, [self::DATA_LEVEL_FULL_DETAIL]);
+        return in_array($dataLevel, [self::DATA_LEVEL_FULL_DETAIL], true);
     }
 
     public function getVersionDataLevel(int $versionId): string

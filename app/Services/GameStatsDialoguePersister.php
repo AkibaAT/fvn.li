@@ -169,11 +169,11 @@ class GameStatsDialoguePersister
                 $displayNames[$langCode] = $characterId;
             }
 
-            if (! in_array('eng', $foundLanguages)) {
+            if (! in_array('eng', $foundLanguages, true)) {
                 $displayNames['eng'] = $characterId;
             }
 
-            if ($defaultLanguage !== 'eng' && ! in_array($defaultLanguage, $foundLanguages)) {
+            if ($defaultLanguage !== 'eng' && ! in_array($defaultLanguage, $foundLanguages, true)) {
                 $displayNames[$defaultLanguage] = $characterId;
             }
 
@@ -193,12 +193,12 @@ class GameStatsDialoguePersister
             }
         }
 
-        if (! isset($displayNames['eng']) && ! in_array('eng', $foundLanguages)) {
+        if (! isset($displayNames['eng']) && ! in_array('eng', $foundLanguages, true)) {
             $displayNames['eng'] = $characterId;
             $needsUpdate = true;
         }
 
-        if (! isset($displayNames[$defaultLanguage]) && $defaultLanguage !== 'eng' && ! in_array($defaultLanguage, $foundLanguages)) {
+        if (! isset($displayNames[$defaultLanguage]) && $defaultLanguage !== 'eng' && ! in_array($defaultLanguage, $foundLanguages, true)) {
             $displayNames[$defaultLanguage] = $characterId;
             $needsUpdate = true;
         }

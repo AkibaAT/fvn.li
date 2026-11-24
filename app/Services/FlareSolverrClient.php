@@ -242,7 +242,7 @@ class FlareSolverrClient
     public function destroySession(string $sessionId): void
     {
         $sessions = $this->listSessions();
-        if (! in_array($sessionId, $sessions)) {
+        if (! in_array($sessionId, $sessions, true)) {
             Log::debug('FlareSolverr session already destroyed or expired', [
                 'session_id' => $sessionId,
             ]);

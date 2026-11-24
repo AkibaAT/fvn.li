@@ -196,7 +196,7 @@ class ProcessGameScreenshots extends Command
                 }
 
                 $mimeType = $imageInfo['mime'];
-                if (! in_array($mimeType, self::VALID_MIME_TYPES)) {
+                if (! in_array($mimeType, self::VALID_MIME_TYPES, true)) {
                     throw new Exception("Unsupported image type: {$mimeType}");
                 }
 

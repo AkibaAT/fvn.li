@@ -35,6 +35,7 @@ test('it rejects untrusted or unsafe image urls', function (string $url, string 
     'plain http' => ['http://img.itch.zone/file.png', 'HTTPS'],
     'localhost' => ['https://localhost/file.png', 'localhost'],
     'loopback ip' => ['https://127.0.0.1/file.png', 'private or reserved IP'],
+    'ipv6 loopback ip' => ['https://[::1]/file.png', 'private or reserved IP'],
     'metadata ip' => ['https://169.254.169.254/latest/meta-data.png', 'private or reserved IP'],
     'unresolvable host' => ['https://img.itch.zone.evil.test/file.png', 'Could not resolve image host'],
     'credentials' => ['https://user:pass@img.itch.zone/file.png', 'credentials'],

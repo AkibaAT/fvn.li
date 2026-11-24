@@ -413,7 +413,7 @@ class RouteGraphPostProcessor
                 $isUnconditional = empty($e['condition']) || $e['condition'] === 'True';
                 if (! $isUnconditional) {
                     $conditions[] = $e['condition'];
-                } elseif (in_array($e['edge_type'], ['flow', 'jump'])) {
+                } elseif (in_array($e['edge_type'], ['flow', 'jump'], true)) {
                     $unconditionalFlowIndices[] = $i;
                 }
             }

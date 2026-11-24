@@ -172,11 +172,11 @@ HELP;
             $row = [
                 $versionInfo['version'],
                 $versionInfo['is_latest'] ? 'Latest' : '',
-                $this->formatPlatformCell($platforms['is_windows'], in_array('is_windows', $missingPlatforms)),
-                $this->formatPlatformCell($platforms['is_linux'], in_array('is_linux', $missingPlatforms)),
-                $this->formatPlatformCell($platforms['is_mac'], in_array('is_mac', $missingPlatforms)),
-                $this->formatPlatformCell($platforms['is_android'], in_array('is_android', $missingPlatforms)),
-                $this->formatPlatformCell($platforms['is_web'], in_array('is_web', $missingPlatforms)),
+                $this->formatPlatformCell($platforms['is_windows'], in_array('is_windows', $missingPlatforms, true)),
+                $this->formatPlatformCell($platforms['is_linux'], in_array('is_linux', $missingPlatforms, true)),
+                $this->formatPlatformCell($platforms['is_mac'], in_array('is_mac', $missingPlatforms, true)),
+                $this->formatPlatformCell($platforms['is_android'], in_array('is_android', $missingPlatforms, true)),
+                $this->formatPlatformCell($platforms['is_web'], in_array('is_web', $missingPlatforms, true)),
                 $versionInfo['has_issues'] ? $this->formatMissingPlatforms($missingPlatforms) : '',
             ];
 

@@ -115,11 +115,11 @@ class CharacterSpecialAssignmentService
 
         $linesReassigned = 0;
 
-        if (in_array($characterName, self::EXTEND_CHARACTERS)) {
+        if (in_array($characterName, self::EXTEND_CHARACTERS, true)) {
             // 'extend' characters should be assigned to previous line's character
             $linesReassigned = $this->reassignToPreviousCharacter($specialLines, $versionId, $characterName,
                 $specialCharacter->id, $dryRun);
-        } elseif (in_array($characterName, self::NARRATOR_CHARACTERS)) {
+        } elseif (in_array($characterName, self::NARRATOR_CHARACTERS, true)) {
             // Other special characters should be assigned to narrator
             $linesReassigned = $this->reassignToNarrator($specialLines, $versionId, $characterName,
                 $specialCharacter->id, $dryRun);

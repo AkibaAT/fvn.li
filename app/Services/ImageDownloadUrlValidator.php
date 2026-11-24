@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Support\HostAddresses;
 use InvalidArgumentException;
+use Uri\Rfc3986\Uri;
 
 class ImageDownloadUrlValidator
 {
@@ -34,27 +35,27 @@ class ImageDownloadUrlValidator
     private function validateUrlParts(string $url): array
     {
         $url = trim($url);
-        $parts = parse_url($url);
+        $uri = $url !== '' ? Uri::parse($url) : null;
 
-        if ($url === '' || $parts === false) {
+        if ($uri === null || $uri->getHost() === null || $uri->getHost() === '') {
             throw new InvalidArgumentException('Invalid image URL');
         }
 
-        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $scheme = strtolower((string) ($uri->getScheme() ?? ''));
         if ($scheme !== 'https') {
             throw new InvalidArgumentException('Image downloads require HTTPS URLs');
         }
 
-        $host = $this->normalizeHost((string) ($parts['host'] ?? ''));
+        $host = $this->normalizeHost($uri->getHost());
         if ($host === '') {
             throw new InvalidArgumentException('Image URL is missing a host');
         }
 
-        if (isset($parts['user']) || isset($parts['pass'])) {
+        if ($uri->getRawUserInfo() !== null) {
             throw new InvalidArgumentException('Image URL must not contain credentials');
         }
 
-        $port = (int) ($parts['port'] ?? 443);
+        $port = $uri->getPort() ?? 443;
         if ($port !== 443) {
             throw new InvalidArgumentException('Image downloads must use the standard HTTPS port');
         }
@@ -115,6 +116,6 @@ class ImageDownloadUrlValidator
 
     private function normalizeHost(string $host): string
     {
-        return rtrim(strtolower(trim($host)), '.');
+        return rtrim(trim(strtolower(trim($host)), '[]'), '.');
     }
 }

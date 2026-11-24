@@ -113,10 +113,10 @@ class GameDialogueText extends Model
      */
     public static function cursorForGame(int $gameId): LazyCollection
     {
-        $characterNameMap = static::characterNameMapForGame($gameId);
+        $characterNameMap = self::characterNameMapForGame($gameId);
 
         return LazyCollection::make(function () use ($gameId, $characterNameMap) {
-            foreach (DB::cursor(static::forGameSql(), [$gameId, $gameId]) as $row) {
+            foreach (DB::cursor(self::forGameSql(), [$gameId, $gameId]) as $row) {
                 yield static::fromIndexRow($row, $characterNameMap);
             }
         });
@@ -159,13 +159,13 @@ class GameDialogueText extends Model
             $batch->push($dialogueText);
 
             if ($batch->count() >= $batchSize) {
-                $indexed += static::indexSearchDocumentBatch($batch, $afterBatch, $indexed);
+                $indexed += self::indexSearchDocumentBatch($batch, $afterBatch, $indexed);
                 $batch = collect();
             }
         }
 
         if ($batch->isNotEmpty()) {
-            $indexed += static::indexSearchDocumentBatch($batch, $afterBatch, $indexed);
+            $indexed += self::indexSearchDocumentBatch($batch, $afterBatch, $indexed);
         }
 
         return $indexed;

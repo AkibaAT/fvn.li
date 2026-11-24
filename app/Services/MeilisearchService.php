@@ -164,7 +164,7 @@ class MeilisearchService
             // Let Meilisearch use natural relevance ranking
         } elseif ($sortField === 'trending') {
             $search->orderBy('trending_score', $sortDirection);
-        } elseif (in_array($sortField, $sortableFields)) {
+        } elseif (in_array($sortField, $sortableFields, true)) {
             $search->orderBy($sortField, $sortDirection);
         } else {
             $search->orderBy('first_visible_at', 'desc');

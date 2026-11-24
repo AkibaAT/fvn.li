@@ -21,6 +21,7 @@ it('rejects non itch hosts before they can be sent to flaresolverr', function (s
     'loopback url' => ['http://127.0.0.1:7777/internal-admin', 'Itch.io URL must use HTTPS'],
     'docker service url' => ['http://redis:6379/', 'Itch.io URL must use HTTPS'],
     'metadata ip' => ['https://169.254.169.254/latest/meta-data', 'Untrusted itch.io host'],
+    'ipv6 loopback' => ['https://[::1]/game', 'Untrusted itch.io host'],
     'host suffix confusion' => ['https://itch.io.evil.test/game', 'Untrusted itch.io host'],
     'missing host' => ['https:///game', 'Invalid itch.io URL'],
 ]);

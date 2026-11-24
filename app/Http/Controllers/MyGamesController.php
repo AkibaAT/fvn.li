@@ -143,7 +143,7 @@ class MyGamesController extends Controller
                         if (isset($parsedUrl['host'])) {
                             $host = $parsedUrl['host'];
 
-                            if (in_array(strtolower($host), ['localhost', '127.0.0.1', '::1'])) {
+                            if (in_array(strtolower($host), ['localhost', '127.0.0.1', '::1'], true)) {
                                 $fail('The URL cannot point to localhost.');
 
                                 return;

@@ -7,17 +7,13 @@ namespace App\Services;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Sabberworm\CSS\CSSList\CSSList;
-use Sabberworm\CSS\CSSList\KeyFrame;
 use Sabberworm\CSS\OutputFormat;
 use Sabberworm\CSS\Parser as CssParser;
 use Sabberworm\CSS\Property\AtRule;
 use Sabberworm\CSS\Property\Charset;
 use Sabberworm\CSS\Property\CSSNamespace;
 use Sabberworm\CSS\Property\Import;
-use Sabberworm\CSS\Property\Selector;
-use Sabberworm\CSS\Rule\Rule;
 use Sabberworm\CSS\RuleSet\DeclarationBlock;
-use Sabberworm\CSS\RuleSet\RuleSet;
 
 class ItchCssProcessor
 {
@@ -128,14 +124,13 @@ class ItchCssProcessor
                 || $rule instanceof Charset
                 || $rule instanceof CSSNamespace
                 || $rule instanceof AtRule
-                || $rule instanceof KeyFrame
             ) {
                 $rulesToRemove[] = $i;
 
                 continue;
             }
 
-            if ($rule instanceof DeclarationBlock) { // Includes RuleSet and AtRuleSet
+            if ($rule instanceof DeclarationBlock) {
                 if ($this->targetsHeaders($rule)) {
                     $rulesToRemove[] = $i;
 
@@ -145,7 +140,7 @@ class ItchCssProcessor
                 $this->filterUnsafeProperties($rule);
 
                 // If the ruleset is now empty, mark it for removal
-                if ($rule instanceof RuleSet && empty($rule->getRules())) {
+                if (empty($rule->getRules())) {
                     $rulesToRemove[] = $i;
 
                     continue;
@@ -187,10 +182,6 @@ class ItchCssProcessor
                 $scopedSelectors = [];
 
                 foreach ($rule->getSelectors() as $selector) {
-                    if (! $selector instanceof Selector) {
-                        continue;
-                    }
-
                     $scopedSelector = $this->scopeSelector($selector->getSelector());
                     if ($scopedSelector !== null) {
                         $scopedSelectors[] = $scopedSelector;
@@ -268,10 +259,6 @@ class ItchCssProcessor
     {
         $selectors = $ruleSet->getSelectors();
         foreach ($selectors as $selector) {
-            if (! $selector instanceof Selector) {
-                continue;
-            }
-
             $selectorText = $selector->getSelector();
 
             foreach (self::HEADER_SELECTORS as $header) {
@@ -300,30 +287,28 @@ class ItchCssProcessor
     {
         $declarationsToRemove = [];
         foreach ($block->getRules() as $declaration) {
-            if ($declaration instanceof Rule) {
-                $propertyName = strtolower($declaration->getRule());
+            $propertyName = strtolower($declaration->getRule());
 
-                if (in_array($propertyName, self::DISALLOWED_PROPERTIES, true)) {
-                    $declarationsToRemove[] = $declaration;
+            if (in_array($propertyName, self::DISALLOWED_PROPERTIES, true)) {
+                $declarationsToRemove[] = $declaration;
 
-                    continue;
-                }
+                continue;
+            }
 
-                $value = $declaration->getValue();
-                $valueString = is_object($value) && method_exists($value, 'render')
-                    ? $value->render(OutputFormat::createCompact())
-                    : (string) $value;
+            $value = $declaration->getValue();
+            $valueString = is_object($value) && method_exists($value, 'render')
+                ? $value->render(OutputFormat::createCompact())
+                : (string) $value;
 
-                if ($propertyName === 'position' && ! in_array(strtolower(trim($valueString)), ['relative', 'static'], true)) {
-                    $declarationsToRemove[] = $declaration;
+            if ($propertyName === 'position' && ! in_array(strtolower(trim($valueString)), ['relative', 'static'], true)) {
+                $declarationsToRemove[] = $declaration;
 
-                    continue;
-                }
+                continue;
+            }
 
-                if (preg_match('/(?:url\s*\(|(?:java|vb)script\s*:|data\s*:|https?:\/\/|\/\/|@import|-moz-binding|expression\s*\(|behavior\s*:)/i',
-                    $valueString)) {
-                    $declarationsToRemove[] = $declaration;
-                }
+            if (preg_match('/(?:url\s*\(|(?:java|vb)script\s*:|data\s*:|https?:\/\/|\/\/|@import|-moz-binding|expression\s*\(|behavior\s*:)/i',
+                $valueString)) {
+                $declarationsToRemove[] = $declaration;
             }
         }
 

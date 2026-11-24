@@ -130,7 +130,7 @@ class GamesVersionController extends Controller
             ->filter(fn ($stat) => $stat->language !== null
                 && ! str_starts_with($stat->iso_code, 'q')
                 && $stat->character?->character_id !== 'alt' // Exclude alt text from word counts
-                && in_array($stat->iso_code, $availableLanguages)); // Only include available languages
+                && in_array($stat->iso_code, $availableLanguages, true)); // Only include available languages
 
         $groupedByLanguage = $characterStats->groupBy('iso_code');
 

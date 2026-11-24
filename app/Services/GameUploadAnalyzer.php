@@ -78,10 +78,10 @@ class GameUploadAnalyzer
             }
 
             if (! empty($upload['traits'])) {
-                $platforms['windows'] = $platforms['windows'] || in_array('p_windows', $upload['traits']);
-                $platforms['linux'] = $platforms['linux'] || in_array('p_linux', $upload['traits']);
-                $platforms['mac'] = $platforms['mac'] || in_array('p_osx', $upload['traits']);
-                $platforms['android'] = $platforms['android'] || in_array('p_android', $upload['traits']);
+                $platforms['windows'] = $platforms['windows'] || in_array('p_windows', $upload['traits'], true);
+                $platforms['linux'] = $platforms['linux'] || in_array('p_linux', $upload['traits'], true);
+                $platforms['mac'] = $platforms['mac'] || in_array('p_osx', $upload['traits'], true);
+                $platforms['android'] = $platforms['android'] || in_array('p_android', $upload['traits'], true);
             }
             if (($upload['type'] ?? '') === 'html') {
                 $platforms['web'] = true;

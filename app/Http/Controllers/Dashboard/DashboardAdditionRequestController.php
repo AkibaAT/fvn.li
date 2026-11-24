@@ -86,7 +86,7 @@ class DashboardAdditionRequestController extends Controller
 
         $query = $user->additionRequests();
 
-        if ($status && in_array($status, AdditionRequest::getStatuses())) {
+        if ($status && in_array($status, AdditionRequest::getStatuses(), true)) {
             $query->where('addition_requests.status', $status);
         }
 

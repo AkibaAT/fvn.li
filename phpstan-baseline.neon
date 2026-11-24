@@ -4519,12 +4519,6 @@ parameters:
 			path: app/Models/AdditionRequest.php
 
 		-
-			message: '#^PHPDoc type array\<int, string\> of property App\\Models\\AdditionRequest\:\:\$fillable is not covariant with PHPDoc type list\<string\> of overridden property Illuminate\\Database\\Eloquent\\Model\:\:\$fillable\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: app/Models/AdditionRequest.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
@@ -4549,20 +4543,8 @@ parameters:
 			path: app/Models/BugReport.php
 
 		-
-			message: '#^PHPDoc type array\<int, string\> of property App\\Models\\BugReport\:\:\$fillable is not covariant with PHPDoc type list\<string\> of overridden property Illuminate\\Database\\Eloquent\\Model\:\:\$fillable\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: app/Models/BugReport.php
-
-		-
 			message: '#^Access to an undefined property App\\Models\\BugReportComment\:\:\$is_read\.$#'
 			identifier: property.notFound
-			count: 1
-			path: app/Models/BugReportComment.php
-
-		-
-			message: '#^PHPDoc type array\<int, string\> of property App\\Models\\BugReportComment\:\:\$fillable is not covariant with PHPDoc type list\<string\> of overridden property Illuminate\\Database\\Eloquent\\Model\:\:\$fillable\.$#'
-			identifier: property.phpDocType
 			count: 1
 			path: app/Models/BugReportComment.php
 
@@ -5155,24 +5137,6 @@ parameters:
 			path: app/Models/GameDialogueText.php
 
 		-
-			message: '#^Unsafe call to private method App\\Models\\GameDialogueText\:\:characterNameMapForGame\(\) through static\:\:\.$#'
-			identifier: staticClassAccess.privateMethod
-			count: 1
-			path: app/Models/GameDialogueText.php
-
-		-
-			message: '#^Unsafe call to private method App\\Models\\GameDialogueText\:\:forGameSql\(\) through static\:\:\.$#'
-			identifier: staticClassAccess.privateMethod
-			count: 1
-			path: app/Models/GameDialogueText.php
-
-		-
-			message: '#^Unsafe call to private method App\\Models\\GameDialogueText\:\:indexSearchDocumentBatch\(\) through static\:\:\.$#'
-			identifier: staticClassAccess.privateMethod
-			count: 2
-			path: app/Models/GameDialogueText.php
-
-		-
 			message: '#^Unsafe usage of new static\(\)\.$#'
 			identifier: new.static
 			count: 1
@@ -5255,12 +5219,6 @@ parameters:
 			identifier: property.notFound
 			count: 2
 			path: app/Models/LanguageMapping.php
-
-		-
-			message: '#^PHPDoc type array\<int, string\> of property App\\Models\\NotificationHistory\:\:\$fillable is not covariant with PHPDoc type list\<string\> of overridden property Illuminate\\Database\\Eloquent\\Model\:\:\$fillable\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: app/Models/NotificationHistory.php
 
 		-
 			message: '#^Access to an undefined property App\\Models\\NotificationQueue\:\:\$batch_key\.$#'
@@ -5395,24 +5353,6 @@ parameters:
 			path: app/Models/User.php
 
 		-
-			message: '#^PHPDoc type array\<int, string\> of property App\\Models\\User\:\:\$fillable is not covariant with PHPDoc type list\<string\> of overridden property Illuminate\\Database\\Eloquent\\Model\:\:\$fillable\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: app/Models/User.php
-
-		-
-			message: '#^PHPDoc type array\<int, string\> of property App\\Models\\User\:\:\$hidden is not covariant with PHPDoc type list\<string\> of overridden property Illuminate\\Database\\Eloquent\\Model\:\:\$hidden\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: app/Models/User.php
-
-		-
-			message: '#^PHPDoc type array\<int, string\> of property App\\Models\\UserGameProgress\:\:\$fillable is not covariant with PHPDoc type list\<string\> of overridden property Illuminate\\Database\\Eloquent\\Model\:\:\$fillable\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: app/Models/UserGameProgress.php
-
-		-
 			message: '#^Access to an undefined property App\\Models\\VersionSupportedLanguage\:\:\$is_available\.$#'
 			identifier: property.notFound
 			count: 2
@@ -5449,21 +5389,9 @@ parameters:
 			path: app/Models/VnList.php
 
 		-
-			message: '#^PHPDoc type array\<int, string\> of property App\\Models\\VnList\:\:\$fillable is not covariant with PHPDoc type list\<string\> of overridden property Illuminate\\Database\\Eloquent\\Model\:\:\$fillable\.$#'
-			identifier: property.phpDocType
-			count: 1
-			path: app/Models/VnList.php
-
-		-
 			message: '#^Access to an undefined property App\\Models\\VnListEntry\:\:\$game_id\.$#'
 			identifier: property.notFound
 			count: 3
-			path: app/Models/VnListEntry.php
-
-		-
-			message: '#^PHPDoc type array\<int, string\> of property App\\Models\\VnListEntry\:\:\$fillable is not covariant with PHPDoc type list\<string\> of overridden property Illuminate\\Database\\Eloquent\\Model\:\:\$fillable\.$#'
-			identifier: property.phpDocType
-			count: 1
 			path: app/Models/VnListEntry.php
 
 		-
@@ -6115,12 +6043,6 @@ parameters:
 			path: app/Services/GameArchiveOptimizationService.php
 
 		-
-			message: '#^Method App\\Services\\GameArchiveService\:\:downloadAndProcessToTemp\(\) should return array\{temp_path\: string, temp_dir\: string, stats\: array\|null, filename\: string, upload_id\: int\} but returns array\{temp_path\: string, temp_dir\: string, stats\: App\\Support\\Stats\\StatsPayload\|null, filename\: string, upload_id\: int\}\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/GameArchiveService.php
-
-		-
 			message: '#^Right side of && is always true\.$#'
 			identifier: booleanAnd.rightAlwaysTrue
 			count: 1
@@ -6301,7 +6223,7 @@ parameters:
 			path: app/Services/GameDataSyncService.php
 
 		-
-			message: '#^Offset ''temp_dir'' on array\{temp_path\: string, temp_dir\: string, stats\: array\|null, filename\: string, upload_id\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			message: '#^Offset ''temp_dir'' on array\{temp_path\: string, temp_dir\: string, stats\: App\\Support\\Stats\\StatsPayload\|null, filename\: string, upload_id\: int\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 2
 			path: app/Services/GameDataSyncService.php
@@ -6339,6 +6261,12 @@ parameters:
 		-
 			message: '#^Parameter \#2 \$version of method App\\Services\\GameVersionArchiveRepositoryService\:\:discardLocalArchive\(\) expects App\\Models\\GameVersion, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
 			identifier: argument.type
+			count: 2
+			path: app/Services/GameDataSyncService.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
 			count: 2
 			path: app/Services/GameDataSyncService.php
 
@@ -6903,36 +6831,6 @@ parameters:
 		-
 			message: '#^Call to function method_exists\(\) with Sabberworm\\CSS\\Value\\RuleValueList and ''render'' will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
-			count: 1
-			path: app/Services/ItchCssProcessor.php
-
-		-
-			message: '#^Instanceof between Sabberworm\\CSS\\CSSList\\CSSListItem and Sabberworm\\CSS\\CSSList\\KeyFrame will always evaluate to false\.$#'
-			identifier: instanceof.alwaysFalse
-			count: 1
-			path: app/Services/ItchCssProcessor.php
-
-		-
-			message: '#^Instanceof between Sabberworm\\CSS\\Property\\Declaration and Sabberworm\\CSS\\Property\\Declaration will always evaluate to true\.$#'
-			identifier: instanceof.alwaysTrue
-			count: 1
-			path: app/Services/ItchCssProcessor.php
-
-		-
-			message: '#^Instanceof between Sabberworm\\CSS\\Property\\Selector and Sabberworm\\CSS\\Property\\Selector will always evaluate to true\.$#'
-			identifier: instanceof.alwaysTrue
-			count: 2
-			path: app/Services/ItchCssProcessor.php
-
-		-
-			message: '#^Instanceof between Sabberworm\\CSS\\RuleSet\\DeclarationBlock and Sabberworm\\CSS\\RuleSet\\RuleSet will always evaluate to false\.$#'
-			identifier: instanceof.alwaysFalse
-			count: 1
-			path: app/Services/ItchCssProcessor.php
-
-		-
-			message: '#^Result of && is always false\.$#'
-			identifier: booleanAnd.alwaysFalse
 			count: 1
 			path: app/Services/ItchCssProcessor.php
 

@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Support\HostAddresses;
 use InvalidArgumentException;
+use Uri\Rfc3986\Uri;
 
 class ItchUrlSafetyValidator
 {
@@ -18,16 +19,19 @@ class ItchUrlSafetyValidator
 
     public function validate(string $url): void
     {
-        $parts = parse_url($url);
-        if (! is_array($parts) || ! isset($parts['scheme'], $parts['host'])) {
+        $uri = Uri::parse($url);
+        $scheme = $uri?->getScheme();
+        $rawHost = $uri?->getHost();
+
+        if ($uri === null || $scheme === null || $rawHost === null || $rawHost === '') {
             throw new InvalidArgumentException('Invalid itch.io URL');
         }
 
-        if (strtolower((string) $parts['scheme']) !== 'https') {
+        if (strtolower($scheme) !== 'https') {
             throw new InvalidArgumentException('Itch.io URL must use HTTPS');
         }
 
-        $host = $this->normalizeHost((string) $parts['host']);
+        $host = $this->normalizeHost($rawHost);
         if (! $this->isAllowedHost($host)) {
             throw new InvalidArgumentException("Untrusted itch.io host: {$host}");
         }
@@ -37,8 +41,7 @@ class ItchUrlSafetyValidator
 
     public function isApiRequest(string $url): bool
     {
-        $parts = parse_url($url);
-        $host = $this->normalizeHost((string) ($parts['host'] ?? ''));
+        $host = $this->normalizeHost(Uri::parse($url)?->getHost() ?? '');
 
         return $host === 'api.itch.io';
     }
@@ -97,6 +100,6 @@ class ItchUrlSafetyValidator
 
     private function normalizeHost(string $host): string
     {
-        return rtrim(strtolower(trim($host)), '.');
+        return rtrim(trim(strtolower(trim($host)), '[]'), '.');
     }
 }

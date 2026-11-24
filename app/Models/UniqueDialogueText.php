@@ -108,7 +108,7 @@ class UniqueDialogueText extends Model
 
     protected function getTsvectorColumnForLanguage(?string $language = null): string
     {
-        if ($language && in_array($language, ['japanese', 'spanish', 'french', 'german'])) {
+        if ($language && in_array($language, ['japanese', 'spanish', 'french', 'german'], true)) {
             return "search_vector_{$language}";
         }
 

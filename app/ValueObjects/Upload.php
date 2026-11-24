@@ -129,12 +129,12 @@ class Upload
 
     public function isLinux(): bool
     {
-        return in_array('p_linux', $this->traits);
+        return in_array('p_linux', $this->traits, true);
     }
 
     public function isWindows(): bool
     {
-        return in_array('p_windows', $this->traits);
+        return in_array('p_windows', $this->traits, true);
     }
 
     public function hasLinuxFileName(): bool
@@ -175,12 +175,12 @@ class Upload
 
     public function isMac(): bool
     {
-        return in_array('p_osx', $this->traits);
+        return in_array('p_osx', $this->traits, true);
     }
 
     public function isAndroid(): bool
     {
-        return in_array('p_android', $this->traits);
+        return in_array('p_android', $this->traits, true);
     }
 
     private function compareRelaxedTimestamps(self $other): int

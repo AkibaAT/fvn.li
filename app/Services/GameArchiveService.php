@@ -164,7 +164,7 @@ class GameArchiveService
      * Download and process a game archive to a temporary location
      * This is used when we need to get the stats before creating the version record
      *
-     * @return array{temp_path: string, temp_dir: string, stats: array|null, filename: string, upload_id: int}
+     * @return array{temp_path: string, temp_dir: string, stats: StatsPayload|null, filename: string, upload_id: int}
      *
      * @throws GuzzleException
      * @throws RuntimeException

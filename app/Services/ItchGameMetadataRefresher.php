@@ -43,7 +43,7 @@ class ItchGameMetadataRefresher
 
     private function refreshStatus(Game $game, HTMLDocument $doc): void
     {
-        if (in_array($game->status, ['Abandoned', 'Canceled'])) {
+        if (in_array($game->status, ['Abandoned', 'Canceled'], true)) {
             return;
         }
 

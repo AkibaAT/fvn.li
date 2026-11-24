@@ -276,7 +276,7 @@ class GameContentController extends Controller
 
             $allFiles = $storage->allFiles($editorPath);
             $imageFiles = array_filter($allFiles, function ($file) {
-                return in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']);
+                return in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'], true);
             });
 
             $usedUrls = $this->extractImageUrls($newContent);
@@ -288,7 +288,7 @@ class GameContentController extends Controller
             }
 
             foreach ($imageFiles as $filePath) {
-                if (! in_array($filePath, $usedPaths)) {
+                if (! in_array($filePath, $usedPaths, true)) {
                     $storage->delete($filePath);
                     $deletedCount++;
 
@@ -388,7 +388,7 @@ class GameContentController extends Controller
             $customUrls = array_map(fn ($s) => $s['url'], $customScreenshots);
 
             foreach ($customUrls as $customUrl) {
-                if (! in_array($customUrl, $originalUrls)) {
+                if (! in_array($customUrl, $originalUrls, true)) {
                     $path = str_replace('/storage/', '', $customUrl);
 
                     if ($storage->exists($path)) {

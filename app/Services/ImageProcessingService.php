@@ -248,7 +248,7 @@ class ImageProcessingService
                 }
 
                 $mimeType = $imageInfo['mime'];
-                if (! in_array($mimeType, self::VALID_MIME_TYPES)) {
+                if (! in_array($mimeType, self::VALID_MIME_TYPES, true)) {
                     throw new Exception("Unsupported image type: {$mimeType}");
                 }
 
@@ -360,7 +360,7 @@ class ImageProcessingService
             }
 
             $mimeType = $imageInfo['mime'];
-            if (! in_array($mimeType, self::VALID_MIME_TYPES)) {
+            if (! in_array($mimeType, self::VALID_MIME_TYPES, true)) {
                 throw new Exception("Invalid image mime type: {$mimeType}");
             }
 

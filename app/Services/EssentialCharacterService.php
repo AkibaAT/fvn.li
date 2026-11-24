@@ -49,12 +49,12 @@ class EssentialCharacterService
             $menuChoiceDisplayNames[$isoCode] = 'Menu Choice';
         }
 
-        if (! in_array('eng', $languages)) {
+        if (! in_array('eng', $languages, true)) {
             $narratorDisplayNames['eng'] = 'Narrator';
             $menuChoiceDisplayNames['eng'] = 'Menu Choice';
         }
 
-        if (! in_array($defaultLanguage, $languages) && $defaultLanguage !== 'eng') {
+        if (! in_array($defaultLanguage, $languages, true) && $defaultLanguage !== 'eng') {
             $narratorDisplayNames[$defaultLanguage] = 'Narrator';
             $menuChoiceDisplayNames[$defaultLanguage] = 'Menu Choice';
         }

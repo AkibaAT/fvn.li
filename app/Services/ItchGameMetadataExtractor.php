@@ -41,8 +41,8 @@ class ItchGameMetadataExtractor
                 $isFreeDownload = false;
                 $isDemo = false;
                 if (isset($uploadData['traits']) && is_array($uploadData['traits'])) {
-                    $isFreeDownload = in_array('p_free', $uploadData['traits']);
-                    $isDemo = in_array('demo', $uploadData['traits']);
+                    $isFreeDownload = in_array('p_free', $uploadData['traits'], true);
+                    $isDemo = in_array('demo', $uploadData['traits'], true);
                 }
 
                 if ($isDemoFile || $isFreeDownload || $isDemo) {
@@ -62,8 +62,8 @@ class ItchGameMetadataExtractor
             'uploads_count' => count($game->uploads ?? []),
             'uploads' => array_map(function ($upload) {
                 $traits = $upload['traits'] ?? [];
-                $isDemo = is_array($traits) && in_array('demo', $traits);
-                $isFree = is_array($traits) && in_array('p_free', $traits);
+                $isDemo = is_array($traits) && in_array('demo', $traits, true);
+                $isFree = is_array($traits) && in_array('p_free', $traits, true);
 
                 return [
                     'filename' => $upload['filename'] ?? '',
@@ -227,7 +227,7 @@ class ItchGameMetadataExtractor
         }
 
         $pendingJams = $game->pendingGameJamId ?? [];
-        if (! in_array($gameJam->id, $pendingJams)) {
+        if (! in_array($gameJam->id, $pendingJams, true)) {
             $pendingJams[] = $gameJam->id;
             $game->pendingGameJamId = $pendingJams;
         }

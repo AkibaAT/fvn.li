@@ -86,14 +86,14 @@ class ItchHtmlProcessor
         ];
 
         foreach ($baseClasses as $class) {
-            if (! in_array($class, $classArray)) {
+            if (! in_array($class, $classArray, true)) {
                 $classArray[] = $class;
             }
         }
 
         if (isset($levelClasses[$level])) {
             foreach ($levelClasses[$level] as $class) {
-                if (! in_array($class, $classArray)) {
+                if (! in_array($class, $classArray, true)) {
                     $classArray[] = $class;
                 }
             }
@@ -112,7 +112,7 @@ class ItchHtmlProcessor
             $listClasses = ['list-disc', 'pl-5', 'mb-4', 'text-gray-600', 'dark:text-gray-300'];
 
             foreach ($listClasses as $class) {
-                if (! in_array($class, $classArray)) {
+                if (! in_array($class, $classArray, true)) {
                     $classArray[] = $class;
                 }
             }
@@ -128,7 +128,7 @@ class ItchHtmlProcessor
             $listClasses = ['list-decimal', 'pl-5', 'mb-4', 'text-gray-600', 'dark:text-gray-300'];
 
             foreach ($listClasses as $class) {
-                if (! in_array($class, $classArray)) {
+                if (! in_array($class, $classArray, true)) {
                     $classArray[] = $class;
                 }
             }
@@ -144,7 +144,7 @@ class ItchHtmlProcessor
             $itemClasses = ['mb-1'];
 
             foreach ($itemClasses as $class) {
-                if (! in_array($class, $classArray)) {
+                if (! in_array($class, $classArray, true)) {
                     $classArray[] = $class;
                 }
             }
@@ -164,7 +164,7 @@ class ItchHtmlProcessor
             $paragraphClasses = ['text-gray-600', 'dark:text-gray-300', 'mb-4'];
 
             foreach ($paragraphClasses as $class) {
-                if (! in_array($class, $classArray)) {
+                if (! in_array($class, $classArray, true)) {
                     $classArray[] = $class;
                 }
             }
@@ -184,7 +184,7 @@ class ItchHtmlProcessor
             $tableClasses = ['min-w-full', 'divide-y', 'divide-gray-200', 'dark:divide-gray-700', 'mb-4'];
 
             foreach ($tableClasses as $class) {
-                if (! in_array($class, $classArray)) {
+                if (! in_array($class, $classArray, true)) {
                     $classArray[] = $class;
                 }
             }
@@ -201,7 +201,7 @@ class ItchHtmlProcessor
                 ];
 
                 foreach ($thClasses as $class) {
-                    if (! in_array($class, $headerClassArray)) {
+                    if (! in_array($class, $headerClassArray, true)) {
                         $headerClassArray[] = $class;
                     }
                 }
@@ -217,7 +217,7 @@ class ItchHtmlProcessor
                 $tdClasses = ['px-4', 'py-3', 'text-sm', 'text-gray-600', 'dark:text-gray-300'];
 
                 foreach ($tdClasses as $class) {
-                    if (! in_array($class, $cellClassArray)) {
+                    if (! in_array($class, $cellClassArray, true)) {
                         $cellClassArray[] = $class;
                     }
                 }
@@ -238,7 +238,7 @@ class ItchHtmlProcessor
             $linkClasses = ['text-blue-600', 'dark:text-blue-400', 'hover:underline'];
 
             foreach ($linkClasses as $class) {
-                if (! in_array($class, $classArray)) {
+                if (! in_array($class, $classArray, true)) {
                     $classArray[] = $class;
                 }
             }
@@ -297,7 +297,7 @@ class ItchHtmlProcessor
             }
 
             foreach ($imageClasses as $class) {
-                if (! in_array($class, $classArray)) {
+                if (! in_array($class, $classArray, true)) {
                     $classArray[] = $class;
                 }
             }

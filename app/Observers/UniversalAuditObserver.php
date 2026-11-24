@@ -192,15 +192,15 @@ class UniversalAuditObserver
         $excludeModels = Config::get('audit.exclude_models', []);
         $excludeTables = Config::get('audit.exclude_tables', []);
 
-        return in_array($modelClass, $excludeModels) ||
-            in_array($tableName, $excludeTables);
+        return in_array($modelClass, $excludeModels, true) ||
+            in_array($tableName, $excludeTables, true);
     }
 
     private function shouldLogEvent(string $event): bool
     {
         $excludeEvents = Config::get('audit.exclude_events', []);
 
-        return ! in_array($event, $excludeEvents);
+        return ! in_array($event, $excludeEvents, true);
     }
 
     private function buildAuditData(string $event, Model $model): array
@@ -269,7 +269,7 @@ class UniversalAuditObserver
 
         $excludedFields = array_merge($globalExcluded, $modelExcluded);
 
-        return in_array($field, $excludedFields);
+        return in_array($field, $excludedFields, true);
     }
 
     private function getOldValues(string $event, Model $model): array
