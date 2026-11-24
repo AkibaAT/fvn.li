@@ -17,11 +17,6 @@ class VersionFileCategory extends Model
         'total_size',
     ];
 
-    protected $casts = [
-        'total_count' => 'integer',
-        'total_size' => 'integer',
-    ];
-
     public function gameVersion(): BelongsTo
     {
         return $this->belongsTo(GameVersion::class);
@@ -30,5 +25,17 @@ class VersionFileCategory extends Model
     public function fileTypes(): HasMany
     {
         return $this->hasMany(VersionFileType::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'total_count' => 'integer',
+            'total_size' => 'integer',
+
+        ];
     }
 }

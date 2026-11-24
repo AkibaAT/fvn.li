@@ -25,16 +25,6 @@ class BugReportComment extends Model
         'is_read',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'is_from_admin' => 'boolean',
-        'is_read' => 'boolean',
-    ];
-
     public function bugReport(): BelongsTo
     {
         return $this->belongsTo(BugReport::class);
@@ -53,5 +43,17 @@ class BugReportComment extends Model
         if (! $this->is_read) {
             $this->update(['is_read' => true]);
         }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_from_admin' => 'boolean',
+            'is_read' => 'boolean',
+
+        ];
     }
 }

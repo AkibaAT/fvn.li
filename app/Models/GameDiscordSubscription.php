@@ -19,11 +19,6 @@ class GameDiscordSubscription extends Model
         'is_active',
     ];
 
-    protected $casts = [
-        'subscribed_at' => 'datetime',
-        'is_active' => 'boolean',
-    ];
-
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
@@ -42,5 +37,17 @@ class GameDiscordSubscription extends Model
     public function scopeInactive($query)
     {
         return $query->where('is_active', false);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'subscribed_at' => 'datetime',
+            'is_active' => 'boolean',
+
+        ];
     }
 }

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Game;
-use DOMDocument;
-use DOMElement;
-use DOMXPath;
+use Dom\Element;
+use Dom\HTMLDocument;
+use Dom\XPath;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 
@@ -118,34 +118,26 @@ class HtmlSanitizerService
             return $html;
         }
 
-        $previous = libxml_use_internal_errors(true);
-        $dom = new DOMDocument('1.0', 'UTF-8');
-        $loaded = $dom->loadHTML(
-            '<?xml encoding="UTF-8"><div id="fvn-sanitizer-root">' . $html . '</div>',
-            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        $dom = HTMLDocument::createFromString(
+            '<div id="fvn-sanitizer-root">' . $html . '</div>',
+            LIBXML_NOERROR
         );
-        libxml_clear_errors();
-        libxml_use_internal_errors($previous);
 
-        if (! $loaded) {
-            return $html;
-        }
-
-        $xpath = new DOMXPath($dom);
+        $xpath = new XPath($dom);
         $query = $restrictReviewClasses ? '//*[@style or @class]' : '//*[@style]';
-        foreach ($xpath->query($query) ?: [] as $element) {
-            if (! $element instanceof DOMElement) {
+        foreach ($xpath->query($query) as $element) {
+            if (! $element instanceof Element) {
                 continue;
             }
 
             if ($element->hasAttribute('style')) {
-                $style = $this->sanitizeInlineCss($element->getAttribute('style'));
+                $style = $this->sanitizeInlineCss($element->getAttribute('style') ?? '');
                 $style === '' ? $element->removeAttribute('style') : $element->setAttribute('style', $style);
             }
 
             if ($restrictReviewClasses && $element->hasAttribute('class')) {
                 $classes = array_values(array_filter(
-                    preg_split('/\s+/', trim($element->getAttribute('class'))) ?: [],
+                    preg_split('/\s+/', trim($element->getAttribute('class') ?? '')) ?: [],
                     fn (string $class): bool => $class === 'spoiler',
                 ));
                 $classes === []
@@ -159,12 +151,7 @@ class HtmlSanitizerService
             return $html;
         }
 
-        $result = '';
-        foreach ($root->childNodes as $child) {
-            $result .= $dom->saveHTML($child);
-        }
-
-        return $result;
+        return $root->innerHTML;
     }
 
     private function sanitizeInlineCss(string $css): string

@@ -20,11 +20,6 @@ class VersionCharacterStats extends Model
         'words',
     ];
 
-    protected $casts = [
-        'blocks' => 'integer',
-        'words' => 'integer',
-    ];
-
     public function gameVersion(): BelongsTo
     {
         return $this->belongsTo(GameVersion::class);
@@ -38,5 +33,17 @@ class VersionCharacterStats extends Model
     public function language(): BelongsTo
     {
         return $this->belongsTo(Language::class, 'iso_code', 'id');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'blocks' => 'integer',
+            'words' => 'integer',
+
+        ];
     }
 }

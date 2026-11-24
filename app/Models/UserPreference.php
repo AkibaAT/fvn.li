@@ -21,10 +21,6 @@ class UserPreference extends Model
         'excluded_tags' => '[]',
     ];
 
-    protected $casts = [
-        'preferred_languages' => 'array',
-    ];
-
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -36,5 +32,16 @@ class UserPreference extends Model
             get: fn (string $value): array => json_decode($value, true),
             set: fn (array $value): string => json_encode(array_values(array_map('intval', $value))),
         );
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'preferred_languages' => 'array',
+
+        ];
     }
 }

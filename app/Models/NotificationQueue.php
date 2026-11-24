@@ -34,14 +34,6 @@ class NotificationQueue extends Model
         'batch_key',
     ];
 
-    protected $casts = [
-        'scheduled_at' => 'datetime',
-        'processed_at' => 'datetime',
-        'payload' => 'array',
-        'meta_data' => 'array',
-        'attempts' => 'integer',
-    ];
-
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -132,5 +124,20 @@ class NotificationQueue extends Model
     public function prunable(): Builder
     {
         return static::query()->whereIn('status', ['sent', 'failed'])->where('updated_at', '<=', now()->subDays(30));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'scheduled_at' => 'datetime',
+            'processed_at' => 'datetime',
+            'payload' => 'array',
+            'meta_data' => 'array',
+            'attempts' => 'integer',
+
+        ];
     }
 }

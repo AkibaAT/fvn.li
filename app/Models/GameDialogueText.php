@@ -31,15 +31,6 @@ class GameDialogueText extends Model
      */
     public $timestamps = false;
 
-    /**
-     * The attributes that should be cast.
-     */
-    protected $casts = [
-        'version_ids' => 'array',
-        'character_ids' => 'array',
-        'character_names' => 'array',
-    ];
-
     public static function makeAllSearchableUsing($query)
     {
         $gameIds = DB::table('version_dialogue_lines as vdl')
@@ -387,6 +378,19 @@ class GameDialogueText extends Model
     public function getScoutKeyName()
     {
         return 'id';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'version_ids' => 'array',
+            'character_ids' => 'array',
+            'character_names' => 'array',
+
+        ];
     }
 
     private function formatDateForSearch(mixed $value): ?string

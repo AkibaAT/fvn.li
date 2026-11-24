@@ -203,9 +203,15 @@ class QueueGameUpdateNotifications extends Command
                 'user_notification_preferences.discord_dm_status',
                 DB::raw("EXISTS(SELECT 1 FROM push_subscriptions WHERE push_subscriptions.user_id = users.id AND push_subscriptions.delivery_status != 'invalid') as has_browser_subscription"),
                 DB::raw('EXISTS(SELECT 1 FROM social_accounts WHERE social_accounts.user_id = users.id AND social_accounts.provider_name = \'discord\') as has_discord_account'),
-                DB::raw("EXISTS(SELECT 1 FROM notification_history WHERE notification_history.user_id = users.id AND notification_history.game_id = {$gameId} AND notification_history.game_version_id = {$gameVersionId} AND notification_history.type = 'browser') as has_browser_history"),
-                DB::raw("EXISTS(SELECT 1 FROM notification_history WHERE notification_history.user_id = users.id AND notification_history.game_id = {$gameId} AND notification_history.game_version_id = {$gameVersionId} AND notification_history.type = 'discord') as has_discord_history"),
             ])
+            ->selectRaw(
+                "EXISTS(SELECT 1 FROM notification_history WHERE notification_history.user_id = users.id AND notification_history.game_id = ? AND notification_history.game_version_id = ? AND notification_history.type = 'browser') as has_browser_history",
+                [$gameId, $gameVersionId]
+            )
+            ->selectRaw(
+                "EXISTS(SELECT 1 FROM notification_history WHERE notification_history.user_id = users.id AND notification_history.game_id = ? AND notification_history.game_version_id = ? AND notification_history.type = 'discord') as has_discord_history",
+                [$gameId, $gameVersionId]
+            )
             ->join('users', 'user_game_progress.user_id', '=', 'users.id')
             ->join('user_notification_preferences', 'users.id', '=', 'user_notification_preferences.user_id')
             ->join('games', 'user_game_progress.game_id', '=', 'games.id')
@@ -263,16 +269,13 @@ class QueueGameUpdateNotifications extends Command
     {
         $now = Carbon::now();
 
-        switch ($digestType) {
-            case 'asap':
-                return $now;
-
-            case 'daily':
+        return match ($digestType) {
+            'daily' => (function () use ($now): Carbon {
                 $scheduledAt = $now->copy()->setTime(9, 0);
 
                 return $scheduledAt->lte($now) ? $scheduledAt->addDay() : $scheduledAt;
-
-            case 'weekly':
+            })(),
+            'weekly' => (function () use ($now): Carbon {
                 $scheduledAt = $now->copy()->startOfDay();
                 if (! $scheduledAt->isSunday()) {
                     $scheduledAt->next(Carbon::SUNDAY);
@@ -280,11 +283,9 @@ class QueueGameUpdateNotifications extends Command
                 $scheduledAt->setTime(9, 0);
 
                 return $scheduledAt->lte($now) ? $scheduledAt->addWeek() : $scheduledAt;
-
-            default:
-                // Default to immediate
-                return $now;
-        }
+            })(),
+            default => $now,
+        };
     }
 
     /**

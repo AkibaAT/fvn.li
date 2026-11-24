@@ -22,15 +22,22 @@ class VersionRouteLabel extends Model
         'is_scaffolding',
     ];
 
-    protected $casts = [
-        'is_ending' => 'boolean',
-        'returns_to_caller' => 'boolean',
-        'externally_invoked' => 'boolean',
-        'is_scaffolding' => 'boolean',
-    ];
-
     public function gameVersion(): BelongsTo
     {
         return $this->belongsTo(GameVersion::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_ending' => 'boolean',
+            'returns_to_caller' => 'boolean',
+            'externally_invoked' => 'boolean',
+            'is_scaffolding' => 'boolean',
+
+        ];
     }
 }

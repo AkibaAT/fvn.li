@@ -40,18 +40,6 @@ class UserGameProgress extends Model
         'is_receiving_updates' => false,
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'started_at' => 'datetime',
-        'completed_at' => 'datetime',
-        'is_receiving_updates' => 'boolean',
-        'progress' => 'integer',
-    ];
-
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -65,5 +53,19 @@ class UserGameProgress extends Model
     public function gameVersion(): BelongsTo
     {
         return $this->belongsTo(GameVersion::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'started_at' => 'datetime',
+            'completed_at' => 'datetime',
+            'is_receiving_updates' => 'boolean',
+            'progress' => 'integer',
+
+        ];
     }
 }

@@ -31,16 +31,6 @@ class VnList extends Model
         'type',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'is_default' => 'boolean',
-        'is_public' => 'boolean',
-    ];
-
     protected static function booted(): void
     {
         static::saved(fn () => app(VnListCacheService::class)->clearPublicListsCache());
@@ -110,5 +100,17 @@ class VnList extends Model
 
             return $entry;
         });
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_default' => 'boolean',
+            'is_public' => 'boolean',
+
+        ];
     }
 }

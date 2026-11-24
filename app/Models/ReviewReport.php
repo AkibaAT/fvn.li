@@ -29,11 +29,6 @@ class ReviewReport extends Model
         'admin_notes',
     ];
 
-    protected $casts = [
-        'reviewed_at' => 'datetime',
-        'discord_notified_at' => 'datetime',
-    ];
-
     public function rating(): BelongsTo
     {
         return $this->belongsTo(Rating::class);
@@ -47,5 +42,17 @@ class ReviewReport extends Model
     public function reviewedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'reviewed_at' => 'datetime',
+            'discord_notified_at' => 'datetime',
+
+        ];
     }
 }

@@ -27,14 +27,6 @@ class GameJam extends Model
         'needs_details_fetch',
     ];
 
-    protected $casts = [
-        'start_date' => 'datetime',
-        'end_date' => 'datetime',
-        'submission_count' => 'integer',
-        'participant_count' => 'integer',
-        'needs_details_fetch' => 'boolean',
-    ];
-
     public static function findOrCreateFromUrl(string $url, ?string $name = null): self
     {
         $url = self::normalizeAndValidateJamUrl($url);
@@ -153,5 +145,20 @@ class GameJam extends Model
             $maxPages,
             $pageDelaySeconds
         );
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'start_date' => 'datetime',
+            'end_date' => 'datetime',
+            'submission_count' => 'integer',
+            'participant_count' => 'integer',
+            'needs_details_fetch' => 'boolean',
+
+        ];
     }
 }

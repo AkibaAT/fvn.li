@@ -32,14 +32,21 @@ class VersionRouteMenuChoice extends Model
         'line_number',
     ];
 
-    protected $casts = [
-        'translations' => 'array',
-        'prompt_translations' => 'array',
-        'menu_condition_stack' => 'array',
-    ];
-
     public function gameVersion(): BelongsTo
     {
         return $this->belongsTo(GameVersion::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'translations' => 'array',
+            'prompt_translations' => 'array',
+            'menu_condition_stack' => 'array',
+
+        ];
     }
 }

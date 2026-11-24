@@ -38,13 +38,6 @@ class DiscordNotificationHistory extends Model
         'retry_at',
     ];
 
-    protected $casts = [
-        'sent_at' => 'datetime',
-        'payload' => 'array',
-        'attempts' => 'integer',
-        'retry_at' => 'datetime',
-    ];
-
     public function discordServer(): BelongsTo
     {
         return $this->belongsTo(DiscordServer::class);
@@ -117,5 +110,19 @@ class DiscordNotificationHistory extends Model
     public function prunable(): Builder
     {
         return static::query()->whereIn('delivery_status', ['sent', 'failed'])->where('updated_at', '<=', now()->subDays(90));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'sent_at' => 'datetime',
+            'payload' => 'array',
+            'attempts' => 'integer',
+            'retry_at' => 'datetime',
+
+        ];
     }
 }

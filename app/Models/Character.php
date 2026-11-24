@@ -24,11 +24,6 @@ class Character extends Model
         'age',
     ];
 
-    protected $casts = [
-        'display_names' => 'array',
-        'display_name_corrections' => 'array',
-    ];
-
     public static function countUniqueCharactersInLanguage(
         int $gameId,
         ?string $languageCode = null,
@@ -93,5 +88,17 @@ class Character extends Model
     public function dialogueLines(): HasMany
     {
         return $this->hasMany(DialogueLine::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'display_names' => 'array',
+            'display_name_corrections' => 'array',
+
+        ];
     }
 }

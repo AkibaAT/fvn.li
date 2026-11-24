@@ -64,19 +64,6 @@ class ChangeLog extends Model
     ];
 
     /**
-     * The attributes that should be cast.
-     */
-    protected $casts = [
-        'timestamp' => 'datetime',
-        'changes' => 'array',
-        'old_values' => 'array',
-        'new_values' => 'array',
-        'context' => 'array',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
-    ];
-
-    /**
      * Export user's audit data for GDPR compliance (Data Portability - Article 20)
      */
     public static function exportUserData(int $userId): array
@@ -314,5 +301,22 @@ class ChangeLog extends Model
         $userName = $this->user ? $this->user->name : 'System';
 
         return "{$userName} {$action} {$entityName} #{$this->entity_id}";
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'timestamp' => 'datetime',
+            'changes' => 'array',
+            'old_values' => 'array',
+            'new_values' => 'array',
+            'context' => 'array',
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
+
+        ];
     }
 }

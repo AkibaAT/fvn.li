@@ -27,15 +27,6 @@ class VnListEntry extends Model
     ];
 
     /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'sort_order' => 'integer',
-    ];
-
-    /**
      * The "booted" method of the model.
      */
     protected static function booted()
@@ -63,5 +54,16 @@ class VnListEntry extends Model
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'sort_order' => 'integer',
+
+        ];
     }
 }

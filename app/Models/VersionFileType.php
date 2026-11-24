@@ -16,13 +16,20 @@ class VersionFileType extends Model
         'size',
     ];
 
-    protected $casts = [
-        'count' => 'integer',
-        'size' => 'integer',
-    ];
-
     public function category(): BelongsTo
     {
         return $this->belongsTo(VersionFileCategory::class, 'version_file_category_id');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'count' => 'integer',
+            'size' => 'integer',
+
+        ];
     }
 }

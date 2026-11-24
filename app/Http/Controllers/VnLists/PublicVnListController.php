@@ -155,23 +155,13 @@ class PublicVnListController extends Controller
             }
         }
 
-        switch ($sort) {
-            case 'newest':
-                $query->orderBy('created_at', 'desc');
-                break;
-            case 'oldest':
-                $query->orderBy('created_at', 'asc');
-                break;
-            case 'most_entries':
-                $query->orderByRaw('(SELECT COUNT(*) FROM vn_list_entries WHERE vn_list_entries.vn_list_id = vn_lists.id) DESC');
-                break;
-            case 'recently_updated':
-                $query->orderBy('updated_at', 'desc');
-                break;
-            default:
-                $query->inDisplayOrder();
-                break;
-        }
+        match ($sort) {
+            'newest' => $query->orderBy('created_at', 'desc'),
+            'oldest' => $query->orderBy('created_at', 'asc'),
+            'most_entries' => $query->orderByRaw('(SELECT COUNT(*) FROM vn_list_entries WHERE vn_list_entries.vn_list_id = vn_lists.id) DESC'),
+            'recently_updated' => $query->orderBy('updated_at', 'desc'),
+            default => $query->inDisplayOrder(),
+        };
 
         $lists = $query->paginate($perPage, ['*'], 'page', $page);
 

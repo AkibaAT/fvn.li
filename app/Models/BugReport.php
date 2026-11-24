@@ -41,17 +41,6 @@ class BugReport extends Model
     ];
 
     /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'request_parameters' => 'array',
-        'is_closed' => 'boolean',
-        'resolved_at' => 'datetime',
-    ];
-
-    /**
      * Get all available status values.
      *
      * @return array<string, string>
@@ -150,5 +139,18 @@ class BugReport extends Model
             ->where('is_from_admin', true)
             ->where('is_read', false)
             ->update(['is_read' => true]);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'request_parameters' => 'array',
+            'is_closed' => 'boolean',
+            'resolved_at' => 'datetime',
+
+        ];
     }
 }

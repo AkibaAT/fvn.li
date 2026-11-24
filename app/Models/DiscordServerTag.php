@@ -18,10 +18,6 @@ class DiscordServerTag extends Model
         'is_subscribed',
     ];
 
-    protected $casts = [
-        'is_subscribed' => 'boolean',
-    ];
-
     public function discordServer(): BelongsTo
     {
         return $this->belongsTo(DiscordServer::class);
@@ -41,5 +37,16 @@ class DiscordServerTag extends Model
     public function scopeUnsubscribed($query)
     {
         return $query->where('is_subscribed', false);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_subscribed' => 'boolean',
+
+        ];
     }
 }

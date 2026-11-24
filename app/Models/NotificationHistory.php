@@ -29,16 +29,6 @@ class NotificationHistory extends Model
         'meta_data',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'success' => 'boolean',
-        'meta_data' => 'array',
-    ];
-
     public static function record(array $attributes): self
     {
         if (isset($attributes['meta_data']) && is_array($attributes['meta_data'])) {
@@ -74,5 +64,17 @@ class NotificationHistory extends Model
     public function prunable(): Builder
     {
         return static::query()->where('created_at', '<=', now()->subDays(90));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'success' => 'boolean',
+            'meta_data' => 'array',
+
+        ];
     }
 }

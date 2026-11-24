@@ -13,7 +13,14 @@ class ImportState extends Model
         'last_processed_id',
     ];
 
-    protected $casts = [
-        'last_processed_id' => 'integer',
-    ];
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'last_processed_id' => 'integer',
+
+        ];
+    }
 }

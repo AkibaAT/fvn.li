@@ -25,11 +25,6 @@ class DiscordChannelAnnouncement extends Model
         'processed_at',
     ];
 
-    protected $casts = [
-        'attempts' => 'integer',
-        'processed_at' => 'datetime',
-    ];
-
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
@@ -43,5 +38,17 @@ class DiscordChannelAnnouncement extends Model
     public function prunable(): Builder
     {
         return static::query()->whereIn('status', ['sent', 'failed'])->where('updated_at', '<=', now()->subDays(90));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'attempts' => 'integer',
+            'processed_at' => 'datetime',
+
+        ];
     }
 }

@@ -7,7 +7,6 @@ namespace App\Services;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -138,7 +137,7 @@ class ItchHttpClientService
 
                 // For all other responses, return immediately
                 return $response;
-            } catch (RequestException|Exception $e) {
+            } catch (Exception $e) {
                 $lastException = $e;
                 $retryCount++;
 
@@ -249,7 +248,7 @@ class ItchHttpClientService
             // or if we've exhausted all retries, re-throw the exception
             Log::error("Error during operation '{$operationName}'", [
                 'error' => $e->getMessage(),
-                'exception' => get_class($e),
+                'exception' => $e::class,
             ]);
 
             // Call error callback if provided

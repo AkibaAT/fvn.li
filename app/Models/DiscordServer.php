@@ -26,14 +26,6 @@ class DiscordServer extends Model
         'channels_synced_at',
     ];
 
-    protected $casts = [
-        'is_active' => 'boolean',
-        'bot_present' => 'boolean',
-        'bot_joined_at' => 'datetime',
-        'available_channels' => 'array',
-        'channels_synced_at' => 'datetime',
-    ];
-
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_user_id');
@@ -125,5 +117,20 @@ class DiscordServer extends Model
     public function getTagSubscriptionCount(): int
     {
         return $this->activeTagSubscriptions()->count();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+            'bot_present' => 'boolean',
+            'bot_joined_at' => 'datetime',
+            'available_channels' => 'array',
+            'channels_synced_at' => 'datetime',
+
+        ];
     }
 }

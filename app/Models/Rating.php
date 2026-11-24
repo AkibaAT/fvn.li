@@ -31,16 +31,6 @@ class Rating extends Model
         'external_metadata',
     ];
 
-    protected $casts = [
-        'published_at' => 'datetime',
-        'rating' => 'float',
-        'is_visible' => 'boolean',
-        'is_moderation_hidden' => 'boolean',
-        'is_reviewed' => 'boolean',
-        'has_spoilers' => 'boolean',
-        'external_metadata' => 'array',
-    ];
-
     /**
      * Superseded rating counts for a game keyed by rater id, excluding
      * moderation-hidden rows. A non-zero count means the rater's current
@@ -114,5 +104,22 @@ class Rating extends Model
         if ($linked) {
             $this->setRelation('user', $linked);
         }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'published_at' => 'datetime',
+            'rating' => 'float',
+            'is_visible' => 'boolean',
+            'is_moderation_hidden' => 'boolean',
+            'is_reviewed' => 'boolean',
+            'has_spoilers' => 'boolean',
+            'external_metadata' => 'array',
+
+        ];
     }
 }

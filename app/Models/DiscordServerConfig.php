@@ -26,15 +26,6 @@ class DiscordServerConfig extends Model
         'update_embed',
     ];
 
-    protected $casts = [
-        'include_game_description' => 'boolean',
-        'include_thumbnail' => 'boolean',
-        'include_ratings' => 'boolean',
-        'routing_rules' => 'array',
-        'new_game_embed' => 'array',
-        'update_embed' => 'array',
-    ];
-
     public function server(): BelongsTo
     {
         return $this->belongsTo(DiscordServer::class);
@@ -71,6 +62,22 @@ class DiscordServerConfig extends Model
     public function isValid(): bool
     {
         return $this->notification_channel_id !== null;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'include_game_description' => 'boolean',
+            'include_thumbnail' => 'boolean',
+            'include_ratings' => 'boolean',
+            'routing_rules' => 'array',
+            'new_game_embed' => 'array',
+            'update_embed' => 'array',
+
+        ];
     }
 
     private function getDefaultTemplate(string $format): string

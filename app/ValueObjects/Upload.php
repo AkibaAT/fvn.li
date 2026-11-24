@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\ValueObjects;
 
 use App\Models\Game;
-use DateTime;
+use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -37,8 +37,8 @@ class Upload
         public array $traits = [],
         public string $type = ''
     ) {
-        $this->updatedAt = new DateTime($updatedAt);
-        $this->buildUpdatedAt = $buildUpdatedAt ? new DateTime($buildUpdatedAt) : null;
+        $this->updatedAt = new DateTimeImmutable($updatedAt);
+        $this->buildUpdatedAt = $buildUpdatedAt ? new DateTimeImmutable($buildUpdatedAt) : null;
     }
 
     public static function fromCollection(Collection $uploads): Collection

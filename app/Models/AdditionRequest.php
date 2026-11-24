@@ -44,16 +44,6 @@ class AdditionRequest extends Model
     ];
 
     /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'reviewed_at' => 'datetime',
-        'discord_notified_at' => 'datetime',
-    ];
-
-    /**
      * Get all available status values.
      *
      * @return array<string>
@@ -287,5 +277,17 @@ class AdditionRequest extends Model
             self::STATUS_REJECTED => 'red',
             default => 'gray',
         };
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'reviewed_at' => 'datetime',
+            'discord_notified_at' => 'datetime',
+
+        ];
     }
 }

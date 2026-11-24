@@ -29,12 +29,6 @@ class PushSubscription extends Model
         'delivery_last_error',
     ];
 
-    protected $casts = [
-        'subscription_data' => 'array',
-        'delivery_verified_at' => 'datetime',
-        'delivery_last_failed_at' => 'datetime',
-    ];
-
     public static function isSafeEndpoint(string $endpoint): bool
     {
         $parts = parse_url($endpoint);
@@ -105,5 +99,18 @@ class PushSubscription extends Model
             'delivery_last_failed_at' => now(),
             'delivery_last_error' => $error,
         ]);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'subscription_data' => 'array',
+            'delivery_verified_at' => 'datetime',
+            'delivery_last_failed_at' => 'datetime',
+
+        ];
     }
 }

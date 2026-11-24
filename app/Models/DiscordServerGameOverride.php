@@ -21,12 +21,6 @@ class DiscordServerGameOverride extends Model
         'update_embed',
     ];
 
-    protected $casts = [
-        'is_ignored' => 'boolean',
-        'new_game_embed' => 'array',
-        'update_embed' => 'array',
-    ];
-
     public function discordServer(): BelongsTo
     {
         return $this->belongsTo(DiscordServer::class);
@@ -35,5 +29,18 @@ class DiscordServerGameOverride extends Model
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_ignored' => 'boolean',
+            'new_game_embed' => 'array',
+            'update_embed' => 'array',
+
+        ];
     }
 }

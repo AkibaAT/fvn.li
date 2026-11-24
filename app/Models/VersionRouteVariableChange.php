@@ -24,12 +24,19 @@ class VersionRouteVariableChange extends Model
         'condition_stack',
     ];
 
-    protected $casts = [
-        'condition_stack' => 'array',
-    ];
-
     public function gameVersion(): BelongsTo
     {
         return $this->belongsTo(GameVersion::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'condition_stack' => 'array',
+
+        ];
     }
 }

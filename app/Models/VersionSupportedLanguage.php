@@ -16,10 +16,6 @@ class VersionSupportedLanguage extends Model
         'is_available',
     ];
 
-    protected $casts = [
-        'is_available' => 'boolean',
-    ];
-
     /**
      * Copy availability settings from one version to another
      */
@@ -60,5 +56,16 @@ class VersionSupportedLanguage extends Model
     public function language(): BelongsTo
     {
         return $this->belongsTo(Language::class, 'iso_code', 'id');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_available' => 'boolean',
+
+        ];
     }
 }

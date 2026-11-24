@@ -43,10 +43,6 @@ class ClickStat extends Model
         'bot_reason',
     ];
 
-    protected $casts = [
-        'clicked_at' => 'datetime',
-    ];
-
     public static function visitorKey(Request $request): string
     {
         if ($request->hasSession() && ($request->user() !== null || $request->cookies->has($request->session()->getName()))) {
@@ -567,5 +563,16 @@ class ClickStat extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'clicked_at' => 'datetime',
+
+        ];
     }
 }

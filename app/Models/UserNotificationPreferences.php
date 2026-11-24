@@ -21,15 +21,6 @@ class UserNotificationPreferences extends Model
         'discord_user_installed_at',
     ];
 
-    protected $casts = [
-        'discord_notifications_enabled' => 'boolean',
-        'browser_notifications_enabled' => 'boolean',
-        'notification_digest' => 'string',
-        'discord_dm_verified_at' => 'datetime',
-        'discord_dm_last_failed_at' => 'datetime',
-        'discord_user_installed_at' => 'datetime',
-    ];
-
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -88,5 +79,21 @@ class UserNotificationPreferences extends Model
             'discord_dm_verified_at' => null,
             'discord_dm_last_failed_at' => now(),
         ]);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'discord_notifications_enabled' => 'boolean',
+            'browser_notifications_enabled' => 'boolean',
+            'notification_digest' => 'string',
+            'discord_dm_verified_at' => 'datetime',
+            'discord_dm_last_failed_at' => 'datetime',
+            'discord_user_installed_at' => 'datetime',
+
+        ];
     }
 }

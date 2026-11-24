@@ -21,13 +21,20 @@ class VersionRoutePath extends Model
         'choices',
     ];
 
-    protected $casts = [
-        'path_labels' => 'array',
-        'choices' => 'array',
-    ];
-
     public function gameVersion(): BelongsTo
     {
         return $this->belongsTo(GameVersion::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'path_labels' => 'array',
+            'choices' => 'array',
+
+        ];
     }
 }

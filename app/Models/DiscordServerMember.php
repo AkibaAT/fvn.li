@@ -21,11 +21,6 @@ class DiscordServerMember extends Model
         'joined_at',
     ];
 
-    protected $casts = [
-        'is_admin' => 'boolean',
-        'joined_at' => 'datetime',
-    ];
-
     public function discordServer(): BelongsTo
     {
         return $this->belongsTo(DiscordServer::class);
@@ -66,5 +61,17 @@ class DiscordServerMember extends Model
     public function scopeUnlinked($query)
     {
         return $query->whereNull('user_id');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_admin' => 'boolean',
+            'joined_at' => 'datetime',
+
+        ];
     }
 }
