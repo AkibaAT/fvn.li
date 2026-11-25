@@ -181,7 +181,7 @@
                     edges={displayEdges as any[]}
                     {nodeTypes}
                     {edgeTypes}
-                    {colorMode}
+                    forceColorMode={colorMode}
                     minZoom={ROUTE_MAP_MIN_ZOOM}
                     onnodeclick={(event: any) => {
                         if (event.node?.data?.node_type === 'condition') return;
