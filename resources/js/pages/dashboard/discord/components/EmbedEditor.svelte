@@ -577,8 +577,10 @@
                                     href={stringField(previewSrc, 'url')}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    class="text-[#00aff4] hover:underline">{previewTitle}</a
+                                    class="text-[#00aff4] hover:underline"
                                 >
+                                    {previewTitle}
+                                </a>
                             {:else}
                                 <span class="font-semibold text-white">{previewTitle}</span>
                             {/if}

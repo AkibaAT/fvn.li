@@ -42,8 +42,10 @@
                     variant="link"
                     tone="primary"
                     class="font-mono"
-                    onclick={() => onSelectNode(selectedNode.parent_label ?? null)}>{selectedNode.parent_label}</Button
+                    onclick={() => onSelectNode(selectedNode.parent_label ?? null)}
                 >
+                    {selectedNode.parent_label}
+                </Button>
             </p>
         {/if}
 

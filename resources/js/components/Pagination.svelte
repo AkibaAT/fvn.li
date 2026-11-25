@@ -131,8 +131,10 @@
                 if (!shouldIntercept(event)) return;
                 event.preventDefault();
                 changePage(page, action);
-            }}>{text}</a
+            }}
         >
+            {text}
+        </a>
     {:else}
         <button
             type="button"
@@ -140,8 +142,10 @@
             onclick={() => changePage(page, action)}
             aria-label={ariaLabel}
             aria-current={current ? 'page' : undefined}
-            class="{controlClass} disabled:cursor-not-allowed disabled:opacity-40">{text}</button
+            class="{controlClass} disabled:cursor-not-allowed disabled:opacity-40"
         >
+            {text}
+        </button>
     {/if}
 {/snippet}
 
@@ -170,8 +174,10 @@
                     event.preventDefault();
                     changePage(meta.current_page - 1, 'prev');
                 }}
-                ariaLabel="Go to page {meta.current_page - 1}">Previous</Button
+                ariaLabel="Go to page {meta.current_page - 1}"
             >
+                Previous
+            </Button>
         {:else}
             <Button
                 bind:ref={prevButtonEl}
@@ -181,8 +187,10 @@
                 size="sm"
                 disabled={!canPrev}
                 onclick={() => changePage(meta.current_page - 1, 'prev')}
-                ariaLabel="Go to page {meta.current_page - 1}">Previous</Button
+                ariaLabel="Go to page {meta.current_page - 1}"
             >
+                Previous
+            </Button>
         {/if}
 
         <div class="flex shrink-0 items-center gap-2">
@@ -214,8 +222,10 @@
                     event.preventDefault();
                     changePage(meta.current_page + 1, 'next');
                 }}
-                ariaLabel="Go to page {meta.current_page + 1}">Next</Button
+                ariaLabel="Go to page {meta.current_page + 1}"
             >
+                Next
+            </Button>
         {:else}
             <Button
                 bind:ref={nextButtonEl}
@@ -225,8 +235,10 @@
                 size="sm"
                 disabled={!canNext}
                 onclick={() => changePage(meta.current_page + 1, 'next')}
-                ariaLabel="Go to page {meta.current_page + 1}">Next</Button
+                ariaLabel="Go to page {meta.current_page + 1}"
             >
+                Next
+            </Button>
         {/if}
     </div>
 {/snippet}

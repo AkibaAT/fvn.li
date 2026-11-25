@@ -73,8 +73,10 @@
                                 href={`https://itch.io/event/${hr.event_id}`}
                                 target="_blank"
                                 rel="noopener"
-                                class="text-sm text-fg-muted transition-colors hover:text-fg">View on itch.io</a
+                                class="text-sm text-fg-muted transition-colors hover:text-fg"
                             >
+                                View on itch.io
+                            </a>
                         {/if}
                     </div>
                     {#if hr.review}

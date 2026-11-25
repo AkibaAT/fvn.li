@@ -44,11 +44,11 @@
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
                 <ItchioIcon class="text-itchio h-5 w-5" />
-                <span class="text-sm text-fg-muted"
-                    >Connected: <span class="font-medium text-fg">{itchioData.username}.itch.io</span>
+                <span class="text-sm text-fg-muted">
+                    Connected: <span class="font-medium text-fg">{itchioData.username}.itch.io</span>
                     &middot; {myGames.length}
-                    {myGames.length === 1 ? 'game' : 'games'}</span
-                >
+                    {myGames.length === 1 ? 'game' : 'games'}
+                </span>
             </div>
             <Button type="button" size="sm" variant="outline" tone="neutral" loading={syncAction.isLoading} onclick={syncGames}>
                 {syncAction.isLoading ? 'Syncing games…' : 'Sync games'}

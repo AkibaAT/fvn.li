@@ -138,8 +138,8 @@
         </div>
 
         {#if showDeleteConfirm}
-            <Alert tone="danger" layout="inline" class="mt-3"
-                >Delete your review?
+            <Alert tone="danger" layout="inline" class="mt-3">
+                Delete your review?
                 {#snippet actions()}
                     <div class="flex gap-2">
                         <Button

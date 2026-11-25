@@ -208,17 +208,19 @@
             <div class="space-y-2">
                 {#each ignoredGames as game (game.id)}
                     <div class="flex items-center justify-between rounded-lg border border-border bg-surface-alt p-2">
-                        <Link href={route('games.show', game.slug)} class="truncate text-sm text-fg-muted hover:text-fg hover:underline"
-                            >{game.name}</Link
-                        >
+                        <Link href={route('games.show', game.slug)} class="truncate text-sm text-fg-muted hover:text-fg hover:underline">
+                            {game.name}
+                        </Link>
                         <Button
                             type="button"
                             variant="link"
                             tone="danger"
                             onclick={() => handleUnignoreGame(game.id)}
                             disabled={removingGameIds.includes(game.id)}
-                            class="ml-2">Remove</Button
+                            class="ml-2"
                         >
+                            Remove
+                        </Button>
                     </div>
                 {/each}
             </div>

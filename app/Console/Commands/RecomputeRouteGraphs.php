@@ -43,17 +43,25 @@ class RecomputeRouteGraphs extends Command
             $query->where('game_id', (int) $this->option('game-id'));
         }
 
-        $versions = $query->get();
-        if ($versions->isEmpty()) {
+        $ids = $query->pluck('id');
+        if ($ids->isEmpty()) {
             $this->warn('No game versions with route data found for the given selection.');
 
             return self::FAILURE;
         }
 
-        $this->info("Recomputing route graphs for {$versions->count()} version(s)");
+        $this->info("Recomputing route graphs for {$ids->count()} version(s)");
 
         $failed = 0;
-        foreach ($versions as $version) {
+        foreach ($ids as $id) {
+            $version = GameVersion::query()
+                ->select(['id', 'game_id', 'version'])
+                ->with('game:id,name,source_language_id')
+                ->find((int) $id);
+            if ($version === null) {
+                continue;
+            }
+
             $this->line("Version {$version->id} ({$version->game->name} {$version->version})");
 
             try {

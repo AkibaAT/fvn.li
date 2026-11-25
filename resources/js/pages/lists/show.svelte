@@ -324,9 +324,9 @@
                     {#snippet metadata()}
                         {#if !isOwner && vnList?.user?.name}
                             <span>
-                                By <Link href={route('lists.user-public', vnList.user.id)} class="text-fg-muted hover:text-fg hover:underline"
-                                    >{vnList.user.name}</Link
-                                >
+                                By <Link href={route('lists.user-public', vnList.user.id)} class="text-fg-muted hover:text-fg hover:underline">
+                                    {vnList.user.name}
+                                </Link>
                             </span>
                         {/if}
                     {/snippet}

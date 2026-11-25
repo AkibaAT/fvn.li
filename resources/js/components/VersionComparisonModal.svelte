@@ -290,14 +290,14 @@
                                                 <td class="px-4 py-2 text-sm text-fg">{extension}</td>
                                                 <td class="px-2 py-2 text-right text-sm text-fg-muted">{formatCount(typeStats.from.count)}</td>
                                                 <td class="px-2 py-2 text-right text-sm text-fg">{formatCount(typeStats.to.count)}</td>
-                                                <td class="px-2 py-2 text-right text-sm {getDiffColor(typeStats.diff.count)}"
-                                                    >{formatDiff(typeStats.diff.count)}</td
-                                                >
+                                                <td class="px-2 py-2 text-right text-sm {getDiffColor(typeStats.diff.count)}">
+                                                    {formatDiff(typeStats.diff.count)}
+                                                </td>
                                                 <td class="px-2 py-2 text-right text-sm text-fg-muted">{formatBytes(typeStats.from.size)}</td>
                                                 <td class="px-2 py-2 text-right text-sm text-fg">{formatBytes(typeStats.to.size)}</td>
-                                                <td class="px-2 py-2 text-right text-sm {getDiffColor(typeStats.diff.size)}"
-                                                    >{formatBytesDiff(typeStats.diff.size)}</td
-                                                >
+                                                <td class="px-2 py-2 text-right text-sm {getDiffColor(typeStats.diff.size)}">
+                                                    {formatBytesDiff(typeStats.diff.size)}
+                                                </td>
                                             </tr>
                                         {/each}
                                     </tbody>

@@ -182,8 +182,10 @@
                 onStartEditing(entry);
             }
         }}
-        class={buttonClass}>{isEditing ? 'Cancel' : 'Edit'}</Button
+        class={buttonClass}
     >
+        {isEditing ? 'Cancel' : 'Edit'}
+    </Button>
     {#if moveLists.length > 0}
         <Button
             type="button"
@@ -196,8 +198,10 @@
                     onStartMoving(entry);
                 }
             }}
-            class={buttonClass}>{isMoving ? 'Cancel' : 'Move'}</Button
+            class={buttonClass}
         >
+            {isMoving ? 'Cancel' : 'Move'}
+        </Button>
     {/if}
     <Button type="button" variant="link" tone="danger" onclick={() => onRemove(entry.id)} class={buttonClass}>Remove</Button>
 {/snippet}
@@ -322,20 +326,20 @@
                 <div class="text-sm">
                     <div>
                         <span>Started:</span>
-                        <span class="ml-1"
-                            >{userProgress?.started_at || entry.started_at
+                        <span class="ml-1">
+                            {userProgress?.started_at || entry.started_at
                                 ? formatCalendarDate(userProgress?.started_at || entry.started_at!)
-                                : 'Not started'}</span
-                        >
+                                : 'Not started'}
+                        </span>
                     </div>
                     {#if vnListType === 'custom' || vnListType === 'completed'}
                         <div>
                             <span>Completed:</span>
-                            <span class="ml-1"
-                                >{userProgress?.completed_at || entry.completed_at
+                            <span class="ml-1">
+                                {userProgress?.completed_at || entry.completed_at
                                     ? formatCalendarDate(userProgress?.completed_at || entry.completed_at!)
-                                    : '-'}</span
-                            >
+                                    : '-'}
+                            </span>
                         </div>
                     {/if}
                     {@render latestUpdateNotice('ml-1', 'ml-2')}
@@ -409,8 +413,10 @@
                         size="sm"
                         onclick={() => {
                             onCancelEditing();
-                        }}>Cancel</Button
+                        }}
                     >
+                        Cancel
+                    </Button>
                     <Button
                         type="button"
                         variant="solid"
@@ -418,8 +424,10 @@
                         size="sm"
                         onclick={() => onSaveEntry(entry.id)}
                         disabled={entryFormLoading}
-                        loading={entryFormLoading}>Save Changes</Button
+                        loading={entryFormLoading}
                     >
+                        Save Changes
+                    </Button>
                 </div>
             </div>
         </div>
@@ -445,8 +453,10 @@
                         size="sm"
                         onclick={() => {
                             onCancelMoving();
-                        }}>Cancel</Button
+                        }}
                     >
+                        Cancel
+                    </Button>
                     <Button
                         type="button"
                         variant="solid"
@@ -454,8 +464,10 @@
                         size="sm"
                         onclick={() => onMoveEntry(entry.id)}
                         disabled={entryFormLoading || !entryFormData.target_list_id}
-                        loading={entryFormLoading}>Move to List</Button
+                        loading={entryFormLoading}
                     >
+                        Move to List
+                    </Button>
                 </div>
             </div>
         </div>

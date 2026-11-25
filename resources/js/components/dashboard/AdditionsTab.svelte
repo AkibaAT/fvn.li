@@ -193,9 +193,9 @@
                             </div>
                             <div class="ml-3 flex items-center gap-3">
                                 {#if req.status === 'approved' && req.game}
-                                    <Link href={route('games.show', req.game.slug)} class="text-xs text-fg-muted hover:text-fg hover:underline"
-                                        >View entry</Link
-                                    >
+                                    <Link href={route('games.show', req.game.slug)} class="text-xs text-fg-muted hover:text-fg hover:underline">
+                                        View entry
+                                    </Link>
                                 {/if}
                                 {#if req.status === 'pending' || req.status === 'processing'}
                                     <Button type="button" variant="link" tone="danger" onclick={() => cancelRequest(req.id)}>Cancel</Button>

@@ -108,15 +108,19 @@
                     class="text-sm text-fg-muted hover:text-fg"
                     aria-label={`Rename ${tag.name}`}
                     disabled={tagAction.isLoading}
-                    onclick={() => rename(tag)}>Rename</button
+                    onclick={() => rename(tag)}
                 >
+                    Rename
+                </button>
                 <button
                     type="button"
                     class="text-sm text-red-600 hover:underline dark:text-red-400"
                     aria-label={`Delete ${tag.name}`}
                     disabled={tagAction.isLoading}
-                    onclick={() => remove(tag)}>Delete</button
+                    onclick={() => remove(tag)}
                 >
+                    Delete
+                </button>
             </li>
         {:else}
             {#if hasLoaded}
@@ -138,8 +142,10 @@
                 variant="outline"
                 class="mt-3"
                 disabled={gamesAction.isLoading}
-                onclick={() => showGames(selected!, nextPage!)}>Load more</Button
+                onclick={() => showGames(selected!, nextPage!)}
             >
+                Load more
+            </Button>
         {/if}
     {/if}
 </Card>

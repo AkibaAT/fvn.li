@@ -507,9 +507,9 @@
                 {#if showDuplicates}
                     <div class="space-y-6">
                         {#if duplicates.length === 0}
-                            <Alert role="status"
-                                >No duplicate lines found matching your criteria. Try adjusting the minimum line length or duplicate count.</Alert
-                            >
+                            <Alert role="status">
+                                No duplicate lines found matching your criteria. Try adjusting the minimum line length or duplicate count.
+                            </Alert>
                         {:else}
                             {#each duplicates as dupe (dupe.text_id)}
                                 <Card variant="outline" padding="sm">
@@ -531,11 +531,11 @@
                                                 <div class="rounded-lg border border-border bg-surface p-2 text-xs text-fg-muted">
                                                     <div class="flex justify-between">
                                                         <span class="font-medium">{ex.game_name} ({ex.version})</span>
-                                                        <span
-                                                            >{ex.character_id === 'menu_choice'
+                                                        <span>
+                                                            {ex.character_id === 'menu_choice'
                                                                 ? 'Choice'
-                                                                : ex.character_display_name || ex.character_id}</span
-                                                        >
+                                                                : ex.character_display_name || ex.character_id}
+                                                        </span>
                                                     </div>
                                                     {#if ex.context}
                                                         <div class="mt-1 text-fg-faint">Context: {ex.context}</div>

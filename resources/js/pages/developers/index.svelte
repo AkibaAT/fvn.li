@@ -78,9 +78,9 @@ POST /api/v1/games/resolve
         <h2 class="text-title font-semibold text-fg">Rate limits</h2>
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm text-fg-muted">
-                <thead class="text-fg"
-                    ><tr><th class="border-b border-border p-2">Limit</th><th class="border-b border-border p-2">Requests per minute</th></tr></thead
-                >
+                <thead class="text-fg">
+                    <tr><th class="border-b border-border p-2">Limit</th><th class="border-b border-border p-2">Requests per minute</th></tr>
+                </thead>
                 <tbody>
                     <tr><td class="border-b border-border p-2">All requests</td><td class="border-b border-border p-2">120</td></tr>
                     <tr><td class="border-b border-border p-2">Writes</td><td class="border-b border-border p-2">30</td></tr>

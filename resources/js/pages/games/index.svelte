@@ -156,9 +156,9 @@
             <strong>{ignoredCount}</strong>
             {ignoredCount === 1 ? 'game is' : 'games are'} on your ignore list. Matching ignored games are excluded from results.
             {#snippet actions()}
-                <Button type="button" variant="solid" tone="primary" size="sm" onclick={() => updateFilters({ showIgnored: true })}
-                    >Show Ignored</Button
-                >
+                <Button type="button" variant="solid" tone="primary" size="sm" onclick={() => updateFilters({ showIgnored: true })}>
+                    Show Ignored
+                </Button>
             {/snippet}
         </Alert>
     {/if}
@@ -168,9 +168,9 @@
             {#snippet icon()}<InformationCircleIcon class="h-5 w-5" />{/snippet}
             Showing ignored games
             {#snippet actions()}
-                <Button type="button" variant="solid" tone="neutral" size="sm" onclick={() => updateFilters({ showIgnored: false })}
-                    >Hide Ignored</Button
-                >
+                <Button type="button" variant="solid" tone="neutral" size="sm" onclick={() => updateFilters({ showIgnored: false })}>
+                    Hide Ignored
+                </Button>
             {/snippet}
         </Alert>
     {/if}

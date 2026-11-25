@@ -783,8 +783,10 @@
         <button
             type="button"
             class="rounded-md border border-border-strong px-3 py-1 text-fg transition-colors hover:border-fg"
-            onclick={() => failedGraphRequest && loadGraph(failedGraphRequest.versionId, failedGraphRequest.includeUnreachable)}>Retry</button
+            onclick={() => failedGraphRequest && loadGraph(failedGraphRequest.versionId, failedGraphRequest.includeUnreachable)}
         >
+            Retry
+        </button>
     </div>
 {/if}
 

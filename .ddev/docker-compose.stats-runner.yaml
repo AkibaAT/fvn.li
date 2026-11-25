@@ -30,6 +30,7 @@ services:
       RENPY_SDK_DOCKER_HOST_PATH: ${RENPY_SDK_HOST_PATH:-/tmp/fvn-empty-renpy-sdk}
       RENPY_SDK_PATH: /opt/renpy-sdk
       APP_ENV: local
+      INERTIA_DEVTOOLS_ENABLED: "false"
     volumes:
       - ${DDEV_APPROOT}:/var/www/html:cached
       - ${DDEV_APPROOT}/.ddev/.renpy-analyzer:/runner-work

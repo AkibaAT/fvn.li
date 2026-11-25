@@ -51,8 +51,9 @@
 
 {#if loadError}
     <Alert tone="danger" layout="inline" class="mb-5">
-        The API explorer could not load. Refresh the page or use the <a href={route('developers.openapi')} class="underline">OpenAPI specification</a
-        >.
+        The API explorer could not load. Refresh the page or use the <a href={route('developers.openapi')} class="underline">
+            OpenAPI specification
+        </a>.
     </Alert>
 {/if}
 

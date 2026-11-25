@@ -112,8 +112,10 @@
                             variant="outline"
                             disabled={tokenAction.isLoading || !token.is_extendable}
                             ariaLabel={`Extend ${token.name}`}
-                            onclick={() => extend(token)}>Extend</Button
+                            onclick={() => extend(token)}
                         >
+                            Extend
+                        </Button>
                         <Button
                             type="button"
                             size="xs"
@@ -121,8 +123,10 @@
                             tone="danger"
                             disabled={tokenAction.isLoading}
                             ariaLabel={`Revoke ${token.name}`}
-                            onclick={() => revoke(token)}>Revoke</Button
+                            onclick={() => revoke(token)}
                         >
+                            Revoke
+                        </Button>
                     </div>
                 </div>
                 <p class="mt-1 text-xs text-fg-muted">

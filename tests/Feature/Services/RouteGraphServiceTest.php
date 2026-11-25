@@ -10,6 +10,7 @@ use App\Models\VersionRouteEdge;
 use App\Models\VersionRouteLabel;
 use App\Models\VersionRouteMenuChoice;
 use App\Models\VersionRouteVariableChange;
+use App\Services\RouteGraphLayoutService;
 use App\Services\RouteGraphService;
 use App\Services\RoutePathCalculator;
 use Illuminate\Database\Eloquent\Model;
@@ -209,6 +210,65 @@ test('layout pins the start node to the top rank even when the story links back 
 
     expect($layoutNodes['start']['y'])->toBe($topY)
         ->and($topNodeIds)->toBe(['start']);
+});
+
+test('layout keeps a start label that is also an ending on the top rank', function () {
+    createRouteLabel($this->version, 'start', 1, true);
+    createRouteLabel($this->version, 'middle');
+    createRouteLabel($this->version, 'good_end', 20, true);
+    createRouteEdge($this->version, 'start', 'middle', 'jump', 10);
+    createRouteEdge($this->version, 'middle', 'good_end', 'jump', 20);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $layoutNodes = $graph['layout']['nodes'];
+
+    expect($graph['layout']['engine'])->toBe('graphviz-dot')
+        ->and($layoutNodes['start']['y'])->toBe(collect($layoutNodes)->min('y'))
+        ->and($layoutNodes['good_end']['y'])->toBe(collect($layoutNodes)->max('y'));
+});
+
+test('layout positions condition nodes whose ids exceed the GraphViz string limit', function () {
+    $condition = implode(' or ', array_map(fn (int $index): string => "route_flag_{$index} == True", range(1, 900)));
+    createRouteLabel($this->version, 'start');
+    createRouteLabel($this->version, 'good_end', 20, true);
+    createRouteEdge($this->version, 'start', 'good_end', 'jump', 10, $condition);
+
+    $graph = app(RouteGraphService::class)->computeGraph($this->version);
+    $layoutNodes = $graph['layout']['nodes'];
+    $conditionIds = collect($layoutNodes)->keys()->filter(fn (string $id): bool => str_starts_with($id, 'condition:start:'));
+
+    expect($graph['layout']['engine'])->toBe('graphviz-dot')
+        ->and($conditionIds)->toHaveCount(1)
+        ->and(strlen($conditionIds->first()))->toBeGreaterThan(16384)
+        ->and($layoutNodes)->toHaveKey('good_end');
+});
+
+test('fallback layout keeps nodes from overlapping', function () {
+    $nodes = array_map(fn (int $index): array => ['id' => "label_{$index}", 'node_type' => 'label'], range(0, 59));
+    $edges = array_map(fn (int $index): array => ['source' => "label_{$index}", 'target' => 'label_' . (($index * 7 + 1) % 60)], range(0, 59));
+
+    $service = new class extends RouteGraphLayoutService
+    {
+        protected function attempts(): array
+        {
+            return [['engine' => 'sfdp']];
+        }
+    };
+    $layout = $service->layout($nodes, $edges);
+    $boxes = array_values($layout['nodes']);
+    $overlaps = 0;
+
+    foreach ($boxes as $index => $a) {
+        foreach (array_slice($boxes, $index + 1) as $b) {
+            if ($a['x'] < $b['x'] + $b['width'] && $b['x'] < $a['x'] + $a['width'] && $a['y'] < $b['y'] + $b['height'] && $b['y'] < $a['y'] + $a['height']) {
+                $overlaps++;
+            }
+        }
+    }
+
+    expect($layout['engine'])->toBe('graphviz-sfdp')
+        ->and($boxes)->toHaveCount(60)
+        ->and($overlaps)->toBe(0);
 });
 
 test('layout aligns every ending on the exclusive bottom rank', function () {

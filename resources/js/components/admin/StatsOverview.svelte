@@ -52,10 +52,10 @@
             </dl>
             {#if gameLatestUpdate}
                 <div class="mt-4 text-sm">
-                    <span class="text-fg-muted">Latest Update:</span><span class="ml-1 text-fg"
-                        >{gameLatestUpdate.timeAgo}
-                        <span class="text-xs text-fg-faint">({gameLatestUpdate.formattedDate})</span></span
-                    >
+                    <span class="text-fg-muted">Latest Update:</span><span class="ml-1 text-fg">
+                        {gameLatestUpdate.timeAgo}
+                        <span class="text-xs text-fg-faint">({gameLatestUpdate.formattedDate})</span>
+                    </span>
                 </div>
             {/if}
         </Card>
@@ -117,10 +117,10 @@
             </div>
             {#if ratingLatest}
                 <div class="mt-4 text-sm">
-                    <span class="text-fg-muted">Latest Rating:</span><span class="ml-1 text-fg"
-                        >{ratingLatest.timeAgo}
-                        <span class="text-xs text-fg-faint">({ratingLatest.formattedDate})</span></span
-                    >
+                    <span class="text-fg-muted">Latest Rating:</span><span class="ml-1 text-fg">
+                        {ratingLatest.timeAgo}
+                        <span class="text-xs text-fg-faint">({ratingLatest.formattedDate})</span>
+                    </span>
                 </div>
             {/if}
         </Card>

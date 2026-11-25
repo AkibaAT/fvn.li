@@ -156,8 +156,13 @@
                 </span>
             {/each}
         </div>
-        <button type="button" onclick={clearFilters} aria-label="Clear all filters" class="px-1 text-ui text-fg-muted transition-colors hover:text-fg"
-            >Clear</button
+        <button
+            type="button"
+            onclick={clearFilters}
+            aria-label="Clear all filters"
+            class="px-1 text-ui text-fg-muted transition-colors hover:text-fg"
         >
+            Clear
+        </button>
     {/if}
 </div>

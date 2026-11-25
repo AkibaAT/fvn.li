@@ -123,9 +123,9 @@
                         {#if browserStatus === 'action-needed'}
                             <Button type="button" variant="outline" tone="neutral" onclick={resubscribe}>Resubscribe this device</Button>
                         {/if}
-                        <Button type="button" variant="solid" tone="primary" disabled={testing !== null} onclick={() => testChannel('browser')}
-                            >Send test notification</Button
-                        >
+                        <Button type="button" variant="solid" tone="primary" disabled={testing !== null} onclick={() => testChannel('browser')}>
+                            Send test notification
+                        </Button>
                     </div>
                 {/if}
             </section>
@@ -162,9 +162,9 @@
                             <li>Unlink the old Discord account, then link your current account.</li>
                         {:else if !health.discord.linked}<li>Link your Discord account.</li>{/if}
                         {#if health.discord.userInstallUrl && !health.discord.userInstalledAt}<li>
-                                <a class="text-fg-muted underline hover:text-fg" href={health.discord.userInstallUrl}
-                                    >Add the FVN.li app to your Discord account</a
-                                >, then choose &ldquo;Add to my apps&rdquo;. No shared server is needed.
+                                <a class="text-fg-muted underline hover:text-fg" href={health.discord.userInstallUrl}>
+                                    Add the FVN.li app to your Discord account
+                                </a>, then choose &ldquo;Add to my apps&rdquo;. No shared server is needed.
                             </li>{/if}
                         {#if health.discord.userInstalledAt}
                             <li>Allow direct messages from the app and unblock it, then run the test again.</li>
@@ -176,9 +176,9 @@
             </div>
             {#if discordStatus !== 'disabled' && health.discord.linked}
                 <div class="space-y-2">
-                    <Button type="button" variant="solid" tone="primary" disabled={testing !== null} onclick={() => testChannel('discord')}
-                        >{testing === 'discord' ? 'Waiting for Discord…' : 'Send test DM'}</Button
-                    >
+                    <Button type="button" variant="solid" tone="primary" disabled={testing !== null} onclick={() => testChannel('discord')}>
+                        {testing === 'discord' ? 'Waiting for Discord…' : 'Send test DM'}
+                    </Button>
                     <p class="text-sm text-fg-muted">The bot checks for queued notifications once a minute, so a test may take up to 75 seconds.</p>
                 </div>
             {/if}
