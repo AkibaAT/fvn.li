@@ -15,6 +15,10 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    public function __construct(
+        private readonly OwnedGameSummaryService $ownedGameSummary,
+    ) {}
+
     public function dashboard(Request $request): Response
     {
         $user = $request->user();
@@ -28,10 +32,9 @@ class DashboardController extends Controller
 
         $socialAccounts = $this->getSocialAccountsData($user->socialAccounts);
 
-        $ownedGameSummary = app(OwnedGameSummaryService::class);
-        $itchioUsername = $ownedGameSummary->username($user);
-        $ownedGames = $ownedGameSummary->games($user);
-        $clickStats = $ownedGameSummary->clickStats($ownedGames);
+        $itchioUsername = $this->ownedGameSummary->username($user);
+        $ownedGames = $this->ownedGameSummary->games($user);
+        $clickStats = $this->ownedGameSummary->clickStats($ownedGames);
 
         // VN Addition Requests
         $recentRequests = $user->additionRequests()

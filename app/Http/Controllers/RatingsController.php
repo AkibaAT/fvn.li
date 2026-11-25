@@ -25,6 +25,11 @@ class RatingsController extends Controller
         'steam',
     ];
 
+    public function __construct(
+        private readonly RatingPresenter $presenter,
+        private readonly RatingAnalyticsService $analytics,
+    ) {}
+
     public function ratingsIndex(Request $request): Response
     {
         $page = max(1, (int) $request->input('page', 1));
@@ -104,9 +109,8 @@ class RatingsController extends Controller
             ->keyBy('id');
         $rows = $pageIds->map(fn ($id) => $rowsById->get($id))->filter()->values();
 
-        $presenter = app(RatingPresenter::class);
         $ratings = [
-            'data' => $rows->map(fn ($row) => $presenter->indexRatingRow($row))->toArray(),
+            'data' => $rows->map(fn ($row) => $this->presenter->indexRatingRow($row))->toArray(),
             'current_page' => $page,
             'last_page' => $total > 0 ? (int) ceil($total / $perPage) : 0,
             'per_page' => $perPage,
@@ -253,9 +257,8 @@ class RatingsController extends Controller
             ? (int) $rows[0]->total_count
             : (int) ((clone $ratingsBase)->count('ratings.id'));
 
-        $presenter = app(RatingPresenter::class);
         $ratings = [
-            'data' => $rows->map(fn ($row) => $presenter->raterRatingRow($row))->toArray(),
+            'data' => $rows->map(fn ($row) => $this->presenter->raterRatingRow($row))->toArray(),
             'current_page' => $page,
             'last_page' => $total > 0 ? (int) ceil($total / $perPage) : 0,
             'per_page' => $perPage,
@@ -372,7 +375,7 @@ class RatingsController extends Controller
             ->where('is_visible', true)
             ->findOrFail($rating);
 
-        $reviewData = app(RatingPresenter::class)->reviewDetail($review);
+        $reviewData = $this->presenter->reviewDetail($review);
 
         $authorName = $review->user?->name ?? $review->rater?->name ?? 'Unknown';
         $gameName = $review->game?->name ?? 'Unknown';
@@ -431,7 +434,7 @@ class RatingsController extends Controller
             ->orderBy($sortField, $sortDirection)
             ->forPage($page, $perPage)
             ->get()
-            ->map(fn (Rating $review) => app(RatingPresenter::class)->userReview($review));
+            ->map(fn (Rating $review) => $this->presenter->userReview($review));
 
         $stats = (clone $query)
             ->select([
@@ -489,7 +492,7 @@ class RatingsController extends Controller
             ->orderBy('published_at', 'desc')
             ->select(['id', 'rating', 'published_at', 'is_visible', 'review', 'event_id'])
             ->get()
-            ->map(fn ($row) => app(RatingPresenter::class)->historyRatingRow($row))
+            ->map(fn ($row) => $this->presenter->historyRatingRow($row))
             ->toArray();
 
         return response()->json([
@@ -505,17 +508,17 @@ class RatingsController extends Controller
 
     protected function getRatingStats(int $raterId): array
     {
-        return app(RatingAnalyticsService::class)->raterStats($raterId);
+        return $this->analytics->raterStats($raterId);
     }
 
     protected function getCommonPhrases(int $raterId): array
     {
-        return app(RatingAnalyticsService::class)->commonPhrases($raterId);
+        return $this->analytics->commonPhrases($raterId);
     }
 
     protected function raterPhrasesCacheKey(int $raterId): string
     {
-        return app(RatingAnalyticsService::class)->phrasesCacheKey($raterId);
+        return $this->analytics->phrasesCacheKey($raterId);
     }
 
     private function normalizeRatingPlatform(mixed $platform): ?string

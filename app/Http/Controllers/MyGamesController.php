@@ -26,6 +26,11 @@ use Throwable;
 
 class MyGamesController extends Controller
 {
+    public function __construct(
+        private readonly OwnedGameSummaryService $ownedGames,
+        private readonly GameMediaEditorService $mediaEditor,
+    ) {}
+
     public function myGamesIndex(Request $request): Response
     {
         $authId = Auth::id();
@@ -34,10 +39,9 @@ class MyGamesController extends Controller
         }
         $user = User::findOrFail($authId);
 
-        $ownedGames = app(OwnedGameSummaryService::class);
-        $itchioUsername = $ownedGames->username($user);
-        $games = $ownedGames->games($user);
-        $clickStats = $ownedGames->clickStats($games);
+        $itchioUsername = $this->ownedGames->username($user);
+        $games = $this->ownedGames->games($user);
+        $clickStats = $this->ownedGames->clickStats($games);
 
         return Inertia::render('my-games/index', [
             'itchio' => [
@@ -277,7 +281,7 @@ class MyGamesController extends Controller
         }
 
         try {
-            return response()->json(app(GameMediaEditorService::class)->updateThumbnail(
+            return response()->json($this->mediaEditor->updateThumbnail(
                 $game,
                 $user,
                 $request->file('thumbnail')
@@ -302,7 +306,7 @@ class MyGamesController extends Controller
         $user = $request->user();
 
         try {
-            return response()->json(app(GameMediaEditorService::class)->deleteThumbnail($game, $user));
+            return response()->json($this->mediaEditor->deleteThumbnail($game, $user));
         } catch (Exception $e) {
             report($e);
 
@@ -327,7 +331,7 @@ class MyGamesController extends Controller
         ]);
 
         try {
-            return response()->json(app(GameMediaEditorService::class)->uploadScreenshots(
+            return response()->json($this->mediaEditor->uploadScreenshots(
                 $game,
                 $user,
                 $request->file('screenshots')
@@ -355,7 +359,7 @@ class MyGamesController extends Controller
         $index = $request->input('index');
 
         try {
-            $result = app(GameMediaEditorService::class)->deleteScreenshot($game, $user, (int) $index, $request->input('screenshot_id'));
+            $result = $this->mediaEditor->deleteScreenshot($game, $user, (int) $index, $request->input('screenshot_id'));
 
             return $result
                 ? response()->json($result)
@@ -387,7 +391,7 @@ class MyGamesController extends Controller
         ]);
 
         try {
-            return response()->json(app(GameMediaEditorService::class)->reorderScreenshots(
+            return response()->json($this->mediaEditor->reorderScreenshots(
                 $game,
                 $user,
                 $request->input('ordered_indices')

@@ -31,6 +31,13 @@ use Throwable;
 
 class GamesDisplayController extends Controller
 {
+    public function __construct(
+        private readonly GamesSearchResultHydrator $hydrator,
+        private readonly HtmlSanitizerService $sanitizer,
+        private readonly GameSocialMetaBuilder $socialMetaBuilder,
+        private readonly SimilarGamesService $similarGamesService,
+    ) {}
+
     /**
      * Display a single game page
      */
@@ -59,7 +66,7 @@ class GamesDisplayController extends Controller
         if ($viewer) {
             $props['game'] = [
                 ...$props['game'],
-                ...app(GamesSearchResultHydrator::class)->userData([$game->id], $viewer->id)[$game->id],
+                ...$this->hydrator->userData([$game->id], $viewer->id)[$game->id],
             ];
             $props['userReview'] = $this->viewerReview($game, $viewer);
         }
@@ -81,7 +88,7 @@ class GamesDisplayController extends Controller
         return [
             'id' => $review->id,
             'rating' => $review->rating,
-            'review' => app(HtmlSanitizerService::class)->sanitizeFvnReview($review->review),
+            'review' => $this->sanitizer->sanitizeFvnReview($review->review),
             'has_spoilers' => $review->has_spoilers,
             'published_at' => $review->published_at?->toISOString(),
             'updated_at' => $review->updated_at?->toISOString(),
@@ -114,7 +121,7 @@ class GamesDisplayController extends Controller
             ->orderBy('published_at', 'desc')
             ->paginate(5, ['*'], 'page', $reviewsPage);
 
-        $sanitizer = app(HtmlSanitizerService::class);
+        $sanitizer = $this->sanitizer;
         $previousCounts = Rating::previousRatingCountsForGame($game->id, $reviews->getCollection()->pluck('rater_id'));
         $reviews->getCollection()->transform(function ($rating) use ($sanitizer, $previousCounts) {
             $rating->review = $rating->source_platform === 'fvn_li'
@@ -200,10 +207,10 @@ class GamesDisplayController extends Controller
         $userReview = $viewer ? $this->viewerReview($game, $viewer) : null;
 
         if ($viewer) {
-            app(GamesSearchResultHydrator::class)->attachUserData(collect([$game]), $viewer->id);
+            $this->hydrator->attachUserData(collect([$game]), $viewer->id);
         }
 
-        $metaTags = app(GameSocialMetaBuilder::class)->build($game, $reviews, $englishStats);
+        $metaTags = $this->socialMetaBuilder->build($game, $reviews, $englishStats);
 
         // Character counts are fetched together to avoid per-version queries.
         $versionCharacterCounts = [];
@@ -333,7 +340,7 @@ class GamesDisplayController extends Controller
 
         if ($similarGames === null) {
             try {
-                $similarGames = $this->recommendationCards(app(SimilarGamesService::class)->findSimilarGames($game, 6));
+                $similarGames = $this->recommendationCards($this->similarGamesService->findSimilarGames($game, 6));
 
                 Cache::put($similarCacheKey, $similarGames, $similarGames->isEmpty() ? 60 : 3600);
             } catch (Exception $e) {
@@ -348,7 +355,7 @@ class GamesDisplayController extends Controller
 
         $developerCacheKey = "game.{$game->id}.developer-cards." . md5((string) $game->authors) . ".v{$recommendationCacheVersion}";
         $developerGames = $game->is_visible
-            ? Cache::remember($developerCacheKey, 3600, fn () => $this->recommendationCards(app(SimilarGamesService::class)->findDeveloperGames($game, 12)))
+            ? Cache::remember($developerCacheKey, 3600, fn () => $this->recommendationCards($this->similarGamesService->findDeveloperGames($game, 12)))
             : collect();
 
         $estimatedReadingTime = null;
@@ -461,7 +468,7 @@ class GamesDisplayController extends Controller
     private function recommendationCards(Collection $games): Collection
     {
         $models = (new Game)->newCollection($games->all());
-        app(GamesSearchResultHydrator::class)->hydrateModels($models);
+        $this->hydrator->hydrateModels($models);
 
         return collect($models->toArray());
     }

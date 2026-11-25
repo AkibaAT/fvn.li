@@ -28,7 +28,8 @@ class HomeController extends Controller
     ];
 
     public function __construct(
-        private MeilisearchService $meilisearchService
+        private readonly MeilisearchService $meilisearchService,
+        private readonly GamesSearchResultHydrator $hydrator,
     ) {}
 
     public function home(): Response
@@ -118,7 +119,7 @@ class HomeController extends Controller
         }
 
         $models = (new Game)->newCollection(collect($teasers)->flatten(1)->all());
-        app(GamesSearchResultHydrator::class)->hydrateModels($models);
+        $this->hydrator->hydrateModels($models);
 
         return array_map(fn ($games) => $games->toArray(), $teasers);
     }

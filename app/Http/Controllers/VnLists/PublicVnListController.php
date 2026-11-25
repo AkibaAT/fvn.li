@@ -43,6 +43,10 @@ class PublicVnListController extends Controller
         'recently_updated',
     ];
 
+    public function __construct(
+        private readonly VnListCacheService $cacheService,
+    ) {}
+
     public function publicLists(Request $request): Response
     {
         $perPage = min(
@@ -62,7 +66,7 @@ class PublicVnListController extends Controller
 
         $searchKey = $search ? md5($search) : '';
         $gameKey = $gameId ?: '';
-        $cacheKey = app(VnListCacheService::class)->key("public_lists:{$type}:{$perPage}:{$page}:{$sort}:{$searchKey}:{$gameKey}");
+        $cacheKey = $this->cacheService->key("public_lists:{$type}:{$perPage}:{$page}:{$sort}:{$searchKey}:{$gameKey}");
 
         if (empty($search) && empty($gameId)) {
             $cachedData = Cache::get($cacheKey);

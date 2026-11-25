@@ -18,6 +18,10 @@ use Illuminate\Support\Facades\DB;
 
 class VnListEntryController extends Controller
 {
+    public function __construct(
+        private readonly VnListCacheService $cacheService,
+    ) {}
+
     public function updateListEntry(UpdateListEntryRequest $request, VnListEntry $entry): JsonResponse
     {
         $this->authorize('update', $entry->list);
@@ -40,7 +44,7 @@ class VnListEntryController extends Controller
         ]);
 
         if ($entry->list->is_public) {
-            app(VnListCacheService::class)->clearPublicListsCache();
+            $this->cacheService->clearPublicListsCache();
         }
 
         return response()->json([
@@ -75,7 +79,7 @@ class VnListEntryController extends Controller
         $targetList->addGame($entry->game_id, $entry);
 
         if ($sourceIsPublic || $targetIsPublic) {
-            app(VnListCacheService::class)->clearPublicListsCache();
+            $this->cacheService->clearPublicListsCache();
         }
 
         return response()->json([
@@ -93,7 +97,7 @@ class VnListEntryController extends Controller
         $entry->delete();
 
         if ($isPublic) {
-            app(VnListCacheService::class)->clearPublicListsCache();
+            $this->cacheService->clearPublicListsCache();
         }
 
         return response()->json([
@@ -140,7 +144,7 @@ class VnListEntryController extends Controller
         }
 
         if ($vnList->is_public) {
-            app(VnListCacheService::class)->clearPublicListsCache();
+            $this->cacheService->clearPublicListsCache();
         }
 
         return response()->json([

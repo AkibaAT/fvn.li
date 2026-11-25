@@ -14,6 +14,10 @@ use InvalidArgumentException;
 
 class ItchGameMetadataExtractor
 {
+    public function __construct(
+        private readonly HtmlSanitizerService $sanitizer = new HtmlSanitizerService,
+    ) {}
+
     public function checkForDemo(Game $game, HTMLDocument $doc): void
     {
         $game->has_demo = false;
@@ -82,7 +86,7 @@ class ItchGameMetadataExtractor
         if ($descriptionElement) {
             $htmlContent = $descriptionElement->innerHTML;
             $processedHtml = $htmlProcessor->process($htmlContent);
-            $game->full_description = app(HtmlSanitizerService::class)->sanitizeDescription($processedHtml);
+            $game->full_description = $this->sanitizer->sanitizeDescription($processedHtml);
             if (empty($game->description)) {
                 $game->description = trim(strip_tags($game->full_description ?? ''));
             }

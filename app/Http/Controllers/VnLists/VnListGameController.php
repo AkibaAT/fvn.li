@@ -24,6 +24,10 @@ class VnListGameController extends Controller
 {
     use SortsVnLists;
 
+    public function __construct(
+        private readonly VnListCacheService $cacheService,
+    ) {}
+
     public function addGameToList(AddGameToListRequest $request, Game $game): JsonResponse
     {
 
@@ -59,7 +63,7 @@ class VnListGameController extends Controller
             $existingEntry->delete();
 
             if ($vnList->is_public) {
-                app(VnListCacheService::class)->clearPublicListsCache();
+                $this->cacheService->clearPublicListsCache();
             }
 
             return response()->json([
@@ -80,7 +84,7 @@ class VnListGameController extends Controller
         $entry = $vnList->addGame($game->id);
 
         if ($vnList->is_public) {
-            app(VnListCacheService::class)->clearPublicListsCache();
+            $this->cacheService->clearPublicListsCache();
         }
 
         return response()->json([
@@ -106,7 +110,7 @@ class VnListGameController extends Controller
             $existingEntry->delete();
 
             if ($vnList->is_public) {
-                app(VnListCacheService::class)->clearPublicListsCache();
+                $this->cacheService->clearPublicListsCache();
             }
 
             return response()->json([
@@ -119,7 +123,7 @@ class VnListGameController extends Controller
         $entry = $vnList->addGame($game->id);
 
         if ($vnList->is_public) {
-            app(VnListCacheService::class)->clearPublicListsCache();
+            $this->cacheService->clearPublicListsCache();
         }
 
         return response()->json([

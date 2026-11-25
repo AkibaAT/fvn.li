@@ -48,6 +48,11 @@ class DiscordConfigController extends Controller
         | self::DISCORD_PERMISSION_EMBED_LINKS
         | self::DISCORD_PERMISSION_READ_MESSAGE_HISTORY;
 
+    public function __construct(
+        private readonly DiscordEmbedRendererService $embedRenderer,
+        private readonly DiscordRoutingService $routingService,
+    ) {}
+
     public function index(): InertiaResponse
     {
         return Inertia::render('dashboard/discord/index');
@@ -469,7 +474,7 @@ class DiscordConfigController extends Controller
             'notification_type' => 'string|in:new_game,update',
         ]);
 
-        $renderer = app(DiscordEmbedRendererService::class);
+        $renderer = $this->embedRenderer;
         $notificationType = $validated['notification_type'] ?? 'update';
         $game = isset($validated['game_id'])
             ? Game::with(['tags', 'sourceLanguage', 'latestVersion'])->find($validated['game_id'])
@@ -533,8 +538,8 @@ class DiscordConfigController extends Controller
             return response()->json(['error' => 'Server not configured'], 422);
         }
 
-        $routingService = app(DiscordRoutingService::class);
-        $renderer = app(DiscordEmbedRendererService::class);
+        $routingService = $this->routingService;
+        $renderer = $this->embedRenderer;
 
         $game = Game::with(['tags', 'sourceLanguage', 'latestVersion'])
             ->listed()

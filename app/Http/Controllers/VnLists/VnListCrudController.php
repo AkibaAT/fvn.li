@@ -17,6 +17,10 @@ use Illuminate\Support\Facades\Auth;
 
 class VnListCrudController extends Controller
 {
+    public function __construct(
+        private readonly VnListCacheService $cacheService,
+    ) {}
+
     public function storeVnList(StoreVnListRequest $request, VnListService $lists): JsonResponse
     {
         $gameId = $request->filled('game_id') ? (int) $request->game_id : null;
@@ -134,7 +138,7 @@ class VnListCrudController extends Controller
         $status = $receiveUpdates ? 'enabled' : 'disabled';
 
         if ($vnList->is_public) {
-            app(VnListCacheService::class)->clearPublicListsCache();
+            $this->cacheService->clearPublicListsCache();
         }
 
         return response()->json([

@@ -22,7 +22,8 @@ class GameReviewsController extends Controller
     private const int REVIEW_CACHE_VERSION = 2;
 
     public function __construct(
-        private readonly ItchAuthService $itchAuthService
+        private readonly ItchAuthService $itchAuthService,
+        private readonly HtmlSanitizerService $sanitizer,
     ) {}
 
     public function getGameReviews(Request $request): JsonResponse
@@ -139,15 +140,13 @@ class GameReviewsController extends Controller
 
             $ratings = $query->paginate($perPage, ['*'], 'page', $page);
 
-            $sanitizer = app(HtmlSanitizerService::class);
-
-            $reviews = $ratings->map(function ($rating) use ($sanitizer) {
+            $reviews = $ratings->map(function ($rating) {
                 return [
                     'id' => $rating->id,
                     'rating' => $rating->rating,
                     'review' => $rating->source_platform === 'fvn_li'
-                        ? $sanitizer->sanitizeFvnReview($rating->review)
-                        : $sanitizer->sanitizeReview($rating->review),
+                        ? $this->sanitizer->sanitizeFvnReview($rating->review)
+                        : $this->sanitizer->sanitizeReview($rating->review),
                     'is_reviewed' => $rating->is_reviewed,
                     'published_at' => $rating->published_at->toISOString(),
                     'user' => ($author = $rating->authorUser()) ? [
@@ -318,17 +317,15 @@ class GameReviewsController extends Controller
             ];
         }
 
-        $sanitizer = app(HtmlSanitizerService::class);
-
         $recentReviews = $ratings->where('is_reviewed', true)
             ->take(5)
-            ->map(function ($rating) use ($sanitizer) {
+            ->map(function ($rating) {
                 return [
                     'id' => $rating->id,
                     'rating' => $rating->rating,
                     'review' => $rating->source_platform === 'fvn_li'
-                        ? $sanitizer->sanitizeFvnReview($rating->review)
-                        : $sanitizer->sanitizeReview($rating->review),
+                        ? $this->sanitizer->sanitizeFvnReview($rating->review)
+                        : $this->sanitizer->sanitizeReview($rating->review),
                     'published_at' => $rating->published_at->toISOString(),
                     'user' => ($author = $rating->authorUser()) ? [
                         'id' => $author->id,

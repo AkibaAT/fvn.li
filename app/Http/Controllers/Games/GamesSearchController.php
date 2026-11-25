@@ -27,6 +27,11 @@ class GamesSearchController extends Controller
 
     private const DEFAULT_PER_PAGE = 12;
 
+    public function __construct(
+        private readonly GamesSearchResultHydrator $hydrator,
+        private readonly GamesSearchMetaBuilder $metaBuilder,
+    ) {}
+
     /**
      * Display games with search and filtering capabilities
      */
@@ -105,15 +110,14 @@ class GamesSearchController extends Controller
             $games = $service->searchGames($searchQuery, $filters, $perPage, 1, $sortField, $sortDirection, $ignoredGameIds);
         }
 
-        $hydrator = app(GamesSearchResultHydrator::class);
-        $hydrator->hydrate($games);
+        $this->hydrator->hydrate($games);
 
         if (Auth::check()) {
-            $hydrator->attachUserData($games, Auth::id());
+            $this->hydrator->attachUserData($games, Auth::id());
         }
 
         $filterOptions = GameFilterService::getOptions();
-        $metaTags = app(GamesSearchMetaBuilder::class)->build(
+        $metaTags = $this->metaBuilder->build(
             $request,
             $search,
             $selectedStatuses,

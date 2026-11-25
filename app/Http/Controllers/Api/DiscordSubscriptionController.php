@@ -16,6 +16,10 @@ use Illuminate\Support\Facades\DB;
 
 class DiscordSubscriptionController extends Controller
 {
+    public function __construct(
+        private readonly DiscordCatalogMessageSyncService $catalogMessageSync,
+    ) {}
+
     /**
      * Subscribe a server to a game.
      */
@@ -263,7 +267,7 @@ class DiscordSubscriptionController extends Controller
                 if (isset($updates['discord_channel_id']) || isset($updates['discord_message_id'])) {
                     $metadata = $this->getOrCreateServerGameMetadata($server, $game);
                     if ($metadata->discord_channel_id) {
-                        app(DiscordCatalogMessageSyncService::class)->trackMessage(
+                        $this->catalogMessageSync->trackMessage(
                             $server->id, $game->id, $metadata->discord_channel_id, $metadata->discord_message_id,
                         );
                     }

@@ -18,6 +18,11 @@ use Illuminate\Support\Facades\Log;
  */
 class MultiServerNotificationService
 {
+    public function __construct(
+        private readonly DiscordRoutingService $routingService = new DiscordRoutingService,
+        private readonly DiscordEmbedRendererService $embedRenderer = new DiscordEmbedRendererService,
+    ) {}
+
     /**
      * Queue game update notifications for all subscribed servers.
      */
@@ -69,7 +74,7 @@ class MultiServerNotificationService
             return;
         }
         $config = $server->config;
-        $result = app(DiscordRoutingService::class)->evaluateRoutes($server, $game, $type, $gameVersion);
+        $result = $this->routingService->evaluateRoutes($server, $game, $type, $gameVersion);
         if ($result->shouldSkip) {
             Log::info('Notification skipped by routing rules', ['server_id' => $server->id, 'game_id' => $game->id]);
 
@@ -83,9 +88,8 @@ class MultiServerNotificationService
             return;
         }
 
-        $renderer = app(DiscordEmbedRendererService::class);
         foreach ($targetChannels as $target) {
-            $payload = $renderer->renderPayload($server, $game, $type, $gameVersion, $target['embed_override'] ?? null);
+            $payload = $this->embedRenderer->renderPayload($server, $game, $type, $gameVersion, $target['embed_override'] ?? null);
 
             DiscordNotificationHistory::firstOrCreate([
                 'discord_server_id' => $server->id,

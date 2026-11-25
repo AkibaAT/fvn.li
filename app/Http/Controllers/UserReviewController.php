@@ -13,6 +13,10 @@ use Illuminate\Support\Facades\Auth;
 
 class UserReviewController extends Controller
 {
+    public function __construct(
+        private readonly HtmlSanitizerService $sanitizer,
+    ) {}
+
     public function store(Request $request, int $gameId): JsonResponse
     {
         $request->validate([
@@ -39,7 +43,6 @@ class UserReviewController extends Controller
         }
 
         $reviewText = $request->input('review') ?? '';
-        $sanitizer = app(HtmlSanitizerService::class);
 
         // Strip image/media tags; reviews don't support image uploads
         $reviewText = preg_replace('/<img[^>]*>/i', '', $reviewText);
@@ -51,7 +54,7 @@ class UserReviewController extends Controller
         // Strip script/style tags for safety
         $reviewText = preg_replace('/<script[^>]*>.*?<\/script>/is', '', $reviewText);
         $reviewText = preg_replace('/<style[^>]*>.*?<\/style>/is', '', $reviewText);
-        $reviewText = $sanitizer->sanitizeFvnReview($reviewText) ?? '';
+        $reviewText = $this->sanitizer->sanitizeFvnReview($reviewText) ?? '';
 
         $hasReviewText = ! empty(trim(strip_tags($reviewText)));
 
@@ -137,12 +140,10 @@ class UserReviewController extends Controller
 
     private function formatUserReview(Rating $rating): array
     {
-        $sanitizer = app(HtmlSanitizerService::class);
-
         return [
             'id' => $rating->id,
             'rating' => $rating->rating,
-            'review' => $sanitizer->sanitizeFvnReview($rating->review),
+            'review' => $this->sanitizer->sanitizeFvnReview($rating->review),
             'has_spoilers' => $rating->has_spoilers,
             'published_at' => $rating->published_at?->toISOString(),
             'updated_at' => $rating->updated_at?->toISOString(),

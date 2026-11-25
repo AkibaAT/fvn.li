@@ -11,6 +11,11 @@ use Illuminate\Support\Facades\DB;
 
 class DiscordCatalogMessageSyncService
 {
+    public function __construct(
+        private readonly DiscordRoutingService $routingService = new DiscordRoutingService,
+        private readonly DiscordEmbedRendererService $embedRenderer = new DiscordEmbedRendererService,
+    ) {}
+
     public function trackMessage(int $serverId, int $gameId, string $channelId, ?string $messageId, ?string $hash = null): void
     {
         $identity = ['discord_server_id' => $serverId, 'game_id' => $gameId];
@@ -60,7 +65,7 @@ class DiscordCatalogMessageSyncService
             }
 
             $override = $server->gameOverrides->firstWhere('game_id', $game->id);
-            $routing = app(DiscordRoutingService::class)->evaluateRoutes($server, $game, 'new_game', $game->latestVersion);
+            $routing = $this->routingService->evaluateRoutes($server, $game, 'new_game', $game->latestVersion);
             if ($routing->shouldSkip || ! isset($routing->targetChannels[$metadata->discord_channel_id])) {
                 DiscordNotificationHistory::where('discord_server_id', $server->id)->where('game_id', $game->id)
                     ->where('channel_id', $metadata->discord_channel_id)
@@ -70,9 +75,8 @@ class DiscordCatalogMessageSyncService
                 continue;
             }
 
-            $renderer = app(DiscordEmbedRendererService::class);
             $template = $routing->targetChannels[$metadata->discord_channel_id]['embed_override'] ?? $override?->new_game_embed;
-            $payload = $renderer->renderPayload($server, $game, 'new_game', $game->latestVersion, $template);
+            $payload = $this->embedRenderer->renderPayload($server, $game, 'new_game', $game->latestVersion, $template);
             $hash = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
             if ($metadata->discord_message_id && $metadata->discord_payload_hash === $hash) {

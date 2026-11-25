@@ -18,6 +18,11 @@ use Illuminate\Support\Facades\Log;
 
 class DiscordBotServerController extends Controller
 {
+    public function __construct(
+        private readonly DiscordRoutingService $routingService,
+        private readonly DiscordCatalogMessageSyncService $catalogMessageSync,
+    ) {}
+
     public function pendingNotifications(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -45,7 +50,7 @@ class DiscordBotServerController extends Controller
                 $enabled = ! $notification->game_id || ($game && $game->is_visible);
                 $enabled = $enabled && in_array($notification->channel_id, $notification->discordServer->channelIds(), true);
                 if ($enabled && $game && in_array($notification->notification_type, ['new_game', 'update'], true)) {
-                    $routing = app(DiscordRoutingService::class)->evaluateRoutes($notification->discordServer, $game, $notification->notification_type, $notification->gameVersion);
+                    $routing = $this->routingService->evaluateRoutes($notification->discordServer, $game, $notification->notification_type, $notification->gameVersion);
                     $enabled = ! $routing->shouldSkip && isset($routing->targetChannels[$notification->channel_id]);
                 }
                 if (! $enabled) {
@@ -107,7 +112,7 @@ class DiscordBotServerController extends Controller
                 'message_id' => $validated['message_id'] ?? $notification->message_id,
             ]);
             if ($notification->notification_type === 'new_game' && $notification->game_id) {
-                app(DiscordCatalogMessageSyncService::class)->trackMessage(
+                $this->catalogMessageSync->trackMessage(
                     $notification->discord_server_id, $notification->game_id, $notification->channel_id,
                     $notification->message_id, $notification->payload_hash,
                 );

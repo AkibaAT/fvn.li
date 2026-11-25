@@ -23,7 +23,9 @@ class GameArchiveOptimizationService
     public function __construct(
         private readonly GameStatsService $statsService,
         private readonly ?GameArchiveOptimizerDockerRunner $sandboxRunner = null,
-        private readonly ArchiveFormatDetector $archiveFormatDetector = new ArchiveFormatDetector
+        private readonly ArchiveFormatDetector $archiveFormatDetector = new ArchiveFormatDetector,
+        private readonly ArchiveOptimizationMetadataService $metadataService = new ArchiveOptimizationMetadataService,
+        private readonly ArchiveMediaOptimizer $mediaOptimizer = new ArchiveMediaOptimizer,
     ) {}
 
     /**
@@ -230,25 +232,23 @@ class GameArchiveOptimizationService
                 ];
             }
 
-            $metadataService = app(ArchiveOptimizationMetadataService::class);
-            $originalFileInventory = $metadataService->inventory($workDir);
+            $originalFileInventory = $this->metadataService->inventory($workDir);
             $previousOptimizedContext = $this->previousOptimizedArchiveContext($previousOptimizedArchivePath);
             $contentDir = $gameDir . '/game';
 
-            $rpaFiles = app(ArchiveMediaOptimizer::class)->filesWithExtensions($contentDir, ['rpa']);
+            $rpaFiles = $this->mediaOptimizer->filesWithExtensions($contentDir, ['rpa']);
             $this->reportProgress($progress, sprintf('Unpacking %d RPA file(s)', count($rpaFiles)));
             $this->unpackRpaFiles($rpaFiles, $contentDir);
 
-            $rpycFiles = app(ArchiveMediaOptimizer::class)->filesWithExtensions($contentDir, ['rpyc']);
+            $rpycFiles = $this->mediaOptimizer->filesWithExtensions($contentDir, ['rpyc']);
             $this->reportProgress($progress, sprintf('Decompiling missing RPY sources from %d RPYC file(s)', count($rpycFiles)));
             $rpycDecompileFailures = $this->decompileRpycFiles($rpycFiles, $progress);
 
-            $mediaOptimizer = app(ArchiveMediaOptimizer::class);
-            $imageResult = $mediaOptimizer->optimizeImages($contentDir, $gameDir, $workDir, $previousOptimizedContext, $progress);
-            $audioResult = $mediaOptimizer->optimizeAudio($contentDir, $gameDir, $workDir, $previousOptimizedContext, $progress);
+            $imageResult = $this->mediaOptimizer->optimizeImages($contentDir, $gameDir, $workDir, $previousOptimizedContext, $progress);
+            $audioResult = $this->mediaOptimizer->optimizeAudio($contentDir, $gameDir, $workDir, $previousOptimizedContext, $progress);
             $this->reportProgress($progress, 'Updating script references');
             $mediaReplacements = array_merge($imageResult['replacements'], $audioResult['replacements']);
-            $referencesUpdated = $mediaOptimizer->replaceScriptReferences($contentDir, $mediaReplacements);
+            $referencesUpdated = $this->mediaOptimizer->replaceScriptReferences($contentDir, $mediaReplacements);
 
             if ($mediaReplacements !== []) {
                 $this->reportProgress($progress, 'Dropping compiled scripts that shadow rewritten sources');
@@ -264,7 +264,7 @@ class GameArchiveOptimizationService
                 }
             }
 
-            $metadataService->write(
+            $this->metadataService->write(
                 $workDir,
                 $archivePath,
                 $this->archiveExtension($archivePath),
@@ -557,7 +557,7 @@ class GameArchiveOptimizationService
     {
         $removed = 0;
 
-        foreach (app(ArchiveMediaOptimizer::class)->filesWithExtensions($contentDir, ['rpyc']) as $compiled) {
+        foreach ($this->mediaOptimizer->filesWithExtensions($contentDir, ['rpyc']) as $compiled) {
             if (! $this->hasRpySource($compiled)) {
                 continue;
             }
@@ -645,8 +645,7 @@ class GameArchiveOptimizationService
      */
     private function fullyCompiledScriptCount(string $contentDir): int
     {
-        $mediaOptimizer = app(ArchiveMediaOptimizer::class);
-        $compiled = $mediaOptimizer->filesWithExtensions($contentDir, ['rpyc']);
+        $compiled = $this->mediaOptimizer->filesWithExtensions($contentDir, ['rpyc']);
 
         if ($compiled === []) {
             return 0;
@@ -657,7 +656,7 @@ class GameArchiveOptimizationService
             $compiled
         ));
 
-        foreach ($mediaOptimizer->filesWithExtensions($contentDir, ['rpy']) as $source) {
+        foreach ($this->mediaOptimizer->filesWithExtensions($contentDir, ['rpy']) as $source) {
             if (! isset($compiledBasePaths[substr($source, 0, -strlen('.rpy'))])) {
                 return 0;
             }
@@ -877,16 +876,15 @@ class GameArchiveOptimizationService
         File::makeDirectory($extractPath, 0755, true);
         $this->extractArchive($archivePath, $extractPath);
 
-        $metadataService = app(ArchiveOptimizationMetadataService::class);
-        $metadata = $metadataService->readExtracted($extractPath);
+        $metadata = $this->metadataService->readExtracted($extractPath);
         if (! is_array($metadata)) {
             File::deleteDirectory($extractPath);
 
             return null;
         }
 
-        $sourceHashes = $metadataService->sourceHashesFrom($metadata);
-        $targetPaths = $metadataService->targetPathsFrom($metadata);
+        $sourceHashes = $this->metadataService->sourceHashesFrom($metadata);
+        $targetPaths = $this->metadataService->targetPathsFrom($metadata);
         if ($sourceHashes === []) {
             File::deleteDirectory($extractPath);
 
