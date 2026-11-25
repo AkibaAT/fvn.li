@@ -13,15 +13,18 @@ use Symfony\Component\Process\Process;
 
 class RouteGraphLayoutService
 {
-    // dot gives the hierarchical shape a story flow reads best, but its running
-    // time grows sharply with graph size. sfdp handles graphs dot cannot in a
-    // fraction of the time, at the cost of a less structured arrangement, so it
-    // stands in when dot cannot finish.
     private const PRIMARY_ENGINE = 'dot';
 
     private const FALLBACK_ENGINE = 'sfdp';
 
-    private const REVISION = 2;
+    // Ordered from most structured to most forgiving.
+    private const ATTEMPTS = [
+        ['engine' => self::PRIMARY_ENGINE, 'position_iterations' => 4000, 'crossing_effort' => '1'],
+        ['engine' => self::PRIMARY_ENGINE, 'position_iterations' => 1500, 'crossing_effort' => '0.1'],
+        ['engine' => self::FALLBACK_ENGINE],
+    ];
+
+    private const REVISION = 3;
 
     private const POINTS_PER_INCH = 72.0;
 
@@ -73,16 +76,21 @@ class RouteGraphLayoutService
             ];
         }
 
-        $dot = $this->toDot($layout['nodes'], $layout['edges']);
+        $aliases = [];
+        foreach ($layout['nodes'] as $index => $node) {
+            $aliases[(string) $node['id']] = 'n' . $index;
+        }
 
-        foreach ([self::PRIMARY_ENGINE, self::FALLBACK_ENGINE] as $engine) {
+        foreach ($this->attempts() as $attempt) {
+            $engine = $attempt['engine'];
+            $dot = $this->toDot($layout['nodes'], $layout['edges'], $aliases, $this->graphAttributes($attempt, count($aliases)));
             $graph = $this->runEngine($engine, $dot);
             if ($graph === null) {
                 continue;
             }
 
             try {
-                return $this->extractLayout($graph, $layout['node_sizes'], $engine);
+                return $this->extractLayout($graph, $layout['node_sizes'], array_flip($aliases), $engine);
             } catch (RuntimeException $exception) {
                 Log::info('Route map layout engine produced an unusable result', [
                     'engine' => $engine,
@@ -92,6 +100,14 @@ class RouteGraphLayoutService
         }
 
         return $this->unpositioned('no GraphViz engine could lay out this graph');
+    }
+
+    /**
+     * @return array<int, array{engine: string, position_iterations?: int, crossing_effort?: string}>
+     */
+    protected function attempts(): array
+    {
+        return self::ATTEMPTS;
     }
 
     /**
@@ -393,14 +409,29 @@ class RouteGraphLayoutService
     }
 
     /**
+     * @param  array{engine: string, position_iterations?: int, crossing_effort?: string}  $attempt
+     */
+    private function graphAttributes(array $attempt, int $nodeCount): string
+    {
+        if ($attempt['engine'] === self::FALLBACK_ENGINE) {
+            return 'overlap=prism, sep="+30"';
+        }
+
+        $positionLimit = $this->formatDotNumber($attempt['position_iterations'] / $nodeCount);
+
+        return 'splines=false, nslimit="' . $positionLimit . '", mclimit="' . $attempt['crossing_effort'] . '"';
+    }
+
+    /**
      * @param  array<int, array<string, mixed>>  $nodes
      * @param  array<int, array{source: string, target: string}>  $edges
+     * @param  array<string, string>  $aliases
      */
-    private function toDot(array $nodes, array $edges): string
+    private function toDot(array $nodes, array $edges, array $aliases, string $graphAttributes): string
     {
         $lines = [
             'digraph RouteMap {',
-            'graph [rankdir=TB, nodesep="1.0", ranksep="1.35", margin="0", pad="0.55", outputorder=edgesfirst];',
+            'graph [rankdir=TB, nodesep="1.0", ranksep="1.35", margin="0", pad="0.55", outputorder=edgesfirst, ' . $graphAttributes . '];',
             'node [shape=box, fixedsize=true, label="", margin="0"];',
             'edge [arrowsize="0.6"];',
         ];
@@ -408,14 +439,16 @@ class RouteGraphLayoutService
         $endingNodeIds = [];
 
         foreach ($nodes as $node) {
-            $id = (string) $node['id'];
+            $id = $aliases[(string) $node['id']];
             $size = $this->estimateNodeSize($node);
             $width = $this->formatDotNumber($size['width'] / self::POINTS_PER_INCH);
             $height = $this->formatDotNumber($size['height'] / self::POINTS_PER_INCH);
-            $lines[] = $this->dotQuote($id) . ' [width="' . $width . '", height="' . $height . '"];';
+            $lines[] = $id . ' [width="' . $width . '", height="' . $height . '"];';
 
             if (! empty($node['is_start'])) {
                 $startNodeIds[] = $id;
+
+                continue;
             }
 
             if (! empty($node['is_ending'])) {
@@ -424,31 +457,22 @@ class RouteGraphLayoutService
         }
 
         if ($startNodeIds !== []) {
-            $lines[] = '{ rank=source; ' . implode('; ', array_map($this->dotQuote(...), $startNodeIds)) . '; }';
+            $lines[] = '{ rank=source; ' . implode('; ', $startNodeIds) . '; }';
         }
 
         if ($endingNodeIds !== []) {
-            $lines[] = '{ rank=sink; ' . implode('; ', array_map($this->dotQuote(...), $endingNodeIds)) . '; }';
+            $lines[] = '{ rank=sink; ' . implode('; ', $endingNodeIds) . '; }';
         }
 
         foreach ($edges as $edge) {
-            $lines[] = $this->dotQuote($edge['source']) . ' -> ' . $this->dotQuote($edge['target']) . ';';
+            if (isset($aliases[$edge['source']], $aliases[$edge['target']])) {
+                $lines[] = $aliases[$edge['source']] . ' -> ' . $aliases[$edge['target']] . ';';
+            }
         }
 
         $lines[] = '}';
 
         return implode("\n", $lines) . "\n";
-    }
-
-    private function dotQuote(string $value): string
-    {
-        $value = str_replace(
-            ['\\', '"', "\r", "\n"],
-            ['\\\\', '\"', '\\r', '\\n'],
-            $value
-        );
-
-        return '"' . $value . '"';
     }
 
     private function formatDotNumber(float $value): string
@@ -459,6 +483,7 @@ class RouteGraphLayoutService
     /**
      * @param  array<string, mixed>  $graph
      * @param  array<string, array{width: float, height: float}>  $nodeSizes
+     * @param  array<string, string>  $idsByAlias
      * @return array{
      *     engine: string,
      *     revision: int,
@@ -467,7 +492,7 @@ class RouteGraphLayoutService
      *     nodes: array<string, array{x: float, y: float, width: float, height: float}>
      * }
      */
-    private function extractLayout(array $graph, array $nodeSizes, string $engine = self::PRIMARY_ENGINE): array
+    private function extractLayout(array $graph, array $nodeSizes, array $idsByAlias, string $engine): array
     {
         [$minX, , $maxX, $maxY] = $this->parseBoundingBox((string) ($graph['bb'] ?? ''));
         $positions = [];
@@ -477,8 +502,8 @@ class RouteGraphLayoutService
                 continue;
             }
 
-            $id = (string) ($object['name'] ?? '');
-            if (! isset($nodeSizes[$id])) {
+            $id = $idsByAlias[(string) ($object['name'] ?? '')] ?? null;
+            if ($id === null) {
                 continue;
             }
 
