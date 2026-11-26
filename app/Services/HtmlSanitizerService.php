@@ -113,8 +113,9 @@ class HtmlSanitizerService
 
     private function sanitizeAttributes(string $html, bool $restrictReviewClasses): string
     {
-        if (! str_contains(strtolower($html), 'style=')
-            && (! $restrictReviewClasses || ! str_contains(strtolower($html), 'class='))) {
+        $lower = strtolower($html);
+        if (! str_contains($lower, 'style=')
+            && (! $restrictReviewClasses || (! str_contains($lower, 'class=') && ! str_contains($lower, 'tabindex=')))) {
             return $html;
         }
 
@@ -132,7 +133,7 @@ class HtmlSanitizerService
         }
 
         $xpath = new DOMXPath($dom);
-        $query = $restrictReviewClasses ? '//*[@style or @class]' : '//*[@style]';
+        $query = $restrictReviewClasses ? '//*[@style or @class or @tabindex]' : '//*[@style]';
         foreach ($xpath->query($query) ?: [] as $element) {
             if (! $element instanceof DOMElement) {
                 continue;
@@ -151,6 +152,11 @@ class HtmlSanitizerService
                 $classes === []
                     ? $element->removeAttribute('class')
                     : $element->setAttribute('class', implode(' ', $classes));
+            }
+
+            if ($restrictReviewClasses && $element->hasAttribute('tabindex')
+                && ($element->getAttribute('tabindex') !== '0' || $element->getAttribute('class') !== 'spoiler')) {
+                $element->removeAttribute('tabindex');
             }
         }
 
@@ -202,6 +208,7 @@ class HtmlSanitizerService
             ->allowSafeElements()
             ->allowAttribute('class', '*')
             ->allowAttribute('style', ['span', 'p', 'div', 'strong', 'em', 'b', 'i'])
+            ->allowAttribute('tabindex', ['span'])
             ->allowAttribute('href', ['a'])
             ->allowAttribute('target', ['a'])
             ->allowAttribute('rel', ['a'])

@@ -22,6 +22,13 @@ test('sanitize fvn review keeps the rich editor formatting controls', function (
     );
 });
 
+test('sanitize review keeps tabindex only as zero on spoilers', function () {
+    $sanitizer = new HtmlSanitizerService;
+
+    expect($sanitizer->sanitizeReview('<span class="spoiler" tabindex="5">A</span><span tabindex="0">B</span><strong tabindex="0">C</strong>'))
+        ->toBe('<span class="spoiler">A</span><span>B</span><strong>C</strong>');
+});
+
 test('sanitize review strips global utility classes but preserves spoilers', function () {
     $sanitizer = new HtmlSanitizerService;
 
